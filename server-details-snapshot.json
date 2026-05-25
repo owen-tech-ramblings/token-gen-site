@@ -1,35 +1,556 @@
 {
   "health": {
-    "ok": false,
-    "status": 0,
+    "ok": true,
+    "status": 200,
     "endpoint": "health",
     "body": {
-      "error": "<urlopen error [Errno 1] Operation not permitted>"
+      "ok": true,
+      "data": {
+        "ok": true
+      },
+      "_proxy": {
+        "endpoint": "health",
+        "upstreamStatus": 200
+      }
     }
   },
   "status": {
-    "ok": false,
-    "status": 0,
+    "ok": true,
+    "status": 200,
     "endpoint": "status",
     "body": {
-      "error": "<urlopen error [Errno 1] Operation not permitted>"
+      "ok": true,
+      "data": {
+        "api": {
+          "bind_host": "100.98.87.102",
+          "database": "/mnt/owenshare/server-details-api/metrics.sqlite3",
+          "port": 8765,
+          "primary_database": "/mnt/owenshare/server-details-api/metrics.sqlite3"
+        },
+        "disks": [
+          {
+            "free_bytes": 26810269696,
+            "path": "/",
+            "total_bytes": 105089261568,
+            "used_bytes": 72893505536
+          },
+          {
+            "free_bytes": 26810269696,
+            "path": "/home/zenfree",
+            "total_bytes": 105089261568,
+            "used_bytes": 72893505536
+          },
+          {
+            "free_bytes": 5322329313280,
+            "path": "/mnt/owenshare",
+            "total_bytes": 8001352101888,
+            "used_bytes": 2679022788608
+          }
+        ],
+        "fqdn": "token-gen",
+        "gpu": {
+          "available": true,
+          "count": 5,
+          "gpus": [
+            {
+              "driver_version": "580.142",
+              "fan_speed_percent": 0,
+              "index": 0,
+              "memory_free_mb": 1852,
+              "memory_total_mb": 16311,
+              "memory_used_mb": 13997,
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "power_draw_watts": 4.57,
+              "power_limit_watts": 180.0,
+              "temperature_c": 40,
+              "utilization_percent": 0,
+              "uuid": "GPU-70bb84f2-2310-2ec6-4ae6-04a8c2891b42"
+            },
+            {
+              "driver_version": "580.142",
+              "fan_speed_percent": 0,
+              "index": 1,
+              "memory_free_mb": 1718,
+              "memory_total_mb": 16311,
+              "memory_used_mb": 14131,
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "power_draw_watts": 6.92,
+              "power_limit_watts": 180.0,
+              "temperature_c": 38,
+              "utilization_percent": 0,
+              "uuid": "GPU-5a1cb445-d580-c8ec-1198-2f39b5521dc5"
+            },
+            {
+              "driver_version": "580.142",
+              "fan_speed_percent": 0,
+              "index": 2,
+              "memory_free_mb": 1750,
+              "memory_total_mb": 16311,
+              "memory_used_mb": 14099,
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "power_draw_watts": 6.42,
+              "power_limit_watts": 180.0,
+              "temperature_c": 41,
+              "utilization_percent": 0,
+              "uuid": "GPU-ace57761-c417-179f-569f-2ee83610e065"
+            },
+            {
+              "driver_version": "580.142",
+              "fan_speed_percent": 0,
+              "index": 3,
+              "memory_free_mb": 1686,
+              "memory_total_mb": 16311,
+              "memory_used_mb": 14163,
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "power_draw_watts": 8.24,
+              "power_limit_watts": 180.0,
+              "temperature_c": 42,
+              "utilization_percent": 0,
+              "uuid": "GPU-1a4c7226-0f56-1f74-eb10-8d9836aba569"
+            },
+            {
+              "driver_version": "580.142",
+              "fan_speed_percent": 0,
+              "index": 4,
+              "memory_free_mb": 710,
+              "memory_total_mb": 16311,
+              "memory_used_mb": 15139,
+              "name": "NVIDIA GeForce RTX 5060 Ti",
+              "power_draw_watts": 3.9,
+              "power_limit_watts": 180.0,
+              "temperature_c": 36,
+              "utilization_percent": 0,
+              "uuid": "GPU-e7e7709e-6d9c-cb11-834f-31dfb19ee4d4"
+            }
+          ],
+          "memory_free_mb": 7716,
+          "memory_total_mb": 81555,
+          "memory_used_mb": 71529,
+          "power_draw_watts": 30.05
+        },
+        "hostname": "token-gen",
+        "load_average": [
+          0.71337890625,
+          0.57421875,
+          0.5625
+        ],
+        "memory": {
+          "available_bytes": 178553360384,
+          "swap_total_bytes": 8589930496,
+          "swap_used_bytes": 0,
+          "total_bytes": 202416553984,
+          "used_bytes": 23863193600
+        },
+        "services": [
+          {
+            "active": "active",
+            "enabled": "enabled",
+            "name": "rustdesk.service"
+          },
+          {
+            "active": "active",
+            "enabled": "enabled",
+            "name": "server-details-api.service"
+          }
+        ],
+        "tailscale": {
+          "installed": true,
+          "self": {
+            "Active": false,
+            "Addrs": [
+              "180.150.79.134:41641",
+              "192.168.68.79:41641"
+            ],
+            "AllowedIPs": [
+              "100.98.87.102/32",
+              "fd7a:115c:a1e0::ef33:5766/128"
+            ],
+            "CapMap": {
+              "default-auto-update": [
+                true
+              ],
+              "https://tailscale.com/cap/file-sharing": null,
+              "https://tailscale.com/cap/is-admin": null,
+              "https://tailscale.com/cap/is-owner": null,
+              "https://tailscale.com/cap/ssh": null,
+              "https://tailscale.com/cap/tailnet-lock": null,
+              "probe-udp-lifetime": null,
+              "ssh-behavior-v1": null,
+              "ssh-env-vars": null,
+              "store-appc-routes": null,
+              "tailnet-display-name": [
+                "owenonthenet.com"
+              ]
+            },
+            "Capabilities": [
+              "HTTPS://TAILSCALE.COM/s/DEPRECATED-NODE-CAPS#see-https://github.com/tailscale/tailscale/issues/11508",
+              "default-auto-update",
+              "https://tailscale.com/cap/file-sharing",
+              "https://tailscale.com/cap/is-admin",
+              "https://tailscale.com/cap/is-owner",
+              "https://tailscale.com/cap/ssh",
+              "https://tailscale.com/cap/tailnet-lock",
+              "probe-udp-lifetime",
+              "ssh-behavior-v1",
+              "ssh-env-vars",
+              "store-appc-routes",
+              "tailnet-display-name"
+            ],
+            "Created": "2026-05-21T12:44:39.872477147Z",
+            "CurAddr": "",
+            "DNSName": "token-gen.tail1fd811.ts.net.",
+            "ExitNode": false,
+            "ExitNodeOption": false,
+            "HostName": "token-gen",
+            "ID": "nGzBeMbZcB11CNTRL",
+            "InEngine": false,
+            "InMagicSock": false,
+            "InNetworkMap": true,
+            "KeyExpiry": "2026-11-17T12:44:39Z",
+            "LastHandshake": "0001-01-01T00:00:00Z",
+            "LastSeen": "0001-01-01T00:00:00Z",
+            "LastWrite": "0001-01-01T00:00:00Z",
+            "NoFileSharingReason": "",
+            "OS": "linux",
+            "Online": true,
+            "PeerAPIURL": [
+              "http://100.98.87.102:51618",
+              "http://[fd7a:115c:a1e0::ef33:5766]:36133"
+            ],
+            "PeerRelay": "",
+            "PublicKey": "nodekey:bc796c70b33015b81acfdd9fef5d32823b9d6b589e0defe333916653ef625765",
+            "Relay": "syd",
+            "RxBytes": 0,
+            "TaildropTarget": 0,
+            "TailscaleIPs": [
+              "100.98.87.102",
+              "fd7a:115c:a1e0::ef33:5766"
+            ],
+            "TxBytes": 0,
+            "UserID": 4705065906578700
+          }
+        },
+        "temperatures": {
+          "cpu": [
+            {
+              "chip": "k10temp",
+              "label": "Tccd5",
+              "temperature_c": 35.0
+            },
+            {
+              "chip": "k10temp",
+              "label": "Tctl",
+              "temperature_c": 39.375
+            },
+            {
+              "chip": "k10temp",
+              "label": "Tccd3",
+              "temperature_c": 35.5
+            },
+            {
+              "chip": "nvme",
+              "label": "Sensor 2",
+              "temperature_c": 61.85
+            },
+            {
+              "chip": "nvme",
+              "label": "Composite",
+              "temperature_c": 61.85
+            },
+            {
+              "chip": "nvme",
+              "label": "Sensor 1",
+              "temperature_c": 82.85
+            },
+            {
+              "chip": "nvme",
+              "label": "Composite",
+              "temperature_c": 53.85
+            }
+          ]
+        },
+        "timestamp": 1779717122,
+        "uptime_seconds": 519791,
+        "vllm": {
+          "active": {
+            "created": 1779717123,
+            "id": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8",
+            "max_model_len": 131072,
+            "object": "model",
+            "owned_by": "vllm",
+            "parent": null,
+            "permission": [
+              {
+                "allow_create_engine": false,
+                "allow_fine_tuning": false,
+                "allow_logprobs": true,
+                "allow_sampling": true,
+                "allow_search_indices": false,
+                "allow_view": true,
+                "created": 1779717123,
+                "group": null,
+                "id": "modelperm-bfe1cd4ebdce2b21",
+                "is_blocking": false,
+                "object": "model_permission",
+                "organization": "*"
+              }
+            ],
+            "root": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8"
+          },
+          "available": [
+            {
+              "is_active": true,
+              "name": "Qwen-Qwen3.6-27B-FP8",
+              "path": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8",
+              "size_bytes": 30890050760
+            }
+          ],
+          "launch": {
+            "command_lines": [
+              "1280074    3017 Ssl   3-10:48:22 /home/zenfree/vllm-env/bin/python /home/zenfree/vllm-env/bin/vllm serve /home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8 --host 0.0.0.0 --port 8000 --tensor-parallel-size 1 --pipeline-parallel-size 5 --max-model-len 131072 --reasoning-parser qwen3 --language-model-only"
+            ],
+            "cuda_visible_devices": [],
+            "gpu_shard_count": null,
+            "max_model_len": 131072,
+            "pipeline_parallel_size": 5,
+            "tensor_parallel_size": 1
+          },
+          "runtime_counters": {
+            "generation_tokens": 1015784.0,
+            "kv_cache_usage_percent": 0.0,
+            "model_name": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8",
+            "prompt_tokens": 14907853.0,
+            "requests_running": 0.0,
+            "requests_waiting": 0.0,
+            "total_tokens": 15923637.0
+          },
+          "token_rates": {
+            "10m": {
+              "elapsed_seconds": 623,
+              "generation_tokens_per_second": 0.0,
+              "prompt_tokens_per_second": 0.0,
+              "total_tokens_per_second": 0.0
+            },
+            "1d": {
+              "elapsed_seconds": 86413,
+              "generation_tokens_per_second": 0.0,
+              "prompt_tokens_per_second": 0.0,
+              "total_tokens_per_second": 0.0
+            },
+            "1h": {
+              "elapsed_seconds": 3618,
+              "generation_tokens_per_second": 0.0,
+              "prompt_tokens_per_second": 0.0,
+              "total_tokens_per_second": 0.0
+            },
+            "1m": {
+              "elapsed_seconds": 70,
+              "generation_tokens_per_second": 0.0,
+              "prompt_tokens_per_second": 0.0,
+              "total_tokens_per_second": 0.0
+            },
+            "storage": {
+              "database": "/mnt/owenshare/server-details-api/metrics.sqlite3",
+              "error": "database is locked",
+              "mode": "memory_only"
+            }
+          }
+        }
+      },
+      "_proxy": {
+        "endpoint": "status",
+        "upstreamStatus": 200
+      }
     }
   },
   "vllm": {
-    "ok": false,
-    "status": 0,
+    "ok": true,
+    "status": 200,
     "endpoint": "vllm",
     "body": {
-      "error": "<urlopen error [Errno 1] Operation not permitted>"
+      "ok": true,
+      "data": {
+        "active": {
+          "created": 1779717122,
+          "id": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8",
+          "max_model_len": 131072,
+          "object": "model",
+          "owned_by": "vllm",
+          "parent": null,
+          "permission": [
+            {
+              "allow_create_engine": false,
+              "allow_fine_tuning": false,
+              "allow_logprobs": true,
+              "allow_sampling": true,
+              "allow_search_indices": false,
+              "allow_view": true,
+              "created": 1779717122,
+              "group": null,
+              "id": "modelperm-bf0cfada5b693441",
+              "is_blocking": false,
+              "object": "model_permission",
+              "organization": "*"
+            }
+          ],
+          "root": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8"
+        },
+        "available": [
+          {
+            "is_active": true,
+            "name": "Qwen-Qwen3.6-27B-FP8",
+            "path": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8",
+            "size_bytes": 30890050760
+          }
+        ],
+        "launch": {
+          "command_lines": [
+            "1280074    3017 Ssl   3-10:48:22 /home/zenfree/vllm-env/bin/python /home/zenfree/vllm-env/bin/vllm serve /home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8 --host 0.0.0.0 --port 8000 --tensor-parallel-size 1 --pipeline-parallel-size 5 --max-model-len 131072 --reasoning-parser qwen3 --language-model-only"
+          ],
+          "cuda_visible_devices": [],
+          "gpu_shard_count": null,
+          "max_model_len": 131072,
+          "pipeline_parallel_size": 5,
+          "tensor_parallel_size": 1
+        },
+        "runtime_counters": {
+          "generation_tokens": 1015784.0,
+          "kv_cache_usage_percent": 0.0,
+          "model_name": "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8",
+          "prompt_tokens": 14907853.0,
+          "requests_running": 0.0,
+          "requests_waiting": 0.0,
+          "total_tokens": 15923637.0
+        },
+        "token_rates": {
+          "10m": {
+            "elapsed_seconds": 623,
+            "generation_tokens_per_second": 0.0,
+            "prompt_tokens_per_second": 0.0,
+            "total_tokens_per_second": 0.0
+          },
+          "1d": {
+            "elapsed_seconds": 86413,
+            "generation_tokens_per_second": 0.0,
+            "prompt_tokens_per_second": 0.0,
+            "total_tokens_per_second": 0.0
+          },
+          "1h": {
+            "elapsed_seconds": 3618,
+            "generation_tokens_per_second": 0.0,
+            "prompt_tokens_per_second": 0.0,
+            "total_tokens_per_second": 0.0
+          },
+          "1m": {
+            "elapsed_seconds": 70,
+            "generation_tokens_per_second": 0.0,
+            "prompt_tokens_per_second": 0.0,
+            "total_tokens_per_second": 0.0
+          },
+          "storage": {
+            "database": "/mnt/owenshare/server-details-api/metrics.sqlite3",
+            "error": "database is locked",
+            "mode": "memory_only"
+          }
+        }
+      },
+      "_proxy": {
+        "endpoint": "vllm",
+        "upstreamStatus": 200
+      }
     }
   },
   "gpu": {
-    "ok": false,
-    "status": 0,
+    "ok": true,
+    "status": 200,
     "endpoint": "gpu",
     "body": {
-      "error": "<urlopen error [Errno 1] Operation not permitted>"
+      "ok": true,
+      "data": {
+        "available": true,
+        "count": 5,
+        "gpus": [
+          {
+            "driver_version": "580.142",
+            "fan_speed_percent": 0,
+            "index": 0,
+            "memory_free_mb": 1852,
+            "memory_total_mb": 16311,
+            "memory_used_mb": 13997,
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "power_draw_watts": 4.57,
+            "power_limit_watts": 180.0,
+            "temperature_c": 40,
+            "utilization_percent": 0,
+            "uuid": "GPU-70bb84f2-2310-2ec6-4ae6-04a8c2891b42"
+          },
+          {
+            "driver_version": "580.142",
+            "fan_speed_percent": 0,
+            "index": 1,
+            "memory_free_mb": 1718,
+            "memory_total_mb": 16311,
+            "memory_used_mb": 14131,
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "power_draw_watts": 6.92,
+            "power_limit_watts": 180.0,
+            "temperature_c": 38,
+            "utilization_percent": 0,
+            "uuid": "GPU-5a1cb445-d580-c8ec-1198-2f39b5521dc5"
+          },
+          {
+            "driver_version": "580.142",
+            "fan_speed_percent": 0,
+            "index": 2,
+            "memory_free_mb": 1750,
+            "memory_total_mb": 16311,
+            "memory_used_mb": 14099,
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "power_draw_watts": 6.42,
+            "power_limit_watts": 180.0,
+            "temperature_c": 41,
+            "utilization_percent": 0,
+            "uuid": "GPU-ace57761-c417-179f-569f-2ee83610e065"
+          },
+          {
+            "driver_version": "580.142",
+            "fan_speed_percent": 0,
+            "index": 3,
+            "memory_free_mb": 1686,
+            "memory_total_mb": 16311,
+            "memory_used_mb": 14163,
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "power_draw_watts": 8.24,
+            "power_limit_watts": 180.0,
+            "temperature_c": 42,
+            "utilization_percent": 0,
+            "uuid": "GPU-1a4c7226-0f56-1f74-eb10-8d9836aba569"
+          },
+          {
+            "driver_version": "580.142",
+            "fan_speed_percent": 0,
+            "index": 4,
+            "memory_free_mb": 710,
+            "memory_total_mb": 16311,
+            "memory_used_mb": 15139,
+            "name": "NVIDIA GeForce RTX 5060 Ti",
+            "power_draw_watts": 3.89,
+            "power_limit_watts": 180.0,
+            "temperature_c": 36,
+            "utilization_percent": 0,
+            "uuid": "GPU-e7e7709e-6d9c-cb11-834f-31dfb19ee4d4"
+          }
+        ],
+        "memory_free_mb": 7716,
+        "memory_total_mb": 81555,
+        "memory_used_mb": 71529,
+        "power_draw_watts": 30.04
+      },
+      "_proxy": {
+        "endpoint": "gpu",
+        "upstreamStatus": 200
+      }
     }
   },
-  "loadedAt": "2026-05-25T13:46:46.262841+00:00"
+  "loadedAt": "2026-05-25T13:52:31.195489+00:00"
 }
