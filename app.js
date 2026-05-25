@@ -1460,7 +1460,7 @@ let serverDetailsSnapshotCache = null;
 
 async function loadServerDetailsSnapshot() {
   if (serverDetailsSnapshotCache) return serverDetailsSnapshotCache;
-  const res = await fetch(`./server-details-snapshot.json?v=${Date.now()}`, { cache: "no-store" });
+  const res = await fetch(`./server-details-snapshot-live.json?v=${Date.now()}`, { cache: "no-store" });
   serverDetailsSnapshotCache = await res.json();
   return serverDetailsSnapshotCache;
 }
