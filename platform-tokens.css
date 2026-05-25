@@ -1,0 +1,70 @@
+/* Platform Experience Overhaul — shared design tokens (v0.1)
+   Source of truth. Sync copies with: ./sync-platform-tokens.sh */
+:root {
+  /* Color primitives */
+  --color-bg-canvas: #0a0d18;
+  --color-bg-canvas-alt: #1a2450;
+  --color-surface-1: rgba(18, 24, 43, 0.72);
+  --color-surface-2: rgba(10, 14, 26, 0.65);
+  --color-border-soft: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-text-primary: #eaf0ff;
+  --color-text-muted: #9cb2df;
+  --color-accent-primary: #7a9cff;
+  --color-accent-secondary: #4de2c5;
+  --color-accent-tertiary: #cdafff;
+  --color-success: #52d273;
+  --color-danger: #ff7a90;
+  --color-warning: #ffd87a;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* Typography */
+  --font-family-base: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 20px;
+  --font-size-xl: 28px;
+  --line-height-tight: 1.25;
+  --line-height-base: 1.5;
+  --line-height-loose: 1.65;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Elevation + motion */
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 14px 32px rgba(0, 0, 0, 0.34);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 320ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --easing-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* Compatibility aliases (safe incremental rollout) */
+  --bg: var(--color-bg-canvas);
+  --panel: var(--color-surface-1);
+  --panel-soft: var(--color-surface-2);
+  --panel-border: var(--color-border-soft);
+  --border: var(--color-border-strong);
+  --text: var(--color-text-primary);
+  --muted: var(--color-text-muted);
+  --accent: var(--color-accent-primary);
+  --accent-2: var(--color-accent-secondary);
+  --ok: var(--color-success);
+  --warn: var(--color-warning);
+  --danger: var(--color-danger);
+}

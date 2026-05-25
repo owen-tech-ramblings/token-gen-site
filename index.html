@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Token Gen Server - VLLM Monitor</title>
+    <link rel="stylesheet" href="./styles.css?v=server-monitor-20260522-0048" />
+  </head>
+  <body>
+    <main class="server-app">
+      <header class="server-header">
+        <div>
+          <h1>Token Gen Server</h1>
+          <p class="server-status-line" id="serverMonitorFreshness">Loading server health, GPU, and vLLM API data...</p>
+        </div>
+        <div class="server-header-actions">
+          <a class="btn" href="http://100.98.87.102:8765/" target="_blank" rel="noreferrer">Native Monitor</a>
+          <button class="btn btn-active" id="serverMonitorRefresh" type="button">Refresh</button>
+        </div>
+      </header>
+
+      <section class="server-grid" id="serverMonitorStats"></section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head">
+          <h2>Server health and status</h2>
+        </div>
+        <div id="serverStatusSummary"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>GPU / nvidia-smi telemetry</h2></div>
+        <div id="gpuStatusWrap"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>Temperature sensors</h2></div>
+        <div id="temperatureStatusWrap"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>vLLM runtime</h2></div>
+        <div id="vllmStatusWrap"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>Token rates</h2></div>
+        <div id="tokenRatesWrap"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>vLLM launch and storage</h2></div>
+        <div id="vllmLaunchWrap"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>Services, disks, and network</h2></div>
+        <div id="serverInfrastructureWrap"></div>
+      </section>
+
+      <section class="server-panel server-full">
+        <div class="panel-head"><h2>Raw API snapshots</h2></div>
+        <div id="serverRawSnapshots"></div>
+      </section>
+    </main>
+
+    <script type="module">
+      const v = Date.now();
+      import(`./app.js?v=${v}`);
+    </script>
+  </body>
+</html>

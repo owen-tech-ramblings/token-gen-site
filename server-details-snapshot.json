@@ -1,0 +1,35 @@
+{
+  "health": {
+    "ok": false,
+    "status": 0,
+    "endpoint": "health",
+    "body": {
+      "error": "<urlopen error [Errno 1] Operation not permitted>"
+    }
+  },
+  "status": {
+    "ok": false,
+    "status": 0,
+    "endpoint": "status",
+    "body": {
+      "error": "<urlopen error [Errno 1] Operation not permitted>"
+    }
+  },
+  "vllm": {
+    "ok": false,
+    "status": 0,
+    "endpoint": "vllm",
+    "body": {
+      "error": "<urlopen error [Errno 1] Operation not permitted>"
+    }
+  },
+  "gpu": {
+    "ok": false,
+    "status": 0,
+    "endpoint": "gpu",
+    "body": {
+      "error": "<urlopen error [Errno 1] Operation not permitted>"
+    }
+  },
+  "loadedAt": "2026-05-25T13:46:46.262841+00:00"
+}
