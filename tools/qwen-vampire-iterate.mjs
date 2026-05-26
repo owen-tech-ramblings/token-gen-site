@@ -78,15 +78,28 @@ async function getModel() {
 }
 
 function promptFor(iteration, currentHtml) {
-  const largeFileGuidance = currentHtml.length > 35000
+  const largeFile = currentHtml.length > 35000;
+  const largeFileGuidance = largeFile
     ? `
 IMPORTANT COMPACTION MODE:
-- The current file is too large. Your top priority is to rewrite it into a COMPLETE, smaller standalone game under 30,000 characters.
+- The current file is too large. Your top priority is to rebuild it into a COMPLETE, smaller standalone game under 28,000 characters.
 - Preserve the core gameplay and the best existing features, but remove duplicate code, verbose CSS, comments, excessive particles, and low-value UI.
 - Add only ONE small improvement this iteration after compaction.
 - The response is a failure if it does not include the final </html> closing tag.
+- Use concise CSS and JavaScript. Prefer compact helper functions and simple canvas drawing.
 `
     : "";
+  const currentContext = largeFile
+    ? `Current feature brief:
+- Vampire Survival is a standalone canvas game.
+- Player is the vampire and survives by keeping blood above zero.
+- WASD/arrows move; mouse/click feeding is supported.
+- Humans spawn and chase/defend over time.
+- Human defenses improve as time passes.
+- Current accepted version includes richer UI, survival timer, blood bar, defense progression, feeding effects, dash/mist style special abilities, particles, level/XP style progression, and iteration notes.
+- For iteration ${iteration}, compact the implementation, preserve the best of those mechanics, and add one focused improvement.`
+    : `Current HTML:
+${currentHtml}`;
   return `You are iterating a single-file browser game called Vampire Survival.
 Return ONLY the complete updated HTML document. No markdown except a single html code fence is allowed.
 
@@ -104,8 +117,7 @@ Iteration ${iteration} goal:
 - Hard cap: keep the final HTML under 45k characters.
 ${largeFileGuidance}
 
-Current HTML:
-${currentHtml}`;
+${currentContext}`;
 }
 
 async function qwenImprove(model, iteration, currentHtml) {
