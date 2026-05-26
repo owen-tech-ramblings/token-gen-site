@@ -1457,7 +1457,7 @@ function renderSystemPage(statusMetrics) {
 }
 
 let serverDetailsSnapshotCache = null;
-const LIVE_SERVER_DETAILS_BASE_URL = "https://powerpoint-focus-complexity-rainbow.trycloudflare.com";
+const LIVE_SERVER_DETAILS_BASE_URL = "https://authentic-laura-animal-moisture.trycloudflare.com";
 const LIVE_SERVER_DETAILS_PATHS = {
   health: "/api/health",
   status: "/api/status",
