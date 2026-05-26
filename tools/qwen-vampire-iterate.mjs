@@ -91,6 +91,8 @@ Iteration ${iteration} goal:
 - Do not use external libraries, remote assets, or network calls.
 - Keep the full output compact and complete. Target 18k-26k characters. Do not add verbose comments, long explanations, or unused systems.
 - Make a focused improvement pass rather than rewriting everything larger.
+- If the current file has grown large, refactor and compress it while preserving features. A shorter complete game is better than a larger incomplete document.
+- Hard cap: keep the final HTML under 45k characters.
 
 Current HTML:
 ${currentHtml}`;
@@ -107,7 +109,7 @@ async function qwenImprove(model, iteration, currentHtml) {
       { role: "user", content: promptFor(iteration, currentHtml) },
     ],
     temperature: 0.45,
-    max_tokens: 20000,
+    max_tokens: 16000,
     stream: true,
     chat_template_kwargs: { enable_thinking: true },
   };
@@ -207,7 +209,7 @@ async function main() {
     console.log(`ITERATION ${i}: requesting Qwen update`);
     let nextHtml = null;
     let error = null;
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
       try {
         const response = await qwenImprove(model, i, currentHtml);
         nextHtml = extractHtml(response);
@@ -216,6 +218,7 @@ async function main() {
       } catch (err) {
         error = err;
         console.log(`ITERATION ${i}: attempt ${attempt} failed: ${err.message}`);
+        await new Promise((resolve) => setTimeout(resolve, 30000));
       }
     }
     if (!nextHtml) throw error || new Error(`Iteration ${i} failed`);
