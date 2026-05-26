@@ -105,7 +105,7 @@ async function qwenImprove(model, iteration, currentHtml) {
       { role: "user", content: promptFor(iteration, currentHtml) },
     ],
     temperature: 0.45,
-    max_tokens: 4096,
+    max_tokens: 12000,
     stream: true,
     chat_template_kwargs: { enable_thinking: true },
   };
