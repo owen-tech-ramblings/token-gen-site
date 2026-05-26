@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vampire Survival</title>
+<style>
+body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #0a0a0a; color: #eee; font-family: system-ui, sans-serif; overflow: hidden; }
+#game-container { position: relative; width: 600px; height: 400px; border: 2px solid #333; background: #111; overflow: hidden; }
+canvas { display: block; }
+#ui { position: absolute; top: 10px; left: 10px; pointer-events: none; font-size: 14px; line-height: 1.5; }
+#blood-bar { width: 200px; height: 16px; background: #222; border: 1px solid #444; margin-top: 4px; }
+#blood-fill { height: 100%; background: #b00; width: 100%; }
+#game-over { position: absolute; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10; }
+#game-over h2 { margin: 0 0 10px; color: #f44; }
+#game-over p { margin: 0 0 20px; }
+button { padding: 10px 24px; font-size: 16px; cursor: pointer; background: #300; color: #fff; border: 1px solid #500; border-radius: 4px; }
+button:hover { background: #500; }
+#instructions { position: absolute; bottom: 10px; left: 10px; font-size: 12px; color: #666; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="game-container">
+<canvas id="game" width="600" height="400"></canvas>
+<div id="ui">
+<div>Blood: <span id="blood-val">100</span>%</div>
+<div id="blood-bar"><div id="blood-fill"></div></div>
+<div>Human Defense: <span id="def-val">0</span>%</div>
+<div>Survived: <span id="time-val">0</span>s</div>
+</div>
+<div id="instructions">WASD/Arrows to move | Click humans to feed | Stay close to feed</div>
+<div id="game-over">
+<h2>You Faded Away</h2>
+<p>Survived: <span id="final-time">0</span>s</p>
+<button onclick="resetGame()">Play Again</button>
+</div>
+</div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const bloodFill = document.getElementById('blood-fill');
+const bloodVal = document.getElementById('blood-val');
+const defVal = document.getElementById('def-val');
+const timeVal = document.getElementById('time-val');
+const finalTime = document.getElementById('final-time');
+const gameOverScreen = document.getElementById('game-over');
+
+let blood = 100;
+let humanDefense = 0;
+let gameTime = 0;
+let lastTime = performance.now();
+let gameOver = false;
+let spawnTimer = 0;
+
+const vampire = { x: 300, y: 200, size: 14, speed: 3 };
+let humans = [];
+const keys = {};
+
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+canvas.addEventListener('click', e => {
+if (gameOver) return;
+const rect = canvas.getBoundingClientRect();
+const mx = e.clientX - rect.left;
+const my = e.clientY - rect.top;
+feed(mx, my);
+});
+
+function feed(mx, my) {
+let target = null;
+let minDist = 25;
+for (let h of humans) {
+const dx = h.x - mx;
+const dy = h.y - my;
+const dist = Math.sqrt(dx*dx + dy*dy);
+if (dist < minDist) { minDist = dist; target = h; }
+}
+if (target) {
+const dx = target.x - vampire.x;
+const dy = target.y - vampire.y;
+const dist = Math.sqrt(dx*dx + dy*dy);
+if (dist < 45) {
+const successChance = Math.max(0.15, 1 - humanDefense / 100);
+if (Math.random() < successChance) {
+blood = Math.min(100, blood + 18);
+humans = humans.filter(h => h !== target);
+} else {
+blood -= 3;
+}
+}
+}
+}
+
+function spawnHuman() {
+const side = Math.floor(Math.random() * 4);
+let x, y;
+if (side === 0) { x = Math.random() * canvas.width; y = -20; }
+else if (side === 1) { x = canvas.width + 20; y = Math.random() * canvas.height; }
+else if (side === 2) { x = Math.random() * canvas.width; y = canvas.height + 20; }
+else { x = -20; y = Math.random() * canvas.height; }
+humans.push({ x, y, size: 12, speed: 1.2 + Math.random() * 0.8 });
+}
+
+function update(dt) {
+if (gameOver) return;
+gameTime += dt;
+humanDefense = Math.min(85, humanDefense + dt * 0.4);
+blood -= dt * 2.5;
+
+if (keys['arrowup'] || keys['w']) vampire.y -= vampire.speed;
+if (keys['arrowdown'] || keys['s']) vampire.y += vampire.speed;
+if (keys['arrowleft'] || keys['a']) vampire.x -= vampire.speed;
+if (keys['arrowright'] || keys['d']) vampire.x += vampire.speed;
+
+vampire.x = Math.max(vampire.size, Math.min(canvas.width - vampire.size, vampire.x));
+vampire.y = Math.max(vampire.size, Math.min(canvas.height - vampire.size, vampire.y));
+
+spawnTimer += dt;
+if (spawnTimer > 1.2) { spawnHuman(); spawnTimer = 0; }
+
+for (let h of humans) {
+const dx = vampire.x - h.x;
+const dy = vampire.y - h.y;
+const dist = Math.sqrt(dx*dx + dy*dy);
+if (dist > 0) {
+h.x += (dx / dist) * h.speed;
+h.y += (dy / dist) * h.speed;
+}
+if (dist < vampire.size + h.size) blood -= dt * 4;
+}
+
+blood = Math.max(0, blood);
+bloodFill.style.width = blood + '%';
+bloodVal.textContent = Math.floor(blood);
+defVal.textContent = Math.floor(humanDefense);
+timeVal.textContent = Math.floor(gameTime);
+
+if (blood <= 0) {
+gameOver = true;
+finalTime.textContent = Math.floor(gameTime);
+gameOverScreen.style.display = 'flex';
+}
+}
+
+function draw() {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+ctx.fillStyle = '#500';
+ctx.beginPath();
+ctx.arc(vampire.x, vampire.y, vampire.size, 0, Math.PI * 2);
+ctx.fill();
+ctx.fillStyle = '#f00';
+ctx.beginPath();
+ctx.arc(vampire.x - 4, vampire.y - 2, 2, 0, Math.PI * 2);
+ctx.arc(vampire.x + 4, vampire.y - 2, 2, 0, Math.PI * 2);
+ctx.fill();
+
+for (let h of humans) {
+ctx.fillStyle = '#4a4';
+ctx.beginPath();
+ctx.arc(h.x, h.y, h.size, 0, Math.PI * 2);
+ctx.fill();
+if (humanDefense > 15) {
+ctx.strokeStyle = `rgba(100, 150, 255, ${Math.min(0.8, humanDefense/100)})`;
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.arc(h.x, h.y, h.size + 4, 0, Math.PI * 2);
+ctx.stroke();
+}
+}
+}
+
+function loop(timestamp) {
+const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
+lastTime = timestamp;
+update(dt);
+draw();
+requestAnimationFrame(loop);
+}
+
+function resetGame() {
+blood = 100;
+humanDefense = 0;
+gameTime = 0;
+spawnTimer = 0;
+humans = [];
+vampire.x = 300; vampire.y = 200;
+gameOver = false;
+gameOverScreen.style.display = 'none';
+lastTime = performance.now();
+requestAnimationFrame(loop);
+}
+
+resetGame();
+</script>
+</body>
+</html>
+
