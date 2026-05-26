@@ -9,3 +9,9 @@ Seed: /mnt/c/Users/User/Documents/vampire_game.html
 Accepted Qwen pass 1. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics.
 
 Bytes: 20657
+
+## Iteration 2
+
+Accepted Qwen pass 2. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics.
+
+Bytes: 25698
