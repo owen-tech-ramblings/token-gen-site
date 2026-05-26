@@ -14,6 +14,17 @@ function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: repo, stdio: "pipe", encoding: "utf8", ...opts });
 }
 
+function commitIfStaged(message) {
+  try {
+    run("git", ["diff", "--cached", "--quiet"]);
+    return false;
+  } catch {
+    run("git", ["commit", "-m", message]);
+    run("git", ["push"]);
+    return true;
+  }
+}
+
 async function fetchJson(url, options = {}, timeoutMs = null) {
   const controller = timeoutMs ? new AbortController() : null;
   const timeout = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
@@ -95,14 +106,60 @@ async function qwenImprove(model, iteration, currentHtml) {
     ],
     temperature: 0.45,
     max_tokens: 4096,
+    stream: true,
     chat_template_kwargs: { enable_thinking: true },
   };
-  const data = await fetchJson(`${modelBase}/v1/chat/completions`, {
+  const res = await fetch(`${modelBase}/v1/chat/completions`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { accept: "text/event-stream", "content-type": "application/json" },
     body: JSON.stringify(body),
   });
-  return data.choices?.[0]?.message?.content || data.choices?.[0]?.message?.reasoning || "";
+  if (!res.ok || !res.body) {
+    const text = await res.text();
+    throw new Error(`VLLM stream failed HTTP ${res.status}: ${text.slice(0, 500)}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let content = "";
+  let reasoning = "";
+  let chunks = 0;
+  let lastLog = Date.now();
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const event of events) {
+      const dataLines = event
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim());
+      if (!dataLines.length) continue;
+      const data = dataLines.join("\n");
+      if (data === "[DONE]") continue;
+      let chunk;
+      try {
+        chunk = JSON.parse(data);
+      } catch {
+        continue;
+      }
+      const delta = chunk.choices?.[0]?.delta || {};
+      if (typeof delta.content === "string") content += delta.content;
+      if (typeof delta.reasoning === "string") reasoning += delta.reasoning;
+      if (typeof delta.reasoning_content === "string") reasoning += delta.reasoning_content;
+      chunks += 1;
+    }
+    if (Date.now() - lastLog > 30000) {
+      console.log(`ITERATION ${iteration}: streaming ${chunks} chunks, content ${content.length} chars, reasoning ${reasoning.length} chars`);
+      lastLog = Date.now();
+    }
+  }
+
+  return content || reasoning;
 }
 
 async function publish(iteration, html, summary) {
@@ -110,8 +167,7 @@ async function publish(iteration, html, summary) {
   await fs.writeFile(path.join(iterDir, `iteration-${String(iteration).padStart(2, "0")}.html`), html, "utf8");
   await fs.appendFile(logPath, `\n## Iteration ${iteration}\n\n${summary}\n\nBytes: ${html.length}\n`, "utf8");
   run("git", ["add", "games/vampire-survival.html", "games/vampire-survival-iterations"]);
-  run("git", ["commit", "-m", `Vampire Survival iteration ${iteration}`]);
-  run("git", ["push"]);
+  commitIfStaged(`Vampire Survival iteration ${iteration}`);
 }
 
 async function main() {
@@ -124,8 +180,7 @@ async function main() {
   await fs.writeFile(gamePath, currentHtml, "utf8");
   await fs.writeFile(path.join(iterDir, "iteration-00-seed.html"), currentHtml, "utf8");
   run("git", ["add", "games/vampire-survival.html", "games/vampire-survival-iterations", "tools/qwen-vampire-iterate.mjs"]);
-  run("git", ["commit", "-m", "Publish Vampire Survival seed"]);
-  run("git", ["push"]);
+  commitIfStaged("Publish Vampire Survival seed");
 
   for (let i = 1; i <= iterations; i += 1) {
     console.log(`ITERATION ${i}: requesting Qwen update`);
