@@ -27,3 +27,9 @@ Bytes: 33420
 Accepted Qwen pass 4. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics.
 
 Bytes: 41087
+
+## Iteration 5
+
+Accepted Qwen pass 5. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics.
+
+Bytes: 50412
