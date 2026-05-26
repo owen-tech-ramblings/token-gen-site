@@ -78,6 +78,15 @@ async function getModel() {
 }
 
 function promptFor(iteration, currentHtml) {
+  const largeFileGuidance = currentHtml.length > 35000
+    ? `
+IMPORTANT COMPACTION MODE:
+- The current file is too large. Your top priority is to rewrite it into a COMPLETE, smaller standalone game under 30,000 characters.
+- Preserve the core gameplay and the best existing features, but remove duplicate code, verbose CSS, comments, excessive particles, and low-value UI.
+- Add only ONE small improvement this iteration after compaction.
+- The response is a failure if it does not include the final </html> closing tag.
+`
+    : "";
   return `You are iterating a single-file browser game called Vampire Survival.
 Return ONLY the complete updated HTML document. No markdown except a single html code fence is allowed.
 
@@ -93,6 +102,7 @@ Iteration ${iteration} goal:
 - Make a focused improvement pass rather than rewriting everything larger.
 - If the current file has grown large, refactor and compress it while preserving features. A shorter complete game is better than a larger incomplete document.
 - Hard cap: keep the final HTML under 45k characters.
+${largeFileGuidance}
 
 Current HTML:
 ${currentHtml}`;
