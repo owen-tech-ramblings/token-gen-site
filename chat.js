@@ -61,6 +61,17 @@ function renderMessages(pending = false) {
   els.thread.scrollTop = els.thread.scrollHeight;
 }
 
+function appendAssistantMessage(content = "") {
+  messages.push({ role: "assistant", content });
+  renderMessages(false);
+  return messages.length - 1;
+}
+
+function updateAssistantMessage(index, content) {
+  messages[index].content = content;
+  renderMessages(false);
+}
+
 function buildPayload() {
   const system = els.system.value.trim();
   const history = messages
@@ -105,14 +116,56 @@ async function sendMessage(content) {
   setStatus("Generating response...", "busy");
 
   try {
-    const res = await fetch(`${API_BASE}/api/chat/completions`, {
+    const res = await fetch(`${API_BASE}/api/chat/stream`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(buildPayload()),
     });
-    const json = await res.json();
-    if (!res.ok || !json.ok) throw new Error(json.error || json.data?.error?.message || "Chat request failed");
-    messages.push({ role: "assistant", content: extractAssistantMessage(json.data) });
+    if (!res.ok || !res.body) {
+      const text = await res.text();
+      throw new Error(text || "Chat stream request failed");
+    }
+
+    const assistantIndex = appendAssistantMessage("");
+    let assistantText = "";
+    let buffer = "";
+    const decoder = new TextDecoder();
+    const reader = res.body.getReader();
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+
+      for (const event of events) {
+        const dataLines = event
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim());
+        if (!dataLines.length) continue;
+        const data = dataLines.join("\n");
+        if (data === "[DONE]") continue;
+        let chunk;
+        try {
+          chunk = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        if (chunk.error) throw new Error(chunk.error);
+        const delta = chunk.choices?.[0]?.delta || {};
+        const token = delta.content || delta.reasoning_content || delta.reasoning || "";
+        if (token) {
+          assistantText += token;
+          updateAssistantMessage(assistantIndex, assistantText);
+        }
+      }
+    }
+
+    if (!assistantText.trim()) {
+      updateAssistantMessage(assistantIndex, "The model returned an empty response.");
+    }
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
     messages.push({ role: "assistant", content: `Request failed: ${error.message}` });
