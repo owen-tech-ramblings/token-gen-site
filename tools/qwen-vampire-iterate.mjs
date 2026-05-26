@@ -89,6 +89,8 @@ Iteration ${iteration} goal:
 - Add a visible "Iteration ${iteration}" note in the UI or title screen.
 - Prefer basic but engaging pixel/canvas art and clear game feel.
 - Do not use external libraries, remote assets, or network calls.
+- Keep the full output compact and complete. Target 18k-26k characters. Do not add verbose comments, long explanations, or unused systems.
+- Make a focused improvement pass rather than rewriting everything larger.
 
 Current HTML:
 ${currentHtml}`;
@@ -105,7 +107,7 @@ async function qwenImprove(model, iteration, currentHtml) {
       { role: "user", content: promptFor(iteration, currentHtml) },
     ],
     temperature: 0.45,
-    max_tokens: 12000,
+    max_tokens: 20000,
     stream: true,
     chat_template_kwargs: { enable_thinking: true },
   };
@@ -173,16 +175,35 @@ async function publish(iteration, html, summary) {
 async function main() {
   await fs.mkdir(iterDir, { recursive: true });
   let currentHtml = await fs.readFile(seedPath, "utf8");
+  let startIteration = 1;
+  try {
+    currentHtml = await fs.readFile(gamePath, "utf8");
+    const names = await fs.readdir(iterDir);
+    const accepted = names
+      .map((name) => name.match(/^iteration-(\d+)\.html$/)?.[1])
+      .filter(Boolean)
+      .map(Number);
+    if (accepted.length) startIteration = Math.max(...accepted) + 1;
+  } catch {}
   validateHtml(currentHtml);
-  await fs.writeFile(logPath, "# Vampire Survival Qwen Iterations\n", "utf8");
+  try {
+    await fs.access(logPath);
+  } catch {
+    await fs.writeFile(logPath, "# Vampire Survival Qwen Iterations\n", "utf8");
+  }
   const model = await getModel();
-  await fs.appendFile(logPath, `\nModel: ${model}\n\nSeed: ${seedPath}\n`, "utf8");
-  await fs.writeFile(gamePath, currentHtml, "utf8");
-  await fs.writeFile(path.join(iterDir, "iteration-00-seed.html"), currentHtml, "utf8");
-  run("git", ["add", "games/vampire-survival.html", "games/vampire-survival-iterations", "tools/qwen-vampire-iterate.mjs"]);
-  commitIfStaged("Publish Vampire Survival seed");
+  if (startIteration === 1) {
+    await fs.appendFile(logPath, `\nModel: ${model}\n\nSeed: ${seedPath}\n`, "utf8");
+    await fs.writeFile(gamePath, currentHtml, "utf8");
+    await fs.writeFile(path.join(iterDir, "iteration-00-seed.html"), currentHtml, "utf8");
+    run("git", ["add", "games/vampire-survival.html", "games/vampire-survival-iterations", "tools/qwen-vampire-iterate.mjs"]);
+    commitIfStaged("Publish Vampire Survival seed");
+  } else {
+    run("git", ["add", "tools/qwen-vampire-iterate.mjs"]);
+    commitIfStaged("Update Vampire Survival iteration runner");
+  }
 
-  for (let i = 1; i <= iterations; i += 1) {
+  for (let i = startIteration; i <= iterations; i += 1) {
     console.log(`ITERATION ${i}: requesting Qwen update`);
     let nextHtml = null;
     let error = null;
