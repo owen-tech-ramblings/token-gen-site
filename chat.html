@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Token Gen Chat</title>
+    <link rel="stylesheet" href="./styles.css?v=token-chat-20260526" />
+  </head>
+  <body>
+    <main class="chat-app">
+      <header class="chat-header">
+        <div>
+          <h1>Chat</h1>
+          <p class="server-status-line" id="chatStatus">Connecting to Token Gen...</p>
+        </div>
+        <nav class="server-header-actions" aria-label="Token Gen navigation">
+          <a class="btn" href="./">Monitor</a>
+          <a class="btn btn-active" href="./chat.html">Chat</a>
+        </nav>
+      </header>
+
+      <section class="chat-shell" aria-label="Token Gen chat workspace">
+        <aside class="chat-sidebar">
+          <div class="chat-control">
+            <label class="label" for="chatModel">Model</label>
+            <select id="chatModel"></select>
+          </div>
+          <div class="chat-control">
+            <label class="label" for="chatSystem">System prompt</label>
+            <textarea id="chatSystem" rows="5">You are Token Gen, a local vLLM assistant. Be concise, practical, and direct.</textarea>
+          </div>
+          <div class="chat-control-grid">
+            <label class="label" for="chatTemperature">Temperature</label>
+            <input id="chatTemperature" class="input" type="number" min="0" max="2" step="0.1" value="0.3" />
+            <label class="label" for="chatMaxTokens">Max tokens</label>
+            <input id="chatMaxTokens" class="input" type="number" min="32" max="4096" step="32" value="768" />
+          </div>
+          <label class="chat-toggle">
+            <input id="chatReasoning" type="checkbox" />
+            <span>Show reasoning mode</span>
+          </label>
+          <button class="btn" id="chatClear" type="button">New chat</button>
+        </aside>
+
+        <section class="chat-main">
+          <div class="chat-thread" id="chatThread" aria-live="polite"></div>
+          <form class="chat-composer" id="chatForm">
+            <textarea id="chatInput" rows="1" placeholder="Message Token Gen"></textarea>
+            <button class="btn btn-active" id="chatSend" type="submit">Send</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="./chat.js?v=token-chat-20260526"></script>
+  </body>
+</html>
