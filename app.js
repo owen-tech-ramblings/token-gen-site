@@ -1457,6 +1457,13 @@ function renderSystemPage(statusMetrics) {
 }
 
 let serverDetailsSnapshotCache = null;
+const LIVE_SERVER_DETAILS_BASE_URL = "https://powerpoint-focus-complexity-rainbow.trycloudflare.com";
+const LIVE_SERVER_DETAILS_PATHS = {
+  health: "/api/health",
+  status: "/api/status",
+  vllm: "/api/vllm",
+  gpu: "/api/gpu",
+};
 
 async function loadServerDetailsSnapshot() {
   if (serverDetailsSnapshotCache) return serverDetailsSnapshotCache;
@@ -1467,8 +1474,9 @@ async function loadServerDetailsSnapshot() {
 
 async function loadServerDetailsEndpoint(endpoint) {
   try {
-    const res = await fetch(`./server-details-proxy.php?endpoint=${encodeURIComponent(endpoint)}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+    const path = LIVE_SERVER_DETAILS_PATHS[endpoint] || `/api/${encodeURIComponent(endpoint)}`;
+    const res = await fetch(`${LIVE_SERVER_DETAILS_BASE_URL}${path}`, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Live proxy HTTP ${res.status}`);
     const text = await res.text();
     let body = {};
     try {
@@ -1493,7 +1501,8 @@ async function loadServerDetails() {
     loadServerDetailsEndpoint("gpu"),
   ]);
   const snapshot = await loadServerDetailsSnapshot().catch(() => null);
-  return { health, status, vllm, gpu, loadedAt: snapshot?.loadedAt || new Date().toISOString() };
+  const liveLoaded = [health, status, vllm, gpu].some((item) => item?.ok);
+  return { health, status, vllm, gpu, loadedAt: liveLoaded ? new Date().toISOString() : snapshot?.loadedAt || new Date().toISOString() };
 }
 
 function deepGet(obj, keys = []) {
