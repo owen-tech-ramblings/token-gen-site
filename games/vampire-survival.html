@@ -3,371 +3,150 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vampire Survival — Iteration 20</title>
+<title>Vampire Survival - Codex Iteration 21</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#060608;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden;font-family:monospace}
-canvas{image-rendering:pixelated;cursor:crosshair;display:block}
-#menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,0,0.9);z-index:10}
-#menu h1{color:#cc2222;font-size:36px;text-shadow:0 0 30px #ff0000;margin-bottom:2px;letter-spacing:4px}
-#menu h2{color:#666;font-size:12px;margin-bottom:14px}
-#menu .info{color:#888;font-size:11px;margin:2px 0}
-#menu button{margin-top:16px;padding:10px 34px;font-size:16px;font-family:monospace;background:#771111;color:#fff;border:2px solid #bb2222;cursor:pointer;letter-spacing:2px}
-#menu button:hover{background:#992222}
-#hs{color:#777;font-size:10px;margin-top:12px;text-align:center;line-height:1.6;max-width:300px}
-#hs span{color:#cc2222}
+*{box-sizing:border-box;margin:0;padding:0}
+body{height:100vh;overflow:hidden;background:#030306;color:#eadfdf;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
+canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;background:#050508;cursor:crosshair}
+#menu,#death{position:fixed;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,rgba(72,7,16,.58),rgba(3,3,6,.94) 52%,#010104)}
+.panel{width:min(760px,calc(100vw - 32px));border:1px solid rgba(218,58,73,.36);background:linear-gradient(180deg,rgba(16,13,20,.9),rgba(8,8,12,.94));box-shadow:0 20px 80px rgba(0,0,0,.65),inset 0 0 70px rgba(125,0,22,.12);padding:28px;display:grid;gap:16px}
+h1{font-size:clamp(32px,6vw,74px);line-height:.92;letter-spacing:.08em;color:#f3e4e4;text-shadow:0 0 26px rgba(255,15,54,.45)}
+h2{font-size:13px;letter-spacing:.22em;text-transform:uppercase;color:#da3a49}
+p{max-width:660px;color:#c1b0b0;font-size:15px;line-height:1.55}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.card{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);padding:12px;min-height:86px}
+.card b{display:block;color:#fff;margin-bottom:5px;font-size:13px}.card span{font-size:12px;color:#aa9b9b;line-height:1.35}
+button{justify-self:start;background:#a11228;color:#fff;border:1px solid #f05d71;padding:12px 26px;font-weight:800;letter-spacing:.12em;cursor:pointer;box-shadow:0 0 24px rgba(184,12,36,.28)}
+button:hover{background:#ca1734}
+#scores{font:12px ui-monospace,Consolas,monospace;color:#978888;line-height:1.55}
+#hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+.top{position:absolute;top:12px;left:12px;right:12px;display:grid;grid-template-columns:270px 1fr 270px;gap:12px;align-items:start}
+.box{border:1px solid rgba(255,255,255,.12);background:rgba(3,3,6,.72);backdrop-filter:blur(8px);padding:10px}
+.label{display:flex;justify-content:space-between;font-size:11px;letter-spacing:.12em;color:#a79a9a;text-transform:uppercase;margin-bottom:5px}
+.bar{height:12px;background:#1b1418;border:1px solid #3c2830;overflow:hidden}.fill{height:100%;width:40%;background:#c81431}
+#mission{font-size:13px;line-height:1.45;color:#eadfdf;text-align:center}.muted{color:#968989}
+#rightStats{text-align:right;font:12px ui-monospace,Consolas,monospace;color:#d7caca;line-height:1.55}
+#toast{position:absolute;top:86px;left:50%;transform:translateX(-50%);min-width:260px;text-align:center;font-weight:900;letter-spacing:.14em;color:#ffd6d6;text-shadow:0 0 18px #d31632;opacity:0;transition:opacity .25s}
+#abilities{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:10px}
+.skill{width:72px;border:1px solid rgba(255,255,255,.18);background:rgba(5,5,8,.68);padding:8px 6px;text-align:center;font:11px ui-monospace,Consolas,monospace;color:#ddd}.skill b{display:block;color:#ff6d82}
+#death{display:none}.small{font:12px ui-monospace,Consolas,monospace;color:#a99}
+@media(max-width:760px){.top{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.panel{padding:18px}#rightStats{text-align:left}#abilities{left:12px;right:12px;transform:none;justify-content:center}.skill{width:64px}}
 </style>
 </head>
 <body>
-<canvas id="c"></canvas>
+<canvas id="game"></canvas>
+<div id="hud">
+  <div class="top">
+    <div class="box">
+      <div class="label"><span>Blood</span><span id="bloodTxt">100/100</span></div><div class="bar"><div id="bloodBar" class="fill"></div></div>
+      <div class="label" style="margin-top:8px"><span>Dominion</span><span id="xpTxt">0/60</span></div><div class="bar"><div id="xpBar" class="fill" style="background:#7d4bff"></div></div>
+    </div>
+    <div id="mission" class="box">Break the Sun Reliquaries before dawn. Feed to stay alive. <span class="muted">Iteration 21</span></div>
+    <div id="rightStats" class="box">Score 0<br>Time 0s<br>Threat 1<br>Relics 0/3</div>
+  </div>
+  <div id="toast"></div>
+  <div id="abilities">
+    <div class="skill"><b>Click</b>Feed</div><div class="skill"><b>Space</b>Dash</div><div class="skill"><b>F</b>Mist</div><div class="skill"><b>R</b>Restart</div>
+  </div>
+</div>
 <div id="menu">
-<h1>🧛 VAMPIRE SURVIVAL</h1>
-<h2>— Iteration 20 —</h2>
-<div class="info">WASD/Arrows: Move &nbsp;|&nbsp; Click: Feed &nbsp;|&nbsp; Space: Dash</div>
-<div class="info">Survive. Feed. Keep blood above zero.</div>
-<div class="info">Humans fortify, hunt, and create sanctified zones.</div>
-<button id="startBtn">AWAKEN</button>
-<div id="hs"></div>
+  <div class="panel">
+    <h2>Codex Iteration 21</h2>
+    <h1>VAMPIRE SURVIVAL</h1>
+    <p>You are the last night prince of Veyr. Humans are raising Sun Reliquaries across the city. Break three relics before the dawn bell, drink from patrols, and survive the hunters that adapt to your feeding trail.</p>
+    <div class="grid">
+      <div class="card"><b>Real Hunt Loop</b><span>Feed weak targets, dash through mobs, break relics, escape sanctified light.</span></div>
+      <div class="card"><b>Living City</b><span>Patrol routes, lanterns, weather, districts, props, and fortified streets.</span></div>
+      <div class="card"><b>Escalation</b><span>Guards, hunters, priests, captains, relic wards, and dawn pressure.</span></div>
+    </div>
+    <button id="startBtn">Begin Hunt</button>
+    <div id="scores"></div>
+  </div>
+</div>
+<div id="death">
+  <div class="panel">
+    <h2 id="deathKicker">The Night Ends</h2>
+    <h1 id="deathTitle">You Perished</h1>
+    <p id="deathText"></p>
+    <button id="againBtn">Hunt Again</button>
+    <div id="scores2" class="small"></div>
+  </div>
 </div>
 <script>
-const C=document.getElementById('c'),X=C.getContext('2d');
-let W=800,H=600;
-function resize(){W=C.width=Math.min(innerWidth,960);H=C.height=Math.min(innerHeight,720)}
-resize();addEventListener('resize',resize);
-
-let G={},keys={},mouse={x:0,y:0,down:false},running=false,gameOver=false;
-let highScores=[];
-try{highScores=JSON.parse(localStorage.getItem('vs20_hs'))||[];if(!Array.isArray(highScores))highScores=[]}catch(e){highScores=[]}
-function saveHS(s,t){try{highScores.push({s,t,d:new Date().toLocaleDateString()});highScores.sort((a,b)=>b.s-a.s);highScores=highScores.slice(0,10);localStorage.setItem('vs20_hs',JSON.stringify(highScores))}catch(e){}}
-function showHS(){let h=document.getElementById('hs');if(!highScores.length){h.innerHTML='<span>No scores yet</span>';return}h.innerHTML='<span>TOP SCORES</span><br>'+highScores.slice(0,5).map((e,i)=>`${i+1}. ${e.t}s | Score: ${e.s}`).join('<br>')}
-showHS();
-
-const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-const lerp=(a,b,t)=>a+(b-a)*t;
-const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-const rand=(a,b)=>Math.random()*(b-a)+a;
-const randInt=(a,b)=>Math.floor(rand(a,b+1));
-const TAU=Math.PI*2;
-
-let particles=[];
-function emit(x,y,n,col,speed,life,size){for(let i=0;i<n;i++){let a=rand(0,TAU),s=rand(speed*.3,speed);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(life*.5,life),maxLife:life,col,sz:size||3})}}
-function updateParticles(dt){for(let i=particles.length-1;i>=0;i--){let p=particles[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt;p.vx*=.95;p.vy*=.95;if(p.life<=0)particles.splice(i,1)}}
-function drawParticles(){for(let p of particles){let a=p.life/p.maxLife;X.globalAlpha=a;X.fillStyle=p.col;X.fillRect(p.x-p.sz/2,p.y-p.sz/2,p.sz*a+1,p.sz*a+1)}X.globalAlpha=1}
-
-let shake={x:0,y:0,intensity:0};
-function doShake(i){shake.intensity=Math.max(shake.intensity,i)}
-function updateShake(dt){shake.intensity*=.88;if(shake.intensity<.1)shake.intensity=0;shake.x=(Math.random()-.5)*shake.intensity*2;shake.y=(Math.random()-.5)*shake.intensity*2}
-
-let districts=[];
-function initDistricts(){districts=[];for(let i=0;i<6;i++){let d={x:rand(40,W-220),y:rand(40,H-170),w:rand(110,200),h:rand(80,140),type:randInt(0,3),buildings:[],fortified:false,sanctified:false,sanctTimer:0,light:rand(.2,.7),name:['Old Town','Market','Church','Alley','Square','Tavern'][i]};genBuildings(d);districts.push(d)}}
-function genBuildings(d){d.buildings=[];let cols=Math.floor(d.w/26),rows=Math.floor(d.h/20);for(let r=0;r<rows;r++)for(let c=0;c<cols;c++){if(Math.random()<.5)d.buildings.push({x:d.x+c*26+3,y:d.y+r*20+3,w:rand(12,20),h:rand(12,16),shade:rand(.1,.3)})}}
-initDistricts();
-
-let weather={type:'clear',timer:0,intensity:0,raindrops:[],lightning:0,lightningFlash:0};
-function updateWeather(dt){weather.timer-=dt;if(weather.timer<=0){weather.timer=rand(10,30);let r=Math.random();if(r<.3)weather.type='clear';else if(r<.6)weather.type='rain';else if(r<.8)weather.type='fog';else weather.type='storm'}weather.intensity=lerp(weather.intensity,weather.type==='clear'?0:weather.type==='storm'?1:.4,.012);if(weather.type==='rain'||weather.type==='storm'){for(let i=0;i<weather.intensity*3;i++)weather.raindrops.push({x:rand(0,W),y:-5,speed:rand(220,420),len:rand(6,14)});for(let i=weather.raindrops.length-1;i>=0;i--){let r=weather.raindrops[i];r.y+=r.speed*dt;r.x-=35*dt;if(r.y>H)weather.raindrops.splice(i,1)}}if(weather.type==='storm'){weather.lightning-=dt;if(weather.lightning<=0&&Math.random()<.015){weather.lightning=rand(1.5,5);weather.lightningFlash=1}}weather.lightningFlash=lerp(weather.lightningFlash||0,0,.08)}
-function drawWeather(){if(weather.intensity<.05)return;if(weather.type==='fog'){X.fillStyle=`rgba(60,60,80,${weather.intensity*.2})`;X.fillRect(0,0,W,H)}if(weather.type==='rain'||weather.type==='storm'){X.strokeStyle=`rgba(120,140,180,${weather.intensity*.3})`;X.lineWidth=1;X.beginPath();for(let r of weather.raindrops){X.moveTo(r.x,r.y);X.lineTo(r.x-3,r.y+r.len)}X.stroke()}if(weather.lightningFlash>.01){X.fillStyle=`rgba(180,180,230,${weather.lightningFlash*.12})`;X.fillRect(0,0,W,H)}}
-
-function initPlayer(){return{x:W/2,y:H/2,speed:160,blood:100,maxBlood:100,xp:0,level:1,xpNeeded:50,dashCD:0,dashTimer:0,angle:0,feedRange:44,feedCD:0,hitFlash:0,invuln:0}}
-
-let humans=[];
-const H_TYPES=['civilian','guard','hunter','elite'];
-const H_COLS=['#8B7355','#556B8A','#8B4513','#4A0E0E'];
-const H_ARMOR=[0,1,2,3];
-function spawnHuman(){let tier=Math.min(3,Math.floor(G.time/30));let typeIdx=Math.random()<.2+tier*.2?Math.min(3,randInt(0,tier)):0;let d=districts[randInt(0,districts.length-1)];let sx=d.x+rand(15,d.w-15),sy=d.y+rand(15,d.h-15);if(Math.random()<.25){let side=randInt(0,3);if(side===0){sx=rand(20,W-20);sy=-15}else if(side===1){sx=W+15;sy=rand(20,H-20)}else if(side===2){sx=rand(20,W-20);sy=H+15}else{sx=-15;sy=rand(20,H-20)}}let h={x:sx,y:sy,type:typeIdx,tier,tierLabel:H_TYPES[typeIdx],speed:rand(30,50)+tier*10,hp:2+typeIdx*2,maxHp:2+typeIdx*2,state:'roam',stateTimer:rand(2,5),target:null,angle:rand(0,TAU),armor:H_ARMOR[typeIdx],hasTorch:typeIdx>=1&&Math.random()<.25+tier*.2,hasShield:typeIdx>=2&&Math.random()<.3,hasCross:typeIdx>=2&&Math.random()<.25,aggroRange:80+typeIdx*40+tier*20,attackCD:0,hitFlash:0,patrolTarget:null,investigateTarget:null,alertLevel:0,groupID:null,regroupTarget:null,fortifyTimer:0};humans.push(h);return h}
-
-function updateHuman(h,dt){
-h.stateTimer-=dt;h.attackCD-=dt;h.hitFlash-=dt;h.fortifyTimer-=dt;
-let dx=G.player.x-h.x,dy=G.player.y-h.y,d=Math.hypot(dx,dy);
-let nearPlayer=d<h.aggroRange;
-if(nearPlayer){h.alertLevel=Math.min(3,h.alertLevel+.6*dt);if(h.state!=='flee'&&h.state!=='fortify')h.state=h.type>=2?'hunt':'investigate'}else{h.alertLevel=Math.max(0,h.alertLevel-.15*dt)}
-if(h.state==='roam'&&h.stateTimer<=0){h.stateTimer=rand(2,6);let d2=districts[randInt(0,districts.length-1)];h.patrolTarget={x:d2.x+rand(10,d2.w-10),y:d2.y+rand(10,d2.h-10)};h.state='patrol'}
-if(h.state==='patrol'&&h.patrolTarget){let pd=dist(h,h.patrolTarget);if(pd<20){h.state='roam';h.stateTimer=rand(1,4)}else{h.angle=Math.atan2(h.patrolTarget.y-h.y,h.patrolTarget.x-h.x)}}
-if(h.state==='investigate'){if(!h.investigateTarget||dist(h,h.investigateTarget)<30){h.investigateTarget={x:G.player.x+rand(-100,100),y:G.player.y+rand(-100,100)};h.stateTimer=rand(2,4)}else{h.angle=Math.atan2(h.investigateTarget.y-h.y,h.investigateTarget.x-h.x)}}
-if(h.state==='hunt'){h.angle=Math.atan2(dy,dx);if(d<26&&h.attackCD<=0){if(G.player.invuln<=0){G.player.blood-=1+h.tier*.5;G.player.hitFlash=.2;doShake(4);emit(G.player.x,G.player.y,6,'#ff0000',80,.4,3)}h.attackCD=.7;if(G.player.blood<=0)endGame()}}
-if(h.state==='flee'){h.angle=Math.atan2(-dy,-dx);if(h.stateTimer<=0)h.state='roam'}
-if(h.state==='fortify'){let d2=districts.find(dd=>dist(h,{x:dd.x+dd.w/2,y:dd.y+dd.h/2})<100);if(d2){h.fortifyTimer-=dt;if(h.fortifyTimer<=0&&!d2.fortified){d2.fortified=true;emit(d2.x+d2.w/2,d2.y+d2.h/2,10,'#888',50,.6,3)}h.state='roam';h.stateTimer=rand(3,6)}else{h.state='roam'}}
-let spd=h.speed*(h.state==='flee'?1.5:h.state==='hunt'?1.2:h.state==='fortify'?.3:1);
-h.x+=Math.cos(h.angle)*spd*dt;h.y+=Math.sin(h.angle)*spd*dt;
-h.x=clamp(h.x,8,W-8);h.y=clamp(h.y,8,H-8);
-if(h.hasTorch&&Math.random()<.06)emit(h.x+rand(-5,5),h.y+rand(-5,5),1,'#ff8800',15,.3,2);
-if(h.state==='hunt'&&Math.random()<.04)emit(h.x,h.y,1,'#ff4444',20,.2,2);
+const canvas=document.getElementById("game"),ctx=canvas.getContext("2d");
+const TAU=Math.PI*2,rand=(a,b)=>Math.random()*(b-a)+a,ri=(a,b)=>Math.floor(rand(a,b+1)),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+let W=innerWidth,H=innerHeight,DPR=1;function resize(){DPR=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}addEventListener("resize",resize);resize();
+const world={w:2200,h:1500};let keys={},mouse={x:W/2,y:H/2,down:false,wx:0,wy:0};let cam={x:0,y:0,shake:0};
+let state,player,enemies,relics,particles,blood,props,lanterns,bullets,storms,scoreBoard=[];
+try{scoreBoard=JSON.parse(localStorage.getItem("vs_codex_scores")||"[]");if(!Array.isArray(scoreBoard))scoreBoard=[]}catch(e){scoreBoard=[]}
+function saveScore(){try{scoreBoard.push({score:Math.floor(state.score),time:Math.floor(state.time),relics:state.relicsBroken,level:player.level,date:new Date().toLocaleDateString()});scoreBoard.sort((a,b)=>b.score-a.score);scoreBoard=scoreBoard.slice(0,8);localStorage.setItem("vs_codex_scores",JSON.stringify(scoreBoard))}catch(e){}}
+function renderScores(id){let el=document.getElementById(id);el.innerHTML=scoreBoard.length?"High scores<br>"+scoreBoard.slice(0,5).map((s,i)=>`${i+1}. ${s.score} pts | ${s.time}s | relics ${s.relics}/3`).join("<br>"):"No high scores yet";}
+renderScores("scores");
+function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
+function toast(t){state.toast=t;state.toastT=2.4}
+function reset(){
+ state={running:false,over:false,time:0,score:0,threat:1,relicsBroken:0,spawn:0,phase:1,toast:"",toastT:0,weather:0,weatherType:"fog",boss:false};
+ player={x:world.w/2,y:world.h/2,vx:0,vy:0,blood:100,maxBlood:100,xp:0,next:60,level:1,speed:250,range:58,dash:0,dashCd:0,mist:0,mistCd:0,hit:0,facing:0};
+ enemies=[];relics=[];particles=[];blood=[];props=[];lanterns=[];bullets=[];storms=[];
+ makeCity();for(let i=0;i<3;i++)spawnRelic(i);for(let i=0;i<16;i++)spawnEnemy(0,true);toast("Break 3 Sun Reliquaries");
 }
-
-function drawHuman(h){
-let s=8+Math.floor(h.tier*1.5);
-X.save();X.translate(h.x,h.y);
-let col=h.hitFlash>.0?'#fff':H_COLS[h.type];
-X.fillStyle=col;X.fillRect(-s/2,-s/2,s,s);
-if(h.armor>0){X.fillStyle=`rgba(80,80,100,${h.armor*.2})`;X.fillRect(-s/2-1,-s/2-1,s+2,s+2)}
-if(h.hasShield){X.fillStyle='#778899';X.fillRect(s/2-1,-s/2,3,s)}
-if(h.hasTorch){X.fillStyle='#ff6600';X.fillRect(-s/2-3,-s/2,2,5);X.fillStyle='#ffaa00';X.fillRect(-s/2-2,-s/2-2,4,3)}
-if(h.hasCross){X.fillStyle='#ffdd44';X.fillRect(-1,-s/2-6,2,8);X.fillRect(-2,-s/2-4,4,2)}
-X.fillStyle=h.state==='hunt'?'#ff0000':h.alertLevel>1?'#ff8800':'#ffff00';
-let ex=Math.cos(h.angle)*2,ey=Math.sin(h.angle)*2;
-X.fillRect(-2+ex,-2+ey,2,2);X.fillRect(1+ex,-2+ey,2,2);
-if(h.tier>0){X.fillStyle='#ff4444';for(let t=0;t<h.tier;t++)X.fillRect(-s/2+t*4,-s/2-4,3,2)}
-if(h.state==='fortify'){X.strokeStyle='rgba(140,140,140,0.6)';X.lineWidth=1;X.beginPath();X.arc(0,0,s+2,0,TAU);X.stroke()}
-X.restore();
+function makeCity(){
+ for(let i=0;i<90;i++){props.push({x:ri(40,world.w-40),y:ri(40,world.h-40),w:ri(20,70),h:ri(16,58),kind:Math.random()<.68?"house":"grave",lit:Math.random()<.32,pulse:rand(0,TAU)})}
+ for(let i=0;i<55;i++)lanterns.push({x:ri(70,world.w-70),y:ri(70,world.h-70),r:ri(55,95),f:rand(0,TAU)});
 }
-
-let bloodDrops=[];
-function spawnBloodDrop(x,y){bloodDrops.push({x,y,life:10+rand(0,6),maxLife:16,sz:rand(2,4)})}
-
-let sanctZones=[];
-function updateSanctified(dt){
-for(let i=sanctZones.length-1;i>=0;i--){let z=sanctZones[i];z.timer-=dt;z.pulse+=dt;if(z.timer<=0){sanctZones.splice(i,1);continue}
-let p=G.player;if(dist(p,z)<z.r){if(p.invuln<=0){p.blood-=dt*2.5;p.hitFlash=.1;doShake(1.5)}}
-if(Math.random()<.04)emit(z.x+rand(-z.r,z.r),z.y+rand(-z.r,z.r),1,'#ffdd44',12,.3,2)}
-for(let d of districts){if(d.fortified&&!d.sanctified&&G.time>35&&Math.random()<.0015){d.sanctified=true;sanctZones.push({x:d.x+d.w/2,y:d.y+d.h/2,r:55,timer:20,pulse:0})}}}
-
-function drawSanctified(){for(let z of sanctZones){let a=.12+Math.sin(z.pulse*3)*.06;X.fillStyle=`rgba(255,220,100,${a})`;X.beginPath();X.arc(z.x,z.y,z.r,0,TAU);X.fill();X.strokeStyle=`rgba(255,220,100,${a*1.3})`;X.lineWidth=1;X.beginPath();X.arc(z.x,z.y,z.r,0,TAU);X.stroke();X.fillStyle=`rgba(255,220,100,${a*1.8})`;X.font='8px monospace';X.textAlign='center';X.fillText('✝',z.x,z.y+3)}}
-
-function updateDistricts(dt){
-for(let d of districts){
-if(!d.fortified&&G.time>20){let nearHuman=humans.some(h=>dist(h,{x:d.x+d.w/2,y:d.y+d.h/2})<100&&h.tier>=1&&h.state==='fortify');if(nearHuman&&Math.random()<.003){d.fortified=true;emit(d.x+d.w/2,d.y+d.h/2,10,'#888',50,.6,3)}}
-d.light=lerp(d.light,.35+Math.sin(G.time*.06+d.x)*.15,.008);
-}}
-
-function getDayNight(){let t=(G.time%120)/120;return clamp(Math.sin(t*Math.PI)*.5+.5,0,1)}
-
-function drawBackground(){
-let day=getDayNight();
-let r=lerp(6,30,day),g=lerp(6,20,day),b=lerp(10,18,day);
-X.fillStyle=`rgb(${r},${g},${b})`;X.fillRect(0,0,W,H);
-X.fillStyle=`rgba(15,15,20,0.3)`;
-for(let i=0;i<50;i++){let gx=(i*137+G.time*.03)%W,gy=(i*251)%H;X.fillRect(gx,gy,2,2)}
+function spawnRelic(i){let pts=[[300,260],[world.w-330,330],[world.w/2,world.h-280]];relics.push({x:pts[i][0]+rand(-80,80),y:pts[i][1]+rand(-70,70),hp:90+i*35,max:90+i*35,active:true,pulse:rand(0,TAU),ward:0})}
+const types=[
+ {n:"villager",hp:18,spd:88,dmg:5,col:"#927760",xp:14,score:55},
+ {n:"guard",hp:34,spd:104,dmg:8,col:"#6e7f96",xp:22,score:90},
+ {n:"hunter",hp:48,spd:126,dmg:11,col:"#9a5b2a",xp:30,score:150},
+ {n:"priest",hp:42,spd:84,dmg:13,col:"#d8c66b",xp:34,score:180},
+ {n:"captain",hp:86,spd:118,dmg:17,col:"#cf293f",xp:55,score:360}
+];
+function spawnEnemy(force=0,inside=false){let t=Math.min(4,Math.max(force,Math.random()<state.time/150?ri(1,Math.min(4,state.phase)):0));let edge=ri(0,3),x=inside?rand(80,world.w-80):(edge==0?rand(0,world.w):edge==1?world.w+40:edge==2?rand(0,world.w):-40),y=inside?rand(80,world.h-80):(edge==0?-40:edge==1?rand(0,world.h):edge==2?world.h+40:rand(0,world.h));let base=types[t];enemies.push({x,y,t,hp:base.hp,max:base.hp,state:"roam",target:{x:rand(80,world.w-80),y:rand(80,world.h-80)},cool:rand(.2,1.8),hit:0,torch:Math.random()<.25+t*.12,shield:t>0&&Math.random()<.45,cross:t>1&&Math.random()<.45,angle:rand(0,TAU),alert:0})}
+function emit(x,y,n,col,life=0.55,spd=150,sz=3){for(let i=0;i<n;i++){let a=rand(0,TAU),s=rand(spd*.2,spd);particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:rand(life*.45,life),max:life,col,sz:rand(sz*.5,sz)})}}
+function splash(x,y,n=1){for(let i=0;i<n;i++)blood.push({x:x+rand(-8,8),y:y+rand(-8,8),r:rand(2,7),life:rand(8,18)})}
+function input(dt){let ax=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),ay=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0),len=Math.hypot(ax,ay)||1;let sp=player.speed*(player.mist>0?1.45:1)*(player.dash>0?3.2:1);player.vx=ax/len*sp;player.vy=ay/len*sp;player.x=clamp(player.x+player.vx*dt,20,world.w-20);player.y=clamp(player.y+player.vy*dt,20,world.h-20);player.facing=Math.atan2(mouse.wy-player.y,mouse.wx-player.x)}
+function feedOrStrike(){
+ if(!state.running||state.over)return;let best=null,bd=player.range;
+ for(let e of enemies){let d=dist(player,e);if(d<bd){best=e;bd=d}}
+ if(best){let dmg=18+player.level*5+(player.mist>0?10:0);best.hp-=dmg;best.hit=.18;player.blood=clamp(player.blood+dmg*.38,0,player.maxBlood);emit(best.x,best.y,18,"#d71232",.45,180,5);splash(best.x,best.y,3);cam.shake=5;best.state="flee";best.cool=.8;if(best.hp<=0)kill(best)}
+ else emit(player.x+Math.cos(player.facing)*34,player.y+Math.sin(player.facing)*34,3,"#7a0b21",.22,80,3);
 }
-
-function drawDistricts(){
-for(let d of districts){
-X.fillStyle=`rgba(${22+d.light*15},${18+d.light*10},${16+d.light*6},0.5)`;
-X.fillRect(d.x,d.y,d.w,d.h);
-for(let b of d.buildings){
-X.fillStyle=`rgb(${Math.floor(b.shade*50)},${Math.floor(b.shade*40)},${Math.floor(b.shade*30)})`;
-X.fillRect(b.x,b.y,b.w,b.h);
-if(Math.random()<.2){X.fillStyle=`rgba(255,200,100,${rand(.06,.2)})`;X.fillRect(b.x+2,b.y+2,3,3)}
+function kill(e){let b=types[e.t];state.score+=b.score;player.xp+=b.xp;enemies.splice(enemies.indexOf(e),1);for(let q of enemies)if(dist(q,e)<130&&q.t<3){q.state="flee";q.cool=rand(.5,1.3)}levelCheck()}
+function levelCheck(){while(player.xp>=player.next){player.xp-=player.next;player.level++;player.next=Math.floor(player.next*1.42);player.maxBlood+=12;player.blood=clamp(player.blood+40,0,player.maxBlood);player.speed+=10;player.range+=3;toast("Dominion Level "+player.level);emit(player.x,player.y,50,"#8a5cff",1,240,7)}}
+function attackRelic(dt){for(let r of relics){if(!r.active)continue;r.pulse+=dt*3;r.ward=Math.max(0,r.ward-dt);if(dist(player,r)<76&&mouse.down){r.hp-=dt*(38+player.level*8);player.blood-=dt*2;emit(r.x+rand(-20,20),r.y+rand(-20,20),2,"#ffd96a",.35,70,4);if(r.hp<=0){r.active=false;state.relicsBroken++;state.score+=900;player.blood=clamp(player.blood+35,0,player.maxBlood);cam.shake=18;toast(state.relicsBroken>=3?"The Reliquaries are broken":"Sun Reliquary shattered");emit(r.x,r.y,90,"#ffd36b",1.3,340,9);if(state.relicsBroken>=3){state.threat+=2;state.boss=true;spawnEnemy(4,true);spawnEnemy(4,true);toast("Captain Voss enters the hunt")}}}if(r.active&&r.ward<=0){r.ward=3.5;for(let i=0;i<2+state.phase;i++)spawnEnemy(Math.min(3,state.phase-1),true)}}}
+function updateEnemy(e,dt){let base=types[e.t],dx=player.x-e.x,dy=player.y-e.y,d=Math.hypot(dx,dy);e.hit=Math.max(0,e.hit-dt);e.cool-=dt;e.alert=clamp(e.alert+(d<260?dt:-dt*.35),0,2.5);
+ if(d<base.spd*2.5+80&&e.state!=="flee")e.state=e.t>=2?"hunt":"investigate";
+ if(e.state==="roam"&&dist(e,e.target)<35){e.target={x:rand(60,world.w-60),y:rand(60,world.h-60)}}
+ if(e.state==="investigate"){e.target={x:player.x+rand(-120,120),y:player.y+rand(-120,120)};if(d<120)e.state="hunt"}
+ if(e.state==="flee"&&e.cool<=0)e.state="roam";
+ let tx=e.state==="hunt"?player.x:e.state==="flee"?e.x-dx:e.target.x,ty=e.state==="hunt"?player.y:e.state==="flee"?e.y-dy:e.target.y;
+ let a=Math.atan2(ty-e.y,tx-e.x);e.angle=a;let sp=base.spd*(e.state==="hunt"?1.18:e.state==="flee"?1.35:.72);e.x=clamp(e.x+Math.cos(a)*sp*dt,10,world.w-10);e.y=clamp(e.y+Math.sin(a)*sp*dt,10,world.h-10);
+ if(e.state==="hunt"&&d<25&&e.cool<=0){if(player.mist<=0){player.blood-=base.dmg;player.hit=.25;cam.shake=8;emit(player.x,player.y,10,"#ff2744",.45,150,5)}e.cool=.7}
+ if(e.cross&&e.state==="hunt"&&d<360&&d>70&&e.cool<=0){let a=Math.atan2(dy,dx);bullets.push({x:e.x,y:e.y,vx:Math.cos(a)*330,vy:Math.sin(a)*330,life:2.2,dmg:base.dmg+3});e.cool=1.55;emit(e.x,e.y,5,"#ffe08a",.24,80,3)}
 }
-if(d.fortified){
-X.strokeStyle='rgba(130,130,130,0.4)';X.lineWidth=2;X.strokeRect(d.x,d.y,d.w,d.h);
-X.fillStyle='rgba(130,130,130,0.2)';
-for(let i=0;i<4;i++){let bx=d.x+i*(d.w/4)+6,by=d.y-3;X.fillRect(bx,by,6,6)}
-X.fillStyle='rgba(180,180,180,0.25)';X.font='7px monospace';X.textAlign='center';X.fillText('FORTIFIED',d.x+d.w/2,d.y-5)}
-if(d.sanctified){X.fillStyle='rgba(255,220,100,0.1)';X.fillRect(d.x,d.y,d.w,d.h)}
-}}
-
-function drawBloodDrops(){
-for(let i=bloodDrops.length-1;i>=0;i--){
-let b=bloodDrops[i];b.life-=.016;if(b.life<=0){bloodDrops.splice(i,1);continue}
-let a=b.life/b.maxLife;X.fillStyle=`rgba(90,0,0,${a*.4})`;X.beginPath();X.arc(b.x,b.y,b.sz*a,0,TAU);X.fill()}}
-
-function drawPlayer(){
-let p=G.player;
-X.fillStyle='rgba(0,0,0,0.2)';X.beginPath();X.ellipse(p.x,p.y+10,11,4,0,0,TAU);X.fill();
-let col=p.hitFlash>.0?'#ff6666':'#2a0a2a';
-X.fillStyle=col;X.fillRect(p.x-7,p.y-9,14,18);
-X.fillStyle='#440022';X.beginPath();X.moveTo(p.x-7,p.y-7);X.lineTo(p.x-13,p.y+11);X.lineTo(p.x+13,p.y+11);X.lineTo(p.x+7,p.y-7);X.fill();
-X.fillStyle='#ddaacc';X.fillRect(p.x-4,p.y-15,8,7);
-X.fillStyle='#ff0000';X.fillRect(p.x-3,p.y-13,2,2);X.fillRect(p.x+1,p.y-13,2,2);
-X.fillStyle='#fff';X.fillRect(p.x-1,p.y-8,1,2);X.fillRect(p.x+1,p.y-8,1,2);
-if(p.level>1){X.fillStyle='#ffcc00';X.font='7px monospace';X.textAlign='center';X.fillText('Lv'+p.level,p.x,p.y-19)}
-if(p.dashCD>0){X.strokeStyle='rgba(80,130,255,0.35)';X.lineWidth=2;X.beginPath();X.arc(p.x,p.y,16,-Math.PI/2,-Math.PI/2+TAU*(1-p.dashCD/3));X.stroke()}
-if(p.invuln>0){X.strokeStyle='rgba(255,255,255,0.25)';X.lineWidth=1;X.beginPath();X.arc(p.x,p.y,14,0,TAU);X.stroke()}
+function update(dt){if(!state.running||state.over)return;state.time+=dt;state.score+=dt*(5+state.relicsBroken*2+player.level);state.phase=clamp(Math.floor(state.time/38)+1,1,6);state.threat=1+state.phase+state.relicsBroken+(state.boss?2:0);state.toastT=Math.max(0,state.toastT-dt);player.dash=Math.max(0,player.dash-dt);player.dashCd=Math.max(0,player.dashCd-dt);player.mist=Math.max(0,player.mist-dt);player.mistCd=Math.max(0,player.mistCd-dt);player.hit=Math.max(0,player.hit-dt);input(dt);player.blood-=dt*(.62+state.phase*.08+state.relicsBroken*.08);if(player.blood<=0)return end(false);
+ state.spawn-=dt;if(state.spawn<=0){state.spawn=clamp(2.1-state.time*.008-state.relicsBroken*.18,.38,2.1);for(let i=0;i<Math.min(4,1+Math.floor(state.threat/3));i++)spawnEnemy()}
+ for(let i=bullets.length-1;i>=0;i--){let b=bullets[i];b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0)bullets.splice(i,1);else if(dist(b,player)<17){if(player.mist<=0){player.blood-=b.dmg;player.hit=.22;cam.shake=7}bullets.splice(i,1)}}
+ for(let e of [...enemies])updateEnemy(e,dt);attackRelic(dt);for(let p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt}particles=particles.filter(p=>p.life>0);for(let b of blood)b.life-=dt;blood=blood.filter(b=>b.life>0);if(state.relicsBroken>=3&&state.time>25&&enemies.filter(e=>e.t===4).length===0)end(true);
 }
-
-let phaseBanner={text:'',timer:0};
-
-function drawHUD(){
-let p=G.player;
-X.fillStyle='rgba(0,0,0,0.5)';X.fillRect(6,6,200,24);
-X.fillStyle='#2a0000';X.fillRect(8,8,196,20);
-let bw=196*(p.blood/p.maxBlood);
-X.fillStyle=p.blood<30?'#ff2222':'#cc0000';X.fillRect(8,8,bw,20);
-X.strokeStyle='#550000';X.lineWidth=1;X.strokeRect(8,8,196,20);
-X.fillStyle='#fff';X.font='bold 10px monospace';X.textAlign='left';
-X.fillText(`BLOOD: ${Math.ceil(p.blood)}/${p.maxBlood}`,12,23);
-
-X.textAlign='center';X.font='bold 14px monospace';X.fillStyle='#ddd';
-X.fillText(`TIME: ${Math.floor(G.time)}s`,W/2,20);
-
-X.textAlign='right';X.font='bold 12px monospace';X.fillStyle='#cc8800';
-X.fillText(`SCORE: ${G.score}`,W-8,20);
-
-X.textAlign='left';X.font='9px monospace';X.fillStyle='#aaa';
-X.fillText(`Lv.${p.level} XP:${Math.floor(p.xp)}/${p.xpNeeded}`,8,40);
-X.fillStyle='#2a2a2a';X.fillRect(8,44,80,3);X.fillStyle='#6644aa';X.fillRect(8,44,80*(p.xp/p.xpNeeded),3);
-
-let phase=Math.floor(G.time/30)+1;
-let phaseNames=['Dusk','Nightfall','Darkness','Blood Moon','Eclipse'];
-let pn=phaseNames[Math.min(phase-1,phaseNames.length-1)];
-X.textAlign='center';X.font='bold 9px monospace';
-X.fillStyle=phase>=4?'#ff4444':phase>=3?'#cc6644':'#888';
-X.fillText(`PHASE ${phase}: ${pn}`,W/2,40);
-let phaseProg=(G.time%30)/30;
-X.fillStyle='#222';X.fillRect(W/2-35,44,70,3);X.fillStyle=phase>=4?'#aa2222':'#555';X.fillRect(W/2-35,44,70*phaseProg,3);
-
-if(weather.intensity>.1){X.textAlign='left';X.font='8px monospace';X.fillStyle='#7788aa';
-X.fillText(weather.type==='storm'?'⛈ STORM':weather.type==='rain'?'🌧 RAIN':weather.type==='fog'?'🌫 FOG':'☀ CLEAR',8,H-8)}
-
-X.textAlign='right';X.font='8px monospace';X.fillStyle='#444';
-X.fillText('Iteration 20',W-8,H-8);
-
-X.textAlign='left';X.font='8px monospace';X.fillStyle='#aa6666';
-X.fillText(`Humans: ${humans.length} | Sanctified: ${sanctZones.length}`,8,H-8);
-
-X.textAlign='center';X.font='7px monospace';X.fillStyle='#333';
-X.fillText('WASD:Move | Click:Feed | Space:Dash',W/2,H-8);
-
-if(phaseBanner.timer>0){let a=phaseBanner.timer<.5?phaseBanner.timer*2:phaseBanner.timer>2?1-(phaseBanner.timer-2):1;X.globalAlpha=a;X.fillStyle='rgba(0,0,0,0.55)';X.fillRect(W/2-130,55,260,28);X.fillStyle=phase>=4?'#ff4444':'#cc8800';X.font='bold 13px monospace';X.textAlign='center';X.fillText(phaseBanner.text,W/2,74);X.globalAlpha=1}
+function end(win){state.over=true;state.running=false;saveScore();document.getElementById("death").style.display="flex";document.getElementById("deathTitle").textContent=win?"Dawn Is Yours":"You Perished";document.getElementById("deathKicker").textContent=win?"The city kneels":"The hunters prevail";document.getElementById("deathText").textContent=`Score ${Math.floor(state.score)} | Survived ${Math.floor(state.time)}s | Relics ${state.relicsBroken}/3 | Dominion ${player.level}`;renderScores("scores2")}
+function sx(x){return Math.floor(x-cam.x)}function sy(y){return Math.floor(y-cam.y)}
+function drawCity(){ctx.fillStyle="#07070b";ctx.fillRect(0,0,W,H);let gx=(-cam.x%80+80)%80,gy=(-cam.y%80+80)%80;ctx.strokeStyle="rgba(80,74,82,.16)";ctx.lineWidth=1;for(let x=gx;x<W;x+=80){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=gy;y<H;y+=80){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+ for(let l of lanterns){let x=sx(l.x),y=sy(l.y);let g=ctx.createRadialGradient(x,y,0,x,y,l.r);g.addColorStop(0,"rgba(255,177,74,.2)");g.addColorStop(1,"rgba(255,177,74,0)");ctx.fillStyle=g;ctx.fillRect(x-l.r,y-l.r,l.r*2,l.r*2)}
+ for(let p of props){let x=sx(p.x),y=sy(p.y);if(x<-100||y<-100||x>W+100||y>H+100)continue;if(p.kind==="house"){ctx.fillStyle="#171219";ctx.fillRect(x,y,p.w,p.h);ctx.fillStyle="#261a20";ctx.fillRect(x+4,y+4,p.w-8,p.h-8);ctx.fillStyle=p.lit?"rgba(255,188,86,.7)":"#382b32";for(let k=0;k<Math.min(4,Math.floor(p.w/18));k++)ctx.fillRect(x+8+k*16,y+8,6,6)}else{ctx.fillStyle="#191a20";ctx.fillRect(x,y,p.w*.55,p.h);ctx.fillStyle="#272933";ctx.fillRect(x+3,y+4,p.w*.4,p.h-4)}}
 }
-
-function drawBloodMoon(){
-let phase=Math.floor(G.time/30)+1;
-if(phase>=4){
-let mx=W*.82,my=70,mr=20;
-let grad=X.createRadialGradient(mx,my,0,mx,my,mr*2.5);
-grad.addColorStop(0,'rgba(160,0,0,0.2)');grad.addColorStop(1,'rgba(160,0,0,0)');
-X.fillStyle=grad;X.fillRect(mx-mr*2.5,my-mr*2.5,mr*5,mr*5);
-X.fillStyle='#cc2222';X.beginPath();X.arc(mx,my,mr,0,TAU);X.fill();
-X.fillStyle='#aa1111';X.beginPath();X.arc(mx+6,my-3,mr*.7,0,TAU);X.fill();
-}}
-
-function feed(){
-let p=G.player;if(p.feedCD>0)return;
-let fed=false;
-for(let i=humans.length-1;i>=0;i--){
-let h=humans[i];if(dist(p,h)<p.feedRange){
-h.hp--;emit(h.x,h.y,6,'#cc0000',50,.4,3);spawnBloodDrop(h.x,h.y);
-if(h.hp<=0){
-emit(h.x,h.y,12,'#880000',80,.5,4);
-p.blood=Math.min(p.maxBlood,p.blood+8+p.level*2);
-p.xp+=10+h.tier*5;
-G.score+=100*(h.tier+1);
-humans.splice(i,1);
-checkLevelUp();
-}else{h.state='flee';h.stateTimer=rand(2,4)}
-fed=true;p.feedCD=.22;break}}
-if(!fed&&mouse.down){emit(p.x+Math.cos(p.angle)*18,p.y+Math.sin(p.angle)*18,1,'#660022',25,.15,2)}}
-
-function checkLevelUp(){
-let p=G.player;
-while(p.xp>=p.xpNeeded){p.xp-=p.xpNeeded;p.level++;p.xpNeeded=Math.floor(p.xpNeeded*1.35);p.maxBlood+=8;p.blood=Math.min(p.maxBlood,p.blood+18);p.speed+=4;p.feedRange+=2;emit(p.x,p.y,16,'#aa44ff',100,.7,4);G.score+=500}}
-
-function dash(){
-let p=G.player;if(p.dashCD>0||p.dashTimer>0)return;
-p.dashTimer=.12;p.dashCD=2.8;p.invuln=.18;
-let dx=0,dy=0;
-if(keys['ArrowLeft']||keys['KeyA'])dx=-1;
-if(keys['ArrowRight']||keys['KeyD'])dx=1;
-if(keys['ArrowUp']||keys['KeyW'])dy=-1;
-if(keys['ArrowDown']||keys['KeyS'])dy=1;
-if(dx===0&&dy===0){dx=Math.cos(p.angle);dy=Math.sin(p.angle)}
-let len=Math.hypot(dx,dy);if(len>0){dx/=len;dy/=len}
-p.x+=dx*120;p.y+=dy*120;
-p.x=clamp(p.x,10,W-10);p.y=clamp(p.y,10,H-10);
-emit(p.x,p.y,10,'#6644cc',70,.35,3);
-for(let h of humans){let d=dist(p,h);if(d<40){let a=Math.atan2(h.y-p.y,h.x-p.x);h.x+=Math.cos(a)*30;h.y+=Math.sin(a)*30;h.state='flee';h.stateTimer=1;h.hitFlash=.12}}}
-
-addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='Space'&&running&&!gameOver)dash();e.preventDefault()});
-addEventListener('keyup',e=>{keys[e.code]=false});
-C.addEventListener('mousemove',e=>{let r=C.getBoundingClientRect();mouse.x=e.clientX-r.left;mouse.y=e.clientY-r.top});
-C.addEventListener('mousedown',e=>{mouse.down=true;if(running&&!gameOver)feed()});
-C.addEventListener('mouseup',()=>{mouse.down=false});
-C.addEventListener('contextmenu',e=>e.preventDefault());
-
-function initGame(){
-G={player:initPlayer(),time:0,score:0,spawnTimer:0,spawnRate:3,districtTimer:0,prevPhase:1};
-humans=[];particles=[];bloodDrops=[];sanctZones=[];gameOver=false;
-initDistricts();
-for(let i=0;i<5;i++)spawnHuman();
-weather={type:'clear',timer:18,intensity:0,raindrops:[],lightning:0,lightningFlash:0};
-phaseBanner={text:'',timer:0};
-shake={x:0,y:0,intensity:0};
-}
-
-function endGame(){
-gameOver=true;saveHS(G.score,G.time);
-setTimeout(()=>{
-document.getElementById('menu').style.display='flex';
-showHS();
-},400);
-}
-
-let lastTime=0;
-function gameLoop(ts){
-let dt=Math.min((ts-lastTime)/1000,.05);lastTime=ts;
-if(!running||gameOver){
-if(gameOver){
-X.fillStyle='rgba(0,0,0,0.7)';X.fillRect(0,0,W,H);
-X.textAlign='center';X.font='bold 30px monospace';X.fillStyle='#cc2222';
-X.fillText('YOU PERISHED',W/2,H/2-35);
-X.font='13px monospace';X.fillStyle='#aaa';
-X.fillText(`Survived: ${Math.floor(G.time)}s | Score: ${G.score} | Level: ${G.player.level}`,W/2,H/2+8);
-X.font='10px monospace';X.fillStyle='#666';
-X.fillText('Click AWAKEN to try again',W/2,H/2+38);
-}
-requestAnimationFrame(gameLoop);return}
-
-G.time+=dt;
-let p=G.player;
-p.feedCD-=dt;p.dashCD-=dt;p.dashTimer-=dt;p.hitFlash-=dt;p.invuln-=dt;
-
-let mx=0,my=0;
-if(keys['ArrowLeft']||keys['KeyA'])mx=-1;
-if(keys['ArrowRight']||keys['KeyD'])mx=1;
-if(keys['ArrowUp']||keys['KeyW'])my=-1;
-if(keys['ArrowDown']||keys['KeyS'])my=1;
-if(mx||my){let len=Math.hypot(mx,my);p.x+=mx/len*p.speed*dt;p.y+=my/len*p.speed*dt;p.angle=Math.atan2(my,mx)}
-p.x=clamp(p.x,10,W-10);p.y=clamp(p.y,10,H-10);
-
-p.blood-=dt*(0.3+G.time*.005);
-if(p.blood<=0){endGame();requestAnimationFrame(gameLoop);return}
-
-G.spawnTimer-=dt;
-if(G.spawnTimer<=0){G.spawnTimer=Math.max(.35,2.8-G.time*.015);spawnHuman()}
-
-for(let h of humans)updateHuman(h,dt);
-updateDistricts(dt);
-updateSanctified(dt);
-updateWeather(dt);
-updateParticles(dt);
-updateShake(dt);
-
-G.score+=dt*(1+Math.floor(G.time/10));
-
-p.angle=Math.atan2(mouse.y-p.y,mouse.x-p.x);
-if(mouse.down)feed();
-
-let phase=Math.floor(G.time/30)+1;
-if(phase!==G.prevPhase){G.prevPhase=phase;phaseBanner.text=`⚠ PHASE ${phase}: ${['Dusk','Nightfall','Darkness','Blood Moon','Eclipse'][Math.min(phase-1,4)]}`;phaseBanner.timer=2.5;doShake(5)}
-phaseBanner.timer-=dt;
-
-X.save();X.translate(shake.x,shake.y);
-drawBackground();
-drawDistricts();
-drawBloodDrops();
-drawSanctified();
-drawWeather();
-drawBloodMoon();
-for(let h of humans)drawHuman(h);
-drawPlayer();
-drawParticles();
-X.restore();
-drawHUD();
-
-let vg=X.createRadialGradient(W/2,H/2,W*.22,W/2,H/2,W*.72);
-vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,0.4)');
-X.fillStyle=vg;X.fillRect(0,0,W,H);
-
-requestAnimationFrame(gameLoop);
-}
-
-document.getElementById('startBtn').addEventListener('click',()=>{
-document.getElementById('menu').style.display='none';
-initGame();running=true;lastTime=performance.now();
-requestAnimationFrame(gameLoop);
-});
-
-requestAnimationFrame(gameLoop);
+function drawRelics(){for(let r of relics){if(!r.active)continue;let x=sx(r.x),y=sy(r.y),a=.55+Math.sin(r.pulse)*.15;let g=ctx.createRadialGradient(x,y,0,x,y,120);g.addColorStop(0,`rgba(255,220,92,${.18*a})`);g.addColorStop(1,"rgba(255,220,92,0)");ctx.fillStyle=g;ctx.fillRect(x-120,y-120,240,240);ctx.fillStyle="#d6b35f";ctx.fillRect(x-8,y-34,16,68);ctx.fillRect(x-27,y-16,54,14);ctx.fillStyle="#fff0a8";ctx.fillRect(x-4,y-29,8,58);ctx.strokeStyle="#8c612a";ctx.strokeRect(x-30,y+42,60,7);ctx.fillStyle="#251510";ctx.fillRect(x-29,y+43,58,5);ctx.fillStyle="#e5c25b";ctx.fillRect(x-29,y+43,58*(r.hp/r.max),5)}}
+function drawEnemy(e){let x=sx(e.x),y=sy(e.y),s=10+e.t*2;ctx.save();ctx.translate(x,y);ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(0,s*.7,s*.75,4,0,0,TAU);ctx.fill();ctx.fillStyle=e.hit>0?"#fff":types[e.t].col;ctx.fillRect(-s/2,-s/2,s,s);ctx.fillStyle="#121018";ctx.fillRect(-s/2,-s/2-5,s,5);if(e.shield){ctx.fillStyle="#aab0bd";ctx.fillRect(s/2-1,-4,4,11)}if(e.torch){ctx.fillStyle="#ff9c22";ctx.fillRect(-s/2-5,-7,3,9)}if(e.cross){ctx.fillStyle="#ffe38a";ctx.fillRect(-1,-s/2-12,2,10);ctx.fillRect(-4,-s/2-8,8,2)}ctx.fillStyle=e.state==="hunt"?"#ff1f36":"#ffd36b";ctx.fillRect(-3+Math.cos(e.angle)*2,-2+Math.sin(e.angle)*2,2,2);ctx.fillRect(2+Math.cos(e.angle)*2,-2+Math.sin(e.angle)*2,2,2);ctx.restore()}
+function drawPlayer(){let p=player,x=sx(p.x),y=sy(p.y);ctx.save();ctx.translate(x,y);ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.ellipse(0,13,18,6,0,0,TAU);ctx.fill();ctx.rotate(Math.sin(state.time*8)*.04);ctx.fillStyle=p.hit>0?"#ff6b7d":"#16051c";ctx.fillRect(-9,-13,18,26);ctx.fillStyle=p.mist>0?"rgba(150,120,255,.55)":"#51051e";ctx.beginPath();ctx.moveTo(-10,-8);ctx.lineTo(-26,18);ctx.lineTo(0,8);ctx.lineTo(26,18);ctx.lineTo(10,-8);ctx.fill();ctx.fillStyle="#efc9d4";ctx.fillRect(-5,-22,10,9);ctx.fillStyle="#ff1735";ctx.fillRect(-4,-19,3,2);ctx.fillRect(2,-19,3,2);ctx.fillStyle="#fff";ctx.fillRect(-2,-13,1,4);ctx.fillRect(2,-13,1,4);ctx.restore();ctx.strokeStyle=`rgba(210,18,48,${mouse.down?.45:.16})`;ctx.beginPath();ctx.arc(x,y,p.range,0,TAU);ctx.stroke()}
+function drawFx(){for(let b of blood){ctx.fillStyle=`rgba(115,0,20,${Math.min(.38,b.life/8)})`;ctx.beginPath();ctx.arc(sx(b.x),sy(b.y),b.r,0,TAU);ctx.fill()}for(let p of particles){let a=p.life/p.max;ctx.globalAlpha=a;ctx.fillStyle=p.col;ctx.fillRect(sx(p.x)-p.sz/2,sy(p.y)-p.sz/2,p.sz+1,p.sz+1)}ctx.globalAlpha=1;for(let b of bullets){ctx.fillStyle="#ffe79a";ctx.fillRect(sx(b.x)-3,sy(b.y)-3,6,6)}}
+function drawHud(){document.getElementById("bloodTxt").textContent=`${Math.ceil(player.blood)}/${player.maxBlood}`;document.getElementById("bloodBar").style.width=`${100*player.blood/player.maxBlood}%`;document.getElementById("xpTxt").textContent=`${Math.floor(player.xp)}/${player.next}`;document.getElementById("xpBar").style.width=`${100*player.xp/player.next}%`;document.getElementById("rightStats").innerHTML=`Score ${Math.floor(state.score)}<br>Time ${Math.floor(state.time)}s<br>Threat ${state.threat}<br>Relics ${state.relicsBroken}/3`;let t=document.getElementById("toast");t.textContent=state.toast;t.style.opacity=state.toastT>0?1:0}
+function draw(){cam.x=clamp(player.x-W/2,0,world.w-W);cam.y=clamp(player.y-H/2,0,world.h-H);if(cam.shake>0){cam.x+=rand(-cam.shake,cam.shake);cam.y+=rand(-cam.shake,cam.shake);cam.shake*=.86}drawCity();drawFx();drawRelics();for(let e of enemies)drawEnemy(e);drawPlayer();let alpha=clamp((state.phase-1)*.04+state.relicsBroken*.05,0,.35);ctx.fillStyle=`rgba(80,0,18,${alpha})`;ctx.fillRect(0,0,W,H);let vg=ctx.createRadialGradient(W/2,H/2,W*.18,W/2,H/2,W*.78);vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(0,0,0,.58)");ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);drawHud()}
+let last=0;function loop(ts){let dt=Math.min((ts-last)/1000,.05)||0;last=ts;mouse.wx=mouse.x+cam.x;mouse.wy=mouse.y+cam.y;update(dt);draw();requestAnimationFrame(loop)}
+addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="Space"&&state.running&&player.dashCd<=0){player.dash=.16;player.dashCd=2.5;cam.shake=6;emit(player.x,player.y,22,"#7d4bff",.5,230,5)}if(e.code==="KeyF"&&state.running&&player.mistCd<=0){player.mist=2.4;player.mistCd=9;player.blood=Math.max(1,player.blood-12);toast("Mist form");emit(player.x,player.y,44,"#b6a3ff",1,180,6)}if(e.code==="KeyR")start();});
+addEventListener("keyup",e=>keys[e.code]=false);canvas.addEventListener("mousemove",e=>{mouse.x=e.clientX;mouse.y=e.clientY});canvas.addEventListener("mousedown",()=>{mouse.down=true;feedOrStrike()});canvas.addEventListener("mouseup",()=>mouse.down=false);canvas.addEventListener("contextmenu",e=>e.preventDefault());
+function start(){reset();state.running=true;document.getElementById("menu").style.display="none";document.getElementById("death").style.display="none";last=performance.now();toast("The hunt begins")}
+document.getElementById("startBtn").onclick=start;document.getElementById("againBtn").onclick=start;reset();requestAnimationFrame(loop);
 </script>
 </body>
 </html>
