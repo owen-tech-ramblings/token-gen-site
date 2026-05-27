@@ -8,7 +8,7 @@ const gamePath = path.join(repo, "games/vampire-survival.html");
 const iterDir = path.join(repo, "games/vampire-survival-iterations");
 const logPath = path.join(iterDir, "iteration-log.md");
 const modelBase = "http://100.98.87.102:8000";
-const iterations = Number(process.env.ITERATIONS || 10);
+const iterations = Number(process.env.ITERATIONS || 20);
 
 function run(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { cwd: repo, stdio: "pipe", encoding: "utf8", ...opts });
@@ -116,6 +116,15 @@ Iteration ${iteration} goal:
 - If the current file has grown large, refactor and compress it while preserving features. A shorter complete game is better than a larger incomplete document.
 - Hard cap: keep the final HTML under 45k characters.
 ${largeFileGuidance}
+
+Player/UAT feedback driving iterations 11-20:
+- Humans must not sit on the map edges waiting for the vampire. They should roam, patrol, investigate, flee, regroup, fortify, or hunt even when far away from the player.
+- Progression must be visually obvious during play: human tiers, armor/shields/torches, district changes, escalating defenses, phase banners, stronger HUD alerts, and clearer feedback.
+- Add a visible high-score or leaderboard panel using localStorage, with survival time/score and a way to restart and beat prior runs.
+- The environment should not feel like a static image. Add animated/dynamic districts, hazards, lighting, fog/weather/day-night/blood moon changes, sanctified zones, props, or other visible state changes.
+- Improve from a C-grade prototype toward a B-grade game: clearer purpose, better moment-to-moment decisions, readable tactical threats, stronger feedback, and more polished UI/graphics.
+- You cannot browse the internet directly. If an external asset would help, use procedural pixel/canvas art instead and keep the game fully playable offline.
+- Codex is only the facilitator and publisher. You are the designer and developer for each iteration.
 
 ${currentContext}`;
 }
@@ -244,7 +253,7 @@ async function main() {
       }
     }
     if (!nextHtml) throw error || new Error(`Iteration ${i} failed`);
-    const summary = `Accepted Qwen pass ${i}. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics.`;
+    const summary = `Accepted Qwen pass ${i}. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics. UAT focus for this tranche: roaming humans, clearer progression, high scores, dynamic environment, and stronger game feel.`;
     await publish(i, nextHtml, summary);
     currentHtml = nextHtml;
     console.log(`ITERATION ${i}: published ${nextHtml.length} bytes`);
