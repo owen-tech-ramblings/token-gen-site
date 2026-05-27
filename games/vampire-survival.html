@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vampire Survival - Codex Iteration 21</title>
+<title>Vampire Survival - Codex Iteration 22</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{height:100vh;overflow:hidden;background:#030306;color:#eadfdf;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif}
@@ -41,7 +41,7 @@ button:hover{background:#ca1734}
       <div class="label"><span>Blood</span><span id="bloodTxt">100/100</span></div><div class="bar"><div id="bloodBar" class="fill"></div></div>
       <div class="label" style="margin-top:8px"><span>Dominion</span><span id="xpTxt">0/60</span></div><div class="bar"><div id="xpBar" class="fill" style="background:#7d4bff"></div></div>
     </div>
-    <div id="mission" class="box">Break the Sun Reliquaries before dawn. Feed to stay alive. <span class="muted">Iteration 21</span></div>
+    <div id="mission" class="box">Follow the crimson compass, break the Sun Reliquaries, and escape the captain. <span class="muted">Iteration 22</span></div>
     <div id="rightStats" class="box">Score 0<br>Time 0s<br>Threat 1<br>Relics 0/3</div>
   </div>
   <div id="toast"></div>
@@ -51,7 +51,7 @@ button:hover{background:#ca1734}
 </div>
 <div id="menu">
   <div class="panel">
-    <h2>Codex Iteration 21</h2>
+    <h2>Codex Iteration 22</h2>
     <h1>VAMPIRE SURVIVAL</h1>
     <p>You are the last night prince of Veyr. Humans are raising Sun Reliquaries across the city. Break three relics before the dawn bell, drink from patrols, and survive the hunters that adapt to your feeding trail.</p>
     <div class="grid">
@@ -140,7 +140,10 @@ function drawRelics(){for(let r of relics){if(!r.active)continue;let x=sx(r.x),y
 function drawEnemy(e){let x=sx(e.x),y=sy(e.y),s=10+e.t*2;ctx.save();ctx.translate(x,y);ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(0,s*.7,s*.75,4,0,0,TAU);ctx.fill();ctx.fillStyle=e.hit>0?"#fff":types[e.t].col;ctx.fillRect(-s/2,-s/2,s,s);ctx.fillStyle="#121018";ctx.fillRect(-s/2,-s/2-5,s,5);if(e.shield){ctx.fillStyle="#aab0bd";ctx.fillRect(s/2-1,-4,4,11)}if(e.torch){ctx.fillStyle="#ff9c22";ctx.fillRect(-s/2-5,-7,3,9)}if(e.cross){ctx.fillStyle="#ffe38a";ctx.fillRect(-1,-s/2-12,2,10);ctx.fillRect(-4,-s/2-8,8,2)}ctx.fillStyle=e.state==="hunt"?"#ff1f36":"#ffd36b";ctx.fillRect(-3+Math.cos(e.angle)*2,-2+Math.sin(e.angle)*2,2,2);ctx.fillRect(2+Math.cos(e.angle)*2,-2+Math.sin(e.angle)*2,2,2);ctx.restore()}
 function drawPlayer(){let p=player,x=sx(p.x),y=sy(p.y);ctx.save();ctx.translate(x,y);ctx.fillStyle="rgba(0,0,0,.35)";ctx.beginPath();ctx.ellipse(0,13,18,6,0,0,TAU);ctx.fill();ctx.rotate(Math.sin(state.time*8)*.04);ctx.fillStyle=p.hit>0?"#ff6b7d":"#16051c";ctx.fillRect(-9,-13,18,26);ctx.fillStyle=p.mist>0?"rgba(150,120,255,.55)":"#51051e";ctx.beginPath();ctx.moveTo(-10,-8);ctx.lineTo(-26,18);ctx.lineTo(0,8);ctx.lineTo(26,18);ctx.lineTo(10,-8);ctx.fill();ctx.fillStyle="#efc9d4";ctx.fillRect(-5,-22,10,9);ctx.fillStyle="#ff1735";ctx.fillRect(-4,-19,3,2);ctx.fillRect(2,-19,3,2);ctx.fillStyle="#fff";ctx.fillRect(-2,-13,1,4);ctx.fillRect(2,-13,1,4);ctx.restore();ctx.strokeStyle=`rgba(210,18,48,${mouse.down?.45:.16})`;ctx.beginPath();ctx.arc(x,y,p.range,0,TAU);ctx.stroke()}
 function drawFx(){for(let b of blood){ctx.fillStyle=`rgba(115,0,20,${Math.min(.38,b.life/8)})`;ctx.beginPath();ctx.arc(sx(b.x),sy(b.y),b.r,0,TAU);ctx.fill()}for(let p of particles){let a=p.life/p.max;ctx.globalAlpha=a;ctx.fillStyle=p.col;ctx.fillRect(sx(p.x)-p.sz/2,sy(p.y)-p.sz/2,p.sz+1,p.sz+1)}ctx.globalAlpha=1;for(let b of bullets){ctx.fillStyle="#ffe79a";ctx.fillRect(sx(b.x)-3,sy(b.y)-3,6,6)}}
-function drawHud(){document.getElementById("bloodTxt").textContent=`${Math.ceil(player.blood)}/${player.maxBlood}`;document.getElementById("bloodBar").style.width=`${100*player.blood/player.maxBlood}%`;document.getElementById("xpTxt").textContent=`${Math.floor(player.xp)}/${player.next}`;document.getElementById("xpBar").style.width=`${100*player.xp/player.next}%`;document.getElementById("rightStats").innerHTML=`Score ${Math.floor(state.score)}<br>Time ${Math.floor(state.time)}s<br>Threat ${state.threat}<br>Relics ${state.relicsBroken}/3`;let t=document.getElementById("toast");t.textContent=state.toast;t.style.opacity=state.toastT>0?1:0}
+function activeRelic(){return relics.find(r=>r.active)||null}
+function drawObjectiveArrow(){let r=activeRelic();if(!r)return;let dx=r.x-player.x,dy=r.y-player.y,d=Math.hypot(dx,dy),a=Math.atan2(dy,dx),rad=Math.min(W,H)*.34,x=W/2+Math.cos(a)*rad,y=H/2+Math.sin(a)*rad;ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.fillStyle="#ff3655";ctx.strokeStyle="rgba(255,255,255,.35)";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(18,0);ctx.lineTo(-10,-10);ctx.lineTo(-5,0);ctx.lineTo(-10,10);ctx.closePath();ctx.fill();ctx.stroke();ctx.rotate(-a);ctx.font="bold 11px ui-monospace,monospace";ctx.textAlign="center";ctx.fillStyle="#ffe0e4";ctx.fillText(Math.floor(d)+"m",0,28);ctx.restore()}
+function drawMinimap(){let mw=150,mh=102,x=W-mw-14,y=86,sx=mw/world.w,sy=mh/world.h;ctx.fillStyle="rgba(3,3,6,.74)";ctx.fillRect(x,y,mw,mh);ctx.strokeStyle="rgba(255,255,255,.18)";ctx.strokeRect(x,y,mw,mh);for(let r of relics){ctx.fillStyle=r.active?"#ffd35d":"#46312a";ctx.fillRect(x+r.x*sx-3,y+r.y*sy-3,6,6)}ctx.fillStyle="#ff3655";ctx.fillRect(x+player.x*sx-3,y+player.y*sy-3,6,6);ctx.fillStyle="rgba(210,210,210,.55)";for(let e of enemies){if(e.state==="hunt"||e.t>2)ctx.fillRect(x+e.x*sx-1,y+e.y*sy-1,2,2)}ctx.strokeStyle="rgba(255,54,85,.35)";ctx.strokeRect(x+cam.x*sx,y+cam.y*sy,W*sx,H*sy);ctx.font="9px ui-monospace,monospace";ctx.fillStyle="#b5a8a8";ctx.fillText("CITY MAP",x+8,y+14)}
+function drawHud(){document.getElementById("bloodTxt").textContent=`${Math.ceil(player.blood)}/${player.maxBlood}`;document.getElementById("bloodBar").style.width=`${100*player.blood/player.maxBlood}%`;document.getElementById("xpTxt").textContent=`${Math.floor(player.xp)}/${player.next}`;document.getElementById("xpBar").style.width=`${100*player.xp/player.next}%`;document.getElementById("rightStats").innerHTML=`Score ${Math.floor(state.score)}<br>Time ${Math.floor(state.time)}s<br>Threat ${state.threat}<br>Relics ${state.relicsBroken}/3`;let t=document.getElementById("toast");t.textContent=state.toast;t.style.opacity=state.toastT>0?1:0;drawMinimap();drawObjectiveArrow();if(state.threat>=7){ctx.fillStyle=`rgba(255,0,35,${.04+Math.sin(state.time*8)*.025})`;ctx.fillRect(0,0,W,H)}}
 function draw(){cam.x=clamp(player.x-W/2,0,world.w-W);cam.y=clamp(player.y-H/2,0,world.h-H);if(cam.shake>0){cam.x+=rand(-cam.shake,cam.shake);cam.y+=rand(-cam.shake,cam.shake);cam.shake*=.86}drawCity();drawFx();drawRelics();for(let e of enemies)drawEnemy(e);drawPlayer();let alpha=clamp((state.phase-1)*.04+state.relicsBroken*.05,0,.35);ctx.fillStyle=`rgba(80,0,18,${alpha})`;ctx.fillRect(0,0,W,H);let vg=ctx.createRadialGradient(W/2,H/2,W*.18,W/2,H/2,W*.78);vg.addColorStop(0,"rgba(0,0,0,0)");vg.addColorStop(1,"rgba(0,0,0,.58)");ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);drawHud()}
 let last=0;function loop(ts){let dt=Math.min((ts-last)/1000,.05)||0;last=ts;mouse.wx=mouse.x+cam.x;mouse.wy=mouse.y+cam.y;update(dt);draw();requestAnimationFrame(loop)}
 addEventListener("keydown",e=>{keys[e.code]=true;if(e.code==="Space"&&state.running&&player.dashCd<=0){player.dash=.16;player.dashCd=2.5;cam.shake=6;emit(player.x,player.y,22,"#7d4bff",.5,230,5)}if(e.code==="KeyF"&&state.running&&player.mistCd<=0){player.mist=2.4;player.mistCd=9;player.blood=Math.max(1,player.blood-12);toast("Mist form");emit(player.x,player.y,44,"#b6a3ff",1,180,6)}if(e.code==="KeyR")start();});
