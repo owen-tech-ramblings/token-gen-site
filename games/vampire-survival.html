@@ -37,7 +37,7 @@ resize();addEventListener('resize',resize);
 
 let G={},keys={},mouse={x:0,y:0,down:false},running=false,gameOver=false;
 let highScores=[];
-try{highScores=JSON.parse(localStorage.getItem('vs20_hs'))||[]}catch(e){highScores=[]}
+try{highScores=JSON.parse(localStorage.getItem('vs20_hs'))||[];if(!Array.isArray(highScores))highScores=[]}catch(e){highScores=[]}
 function saveHS(s,t){try{highScores.push({s,t,d:new Date().toLocaleDateString()});highScores.sort((a,b)=>b.s-a.s);highScores=highScores.slice(0,10);localStorage.setItem('vs20_hs',JSON.stringify(highScores))}catch(e){}}
 function showHS(){let h=document.getElementById('hs');if(!highScores.length){h.innerHTML='<span>No scores yet</span>';return}h.innerHTML='<span>TOP SCORES</span><br>'+highScores.slice(0,5).map((e,i)=>`${i+1}. ${e.t}s | Score: ${e.s}`).join('<br>')}
 showHS();
