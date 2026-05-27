@@ -111,3 +111,9 @@ Bytes: 37167
 Accepted Qwen pass 18. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics. UAT focus for this tranche: roaming humans, clearer progression, high scores, dynamic environment, and stronger game feel.
 
 Bytes: 18249
+
+## Iteration 19
+
+Accepted Qwen pass 19. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics. UAT focus for this tranche: roaming humans, clearer progression, high scores, dynamic environment, and stronger game feel.
+
+Bytes: 21027
