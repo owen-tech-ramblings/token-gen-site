@@ -89,7 +89,14 @@ let phase=0,phaseTimer=0;
 let phaseNames=['Dusk','Twilight','Nightfall','Blood Moon','Dawn\'s End'];
 let phaseDescs=['Shadows gather...','Torches are lit.','The hunt begins.','The moon bleeds.','Final stand.'];
 let phaseColors=['#12122a','#16213e','#0f3460','#1a0a0a','#2d1b00'];
-let highScores=JSON.parse(localStorage.getItem('vs_hs')||'[]');
+let highScores=[];
+try{
+  highScores=JSON.parse(localStorage.getItem('vs_hs')||'[]');
+  if(!Array.isArray(highScores))highScores=[];
+}catch(e){
+  highScores=[];
+  try{localStorage.removeItem('vs_hs')}catch(_){}
+}
 let damageNums=[];
 let districts=[];
 let rainDrops=[];
@@ -103,6 +110,9 @@ function initGame(){
   humans=[];particles=[];projectiles=[];buildings=[];props=[];bloodTrails=[];damageNums=[];sanctifiedZones=[];
   ticks=0;phase=0;phaseTimer=0;lightningTimer=0;
   generateWorld();
+  for(let i=0;i<5;i++)spawnHuman();
+  showPhaseBanner('THE HUNT BEGINS');
+  showPhaseSub('Humans are already roaming the city.');
   updateHUD();
 }
 
