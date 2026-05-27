@@ -121,8 +121,10 @@ Player/UAT feedback driving iterations 11-20:
 - Humans must not sit on the map edges waiting for the vampire. They should roam, patrol, investigate, flee, regroup, fortify, or hunt even when far away from the player.
 - Progression must be visually obvious during play: human tiers, armor/shields/torches, district changes, escalating defenses, phase banners, stronger HUD alerts, and clearer feedback.
 - Add a visible high-score or leaderboard panel using localStorage, with survival time/score and a way to restart and beat prior runs.
+- High scores must be robust: wrap localStorage reads/parsing in try/catch and fall back to an empty array so bad old browser data cannot prevent the game from starting.
 - The environment should not feel like a static image. Add animated/dynamic districts, hazards, lighting, fog/weather/day-night/blood moon changes, sanctified zones, props, or other visible state changes.
 - Improve from a C-grade prototype toward a B-grade game: clearer purpose, better moment-to-moment decisions, readable tactical threats, stronger feedback, and more polished UI/graphics.
+- The start button must always work. After clicking start, the menu must hide, the game timer/blood must update, and at least a few humans or visible threats must already be active so the player can tell the game has begun.
 - You cannot browse the internet directly. If an external asset would help, use procedural pixel/canvas art instead and keep the game fully playable offline.
 - Codex is only the facilitator and publisher. You are the designer and developer for each iteration.
 
