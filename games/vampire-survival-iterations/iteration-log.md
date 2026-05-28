@@ -123,3 +123,11 @@ Bytes: 21027
 Accepted Qwen pass 20. Light validation passed: standalone HTML, script, canvas/game surface, vampire/human/blood mechanics. UAT focus for this tranche: roaming humans, clearer progression, high scores, dynamic environment, and stronger game feel.
 
 Bytes: 21355
+
+## Parked State
+
+The experiment was parked after Codex iteration 25 on 2026-05-28.
+
+- Current live build: `games/vampire-survival.html`
+- Snapshot: `games/vampire-survival-iterations/iteration-25-codex.html`
+- Resume notes: `games/vampire-survival-parked.html` and `games/vampire-survival-parked.md`
