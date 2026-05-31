@@ -8,6 +8,11 @@ const els = {
   temperature: $("#chatTemperature"),
   maxTokens: $("#chatMaxTokens"),
   reasoning: $("#chatReasoning"),
+  webSearch: $("#chatWebSearch"),
+  webFetchMode: $("#chatWebFetchMode"),
+  webResults: $("#chatWebResults"),
+  webBudget: $("#chatWebBudget"),
+  webStatus: $("#chatWebStatus"),
   clear: $("#chatClear"),
   thread: $("#chatThread"),
   form: $("#chatForm"),
@@ -21,6 +26,7 @@ let messages = [
     content: "Token Gen chat is ready. Ask a short test question or paste a prompt you want to run locally.",
   },
 ];
+let webSearchSupported = false;
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -46,6 +52,7 @@ function renderMessages(pending = false) {
       <div class="chat-avatar">${message.role === "user" ? "You" : "TG"}</div>
       <div class="chat-bubble">
         <div class="chat-role">${message.role === "user" ? "You" : "Token Gen"}</div>
+        ${renderWebContext(message.webContext)}
         <div class="chat-content">${escapeHtml(message.content).replace(/\n/g, "<br>")}</div>
       </div>
     </article>
@@ -61,6 +68,30 @@ function renderMessages(pending = false) {
   els.thread.scrollTop = els.thread.scrollHeight;
 }
 
+function renderWebContext(context) {
+  if (!context) return "";
+  const sources = Array.isArray(context.sources) ? context.sources.slice(0, 6) : [];
+  return `
+    <section class="chat-web-context">
+      <div class="chat-web-context-head">
+        <span>Web context</span>
+        <span class="chat-web-mode">${escapeHtml(context.fetch_mode || context.fetchMode || "web")}</span>
+      </div>
+      ${context.query ? `<p class="chat-web-query">Query: ${escapeHtml(context.query)}</p>` : ""}
+      ${sources.length ? `
+        <div class="chat-web-sources">
+          ${sources.map((source) => `
+            <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">
+              <strong>[${escapeHtml(source.index)}] ${escapeHtml(source.title || "Untitled")}</strong>
+              <span>${escapeHtml(source.fetched ? source.extraction_method || "fetched" : "snippet only")}</span>
+            </a>
+          `).join("")}
+        </div>
+      ` : ""}
+    </section>
+  `;
+}
+
 function appendAssistantMessage(content = "") {
   messages.push({ role: "assistant", content });
   renderMessages(false);
@@ -69,6 +100,11 @@ function appendAssistantMessage(content = "") {
 
 function updateAssistantMessage(index, content) {
   messages[index].content = content;
+  renderMessages(false);
+}
+
+function attachWebContext(index, context) {
+  messages[index].webContext = context;
   renderMessages(false);
 }
 
@@ -88,6 +124,12 @@ function buildPayload() {
     temperature: Number(els.temperature.value || 0.3),
     max_tokens: Number(els.maxTokens.value || 768),
     enable_thinking: els.reasoning.checked,
+    web_search: {
+      enabled: Boolean(els.webSearch.checked),
+      fetch_mode: els.webFetchMode.value,
+      max_results: Number(els.webResults.value || 5),
+      context_token_budget: Number(els.webBudget.value || 2500),
+    },
   };
 }
 
@@ -108,14 +150,39 @@ async function loadModels() {
   setStatus(`Connected to ${modelLabel(models[0].id)}`, "good");
 }
 
+async function loadWebSearchCapability() {
+  try {
+    const res = await fetch(`${API_BASE}/api/web-search/health`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    webSearchSupported = Boolean(res.ok && json.ok !== false);
+    if (webSearchSupported) {
+      els.webStatus.textContent = "Brave context is available. Brave receives the query; destination pages use the selected fetch mode.";
+      els.webStatus.dataset.state = "good";
+      els.webSearch.disabled = false;
+      return;
+    }
+    throw new Error(json.error || "Web-search API is not available yet.");
+  } catch (error) {
+    webSearchSupported = false;
+    els.webSearch.checked = false;
+    els.webSearch.disabled = true;
+    els.webStatus.textContent = "Web context needs a Token Gen API update before it can run.";
+    els.webStatus.dataset.state = "bad";
+  }
+}
+
 async function sendMessage(content) {
   messages.push({ role: "user", content });
   renderMessages(true);
   els.send.disabled = true;
   els.input.disabled = true;
-  setStatus("Generating response...", "busy");
+  setStatus(els.webSearch.checked ? "Gathering web context..." : "Generating response...", "busy");
 
   try {
+    if (els.webSearch.checked && !webSearchSupported) {
+      throw new Error("Web context is enabled, but the Token Gen API does not expose /api/web-search/health yet.");
+    }
+
     const res = await fetch(`${API_BASE}/api/chat/stream`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -154,6 +221,12 @@ async function sendMessage(content) {
           continue;
         }
         if (chunk.error) throw new Error(chunk.error);
+        const webContext = chunk.web_context || chunk.webContext || (chunk.type === "web_context" ? chunk.data : null);
+        if (webContext) {
+          attachWebContext(assistantIndex, webContext);
+          setStatus("Web context attached; generating response...", "busy");
+          continue;
+        }
         const delta = chunk.choices?.[0]?.delta || {};
         const token = delta.content || delta.reasoning_content || delta.reasoning || "";
         if (token) {
@@ -211,3 +284,4 @@ renderMessages(false);
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
+loadWebSearchCapability();
