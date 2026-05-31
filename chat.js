@@ -155,15 +155,15 @@ async function loadWebSearchCapability() {
     const res = await fetch(`${API_BASE}/api/web-search/health`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
     const health = json.data || json;
-    webSearchSupported = Boolean(res.ok && json.ok !== false && health.brave_configured);
+    webSearchSupported = Boolean(res.ok && json.ok !== false && health.tavily_configured);
     if (webSearchSupported) {
-      els.webStatus.textContent = "Brave context is available. Brave receives the query; destination pages use the selected fetch mode.";
+      els.webStatus.textContent = "Tavily context is available. Tavily receives the query; destination pages use the selected fetch mode.";
       els.webStatus.dataset.state = "good";
       els.webSearch.disabled = false;
       return;
     }
-    if (res.ok && health.brave_configured === false) {
-      els.webStatus.textContent = "Web context service is online, but BRAVE_SEARCH_API_KEY is not configured yet.";
+    if (res.ok && health.tavily_configured === false) {
+      els.webStatus.textContent = "Web context service is online, but TAVILY_API_KEY is not configured yet.";
       els.webStatus.dataset.state = "bad";
       els.webSearch.checked = false;
       els.webSearch.disabled = true;
@@ -188,7 +188,7 @@ async function sendMessage(content) {
 
   try {
     if (els.webSearch.checked && !webSearchSupported) {
-      throw new Error("Web context is enabled, but the Token Gen API does not expose /api/web-search/health yet.");
+      throw new Error("Web context is enabled, but Tavily web context is not available yet.");
     }
 
     const res = await fetch(`${API_BASE}/api/chat/stream`, {

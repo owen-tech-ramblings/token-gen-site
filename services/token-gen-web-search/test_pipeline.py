@@ -26,11 +26,11 @@ class PipelineTests(unittest.TestCase):
 
     def test_lexical_rank_chunks_prefers_query_terms(self):
         chunks = chunk_text(
-            "alpha beta gamma. " * 20 + "tor privacy brave search socks proxy. " * 20,
+            "alpha beta gamma. " * 20 + "tor privacy tavily search socks proxy. " * 20,
             max_words=30,
             overlap_words=0,
         )
-        ranked = lexical_rank_chunks("How does Tor proxy protect Brave search fetching?", chunks, limit=2)
+        ranked = lexical_rank_chunks("How does Tor proxy protect Tavily search fetching?", chunks, limit=2)
 
         self.assertGreaterEqual(ranked[0].score, ranked[1].score)
         self.assertIn("tor", ranked[0].text.lower())
