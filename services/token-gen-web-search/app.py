@@ -184,7 +184,7 @@ async def compact_with_vllm(request: WebSearchRequest, evidence: str) -> str:
 
     data = response.json()
     message = data.get("choices", [{}])[0].get("message", {}) or {}
-    content = message.get("content") or message.get("reasoning") or ""
+    content = message.get("content") or ""
     return str(content).strip() or evidence
 
 
