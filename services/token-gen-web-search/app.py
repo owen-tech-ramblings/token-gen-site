@@ -121,7 +121,16 @@ async def tavily_search(question: str, *, max_results: int) -> list[SearchResult
 
 
 async def fetch_page(result: SearchResult, fetch_config: FetchConfig) -> ExtractedPage:
-    settings = normalize_fetch_settings(fetch_config.model_dump(exclude_none=True))
+    try:
+        settings = normalize_fetch_settings(fetch_config.model_dump(exclude_none=True))
+    except ValueError as error:
+        return ExtractedPage(
+            source=result,
+            text=result.snippet,
+            fetched=False,
+            extraction_method="tavily-snippet",
+            error=str(error),
+        )
     transport_kwargs: dict[str, Any] = {}
     if settings.proxy:
         transport_kwargs["proxy"] = settings.proxy
@@ -195,6 +204,8 @@ async def health() -> dict[str, Any]:
         "provider": "tavily",
         "tavily_configured": tavily_configured(),
         "fetch_mode": os.getenv("WEB_FETCH_MODE", "direct"),
+        "proxy_configured": bool(os.getenv("WEB_FETCH_PROXY")),
+        "tor_proxy": "socks5h://127.0.0.1:9050",
     }
 
 
@@ -210,12 +221,15 @@ async def search(request: WebSearchRequest) -> dict[str, Any]:
     ranked = rerank_chunks(request.question, chunks, limit=12)
     evidence = format_ranked_evidence(pages, ranked, token_budget=request.compaction.context_token_budget)
     compacted = await compact_with_vllm(request, evidence)
-    settings = normalize_fetch_settings(request.fetch.model_dump(exclude_none=True))
+    try:
+        settings = normalize_fetch_settings(request.fetch.model_dump(exclude_none=True))
+    except ValueError:
+        settings = None
 
     return {
         "generated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
         "query": request.question,
-        "fetch_mode": settings.mode,
+        "fetch_mode": settings.mode if settings else request.fetch.mode,
         "context": compacted,
         "sources": [
             {
@@ -231,6 +245,6 @@ async def search(request: WebSearchRequest) -> dict[str, Any]:
         ],
         "warnings": [
             "Tavily receives the search query under your Tavily API key.",
-            *(["Destination pages were fetched through a proxy/Tor setting." if settings.proxy else "Destination pages were fetched directly by this service."]),
+            *(["Destination pages were fetched through a proxy/Tor setting." if settings and settings.proxy else "Destination pages were fetched directly by this service."]),
         ],
     }

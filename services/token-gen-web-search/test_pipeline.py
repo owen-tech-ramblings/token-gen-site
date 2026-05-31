@@ -15,6 +15,10 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(settings.mode, "tor")
         self.assertEqual(settings.proxy, "socks5h://127.0.0.1:9050")
 
+    def test_normalize_fetch_settings_requires_proxy_url_for_proxy_mode(self):
+        with self.assertRaises(ValueError):
+            normalize_fetch_settings({"mode": "proxy"})
+
     def test_chunk_text_splits_with_overlap(self):
         text = " ".join(f"token{i}" for i in range(120))
         chunks = chunk_text(text, max_words=50, overlap_words=10)

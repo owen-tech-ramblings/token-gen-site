@@ -51,6 +51,8 @@ def normalize_fetch_settings(raw: dict[str, Any] | None) -> FetchSettings:
         proxy = "socks5h://127.0.0.1:9050"
     if mode == "direct":
         proxy = None
+    if mode == "proxy" and not proxy:
+        raise ValueError("WEB_FETCH_PROXY is required when fetch mode is proxy.")
 
     timeout_seconds = float(raw.get("timeout_seconds") or os.getenv("WEB_FETCH_TIMEOUT_SECONDS") or 20)
 
