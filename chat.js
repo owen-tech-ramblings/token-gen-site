@@ -122,7 +122,7 @@ function buildPayload() {
       ...history,
     ],
     temperature: Number(els.temperature.value || 0.3),
-    max_tokens: Number(els.maxTokens.value || 131000),
+    max_tokens: Number(els.maxTokens.value || 20000),
     enable_thinking: els.reasoning.checked,
     web_search: {
       enabled: Boolean(els.webSearch.checked),
