@@ -34,7 +34,7 @@ class FetchConfig(BaseModel):
 
 
 class CompactionConfig(BaseModel):
-    context_token_budget: int = Field(default=2500, ge=500, le=8000)
+    context_token_budget: int = Field(default=10000, ge=500, le=10000)
 
 
 class VllmConfig(BaseModel):

@@ -122,13 +122,13 @@ function buildPayload() {
       ...history,
     ],
     temperature: Number(els.temperature.value || 0.3),
-    max_tokens: Number(els.maxTokens.value || 768),
+    max_tokens: Number(els.maxTokens.value || 131000),
     enable_thinking: els.reasoning.checked,
     web_search: {
       enabled: Boolean(els.webSearch.checked),
       fetch_mode: els.webFetchMode.value,
       max_results: Number(els.webResults.value || 5),
-      context_token_budget: Number(els.webBudget.value || 2500),
+      context_token_budget: Number(els.webBudget.value || 10000),
     },
   };
 }

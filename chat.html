@@ -33,7 +33,7 @@
             <label class="label" for="chatTemperature">Temperature</label>
             <input id="chatTemperature" class="input" type="number" min="0" max="2" step="0.1" value="0.3" />
             <label class="label" for="chatMaxTokens">Max tokens</label>
-            <input id="chatMaxTokens" class="input" type="number" min="32" max="4096" step="32" value="768" />
+            <input id="chatMaxTokens" class="input" type="number" min="32" max="131000" step="1000" value="131000" />
           </div>
           <label class="chat-toggle">
             <input id="chatReasoning" type="checkbox" />
@@ -55,7 +55,7 @@
               <label class="label" for="chatWebResults">Results</label>
               <input id="chatWebResults" class="input" type="number" min="1" max="10" step="1" value="5" />
               <label class="label" for="chatWebBudget">Context budget</label>
-              <input id="chatWebBudget" class="input" type="number" min="500" max="8000" step="250" value="2500" />
+              <input id="chatWebBudget" class="input" type="number" min="500" max="10000" step="500" value="10000" />
             </div>
           </section>
           <button class="btn" id="chatClear" type="button">New chat</button>
@@ -71,6 +71,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-tavily-20260531"></script>
+    <script type="module" src="./chat.js?v=token-chat-defaults-20260601"></script>
   </body>
 </html>
