@@ -21,6 +21,7 @@ class SearchResult:
     title: str
     url: str
     snippet: str
+    published_date: str | None = None
 
 
 @dataclass(frozen=True)

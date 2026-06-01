@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from datetime import datetime
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -25,6 +26,7 @@ app = FastAPI(title="Token-Gen Web Search Service", version="0.1.0")
 class SearchConfig(BaseModel):
     provider: str = "tavily"
     max_results: int = Field(default=5, ge=1, le=10)
+    time_range: str | None = Field(default="year")
 
 
 class FetchConfig(BaseModel):
@@ -82,26 +84,52 @@ def tavily_configured() -> bool:
         return False
 
 
-async def tavily_search(question: str, *, max_results: int) -> list[SearchResult]:
+def parse_result_date(value: Any) -> datetime:
+    if not value:
+        return datetime.min
+    text = str(value).strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text[:10] if len(text) >= 10 else text)
+    except ValueError:
+        return datetime.min
+
+
+def result_date(item: dict[str, Any]) -> str | None:
+    for key in ("published_date", "publishedDate", "date", "last_updated", "lastUpdated"):
+        if item.get(key):
+            return str(item[key])
+    return None
+
+
+async def tavily_search(question: str, *, max_results: int, time_range: str | None) -> list[SearchResult]:
+    allowed_time_ranges = {"day", "week", "month", "year", "d", "w", "m", "y"}
+    payload: dict[str, Any] = {
+        "query": question,
+        "search_depth": "basic",
+        "max_results": max_results,
+        "include_answer": False,
+        "include_raw_content": False,
+        "include_usage": True,
+    }
+    if time_range in allowed_time_ranges:
+        payload["time_range"] = time_range
+
     async with httpx.AsyncClient(timeout=20) as client:
         response = await client.post(
             "https://api.tavily.com/search",
             headers=tavily_headers(),
-            json={
-                "query": question,
-                "search_depth": "basic",
-                "max_results": max_results,
-                "include_answer": False,
-                "include_raw_content": False,
-                "include_usage": True,
-            },
+            json=payload,
         )
 
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail=f"Tavily Search returned {response.status_code}.")
 
     data = response.json()
-    results = data.get("results", [])[:max_results]
+    results = sorted(
+        data.get("results", [])[:max_results],
+        key=lambda item: parse_result_date(result_date(item)),
+        reverse=True,
+    )
 
     parsed: list[SearchResult] = []
     for index, item in enumerate(results):
@@ -114,6 +142,7 @@ async def tavily_search(question: str, *, max_results: int) -> list[SearchResult
                 title=item.get("title") or "Untitled",
                 url=item.get("url") or "",
                 snippet=item.get("content") or item.get("raw_content") or "",
+                published_date=result_date(item),
             )
         )
 
@@ -211,7 +240,11 @@ async def health() -> dict[str, Any]:
 
 @app.post("/search")
 async def search(request: WebSearchRequest) -> dict[str, Any]:
-    results = await tavily_search(request.question, max_results=request.search.max_results)
+    results = await tavily_search(
+        request.question,
+        max_results=request.search.max_results,
+        time_range=request.search.time_range,
+    )
     pages = [await fetch_page(result, request.fetch) for result in results]
 
     chunks = []
@@ -236,6 +269,7 @@ async def search(request: WebSearchRequest) -> dict[str, Any]:
                 "index": page.source.index,
                 "title": page.source.title,
                 "url": page.source.url,
+                "published_date": page.source.published_date,
                 "fetched": page.fetched,
                 "extraction_method": page.extraction_method,
                 "score": max((chunk.score for chunk in ranked if chunk.source_index == page.source.index), default=0),
