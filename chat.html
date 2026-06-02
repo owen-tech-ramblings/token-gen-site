@@ -39,6 +39,32 @@
             <input id="chatReasoning" type="checkbox" />
             <span>Show reasoning mode</span>
           </label>
+          <section class="chat-doc-panel" aria-label="Document context settings">
+            <div class="chat-doc-head">
+              <div>
+                <span class="label">Documents</span>
+                <p class="chat-web-note" id="chatDocStatus">No documents attached.</p>
+              </div>
+              <button class="btn" id="chatDocClear" type="button">Clear</button>
+            </div>
+            <label class="chat-file-button" for="chatDocuments">
+              <span>Upload documents</span>
+              <input
+                id="chatDocuments"
+                type="file"
+                multiple
+                accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.pdf,.docx,.rtf,.js,.ts,.tsx,.jsx,.py,.ps1,.sh,.sql,.css"
+              />
+            </label>
+            <div class="chat-control-grid">
+              <label class="label" for="chatDocBudget">Context share</label>
+              <input id="chatDocBudget" class="input" type="number" min="30" max="75" step="5" value="30" />
+            </div>
+            <div class="chat-doc-meter" aria-label="Document context budget">
+              <span id="chatDocMeter"></span>
+            </div>
+            <div class="chat-doc-list" id="chatDocList"></div>
+          </section>
           <section class="chat-web-panel" aria-label="Web context settings">
             <label class="chat-toggle">
               <input id="chatWebSearch" type="checkbox" />
@@ -71,6 +97,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-smart-limits-20260601"></script>
+    <script type="module" src="./chat.js?v=token-chat-documents-20260603"></script>
   </body>
 </html>

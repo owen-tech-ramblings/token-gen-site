@@ -8,6 +8,12 @@ const els = {
   temperature: $("#chatTemperature"),
   maxTokens: $("#chatMaxTokens"),
   reasoning: $("#chatReasoning"),
+  documents: $("#chatDocuments"),
+  docBudget: $("#chatDocBudget"),
+  docStatus: $("#chatDocStatus"),
+  docMeter: $("#chatDocMeter"),
+  docList: $("#chatDocList"),
+  docClear: $("#chatDocClear"),
   webSearch: $("#chatWebSearch"),
   webFetchMode: $("#chatWebFetchMode"),
   webResults: $("#chatWebResults"),
@@ -27,6 +33,16 @@ let messages = [
   },
 ];
 let webSearchSupported = false;
+let availableModels = [];
+let uploadedDocuments = [];
+let mammothLoader = null;
+
+const DEFAULT_CONTEXT_WINDOW = 131072;
+const TOKEN_CHARS = 4;
+const SUPPORTED_TEXT_EXTENSIONS = new Set([
+  "txt", "md", "markdown", "csv", "json", "jsonl", "html", "htm", "xml", "yaml", "yml", "log",
+  "js", "ts", "tsx", "jsx", "py", "ps1", "sh", "sql", "css", "rtf",
+]);
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -41,9 +57,199 @@ function modelLabel(id) {
   return String(id || "").split("/").filter(Boolean).pop() || id || "model";
 }
 
+function estimateTokens(text) {
+  return Math.ceil(String(text || "").length / TOKEN_CHARS);
+}
+
+function clampNumber(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+}
+
+function getSelectedModel() {
+  return availableModels.find((model) => model.id === els.model.value) || availableModels[0] || {};
+}
+
+function getModelContextWindow(model = getSelectedModel()) {
+  const candidates = [
+    model.max_model_len,
+    model.maxModelLen,
+    model.max_context_length,
+    model.max_context_tokens,
+    model.context_length,
+    model.context_window,
+    model.max_sequence_length,
+  ];
+  const nested = model.metadata || model.config || model.extra || {};
+  candidates.push(
+    nested.max_model_len,
+    nested.max_context_length,
+    nested.context_length,
+    nested.context_window,
+  );
+  const detected = candidates.find((value) => Number.isFinite(Number(value)) && Number(value) > 0);
+  return Number(detected || els.maxTokens.max || DEFAULT_CONTEXT_WINDOW);
+}
+
+function getDocumentBudgetPercent() {
+  return clampNumber(els.docBudget.value, 30, 30, 75);
+}
+
+function getDocumentBudgetTokens() {
+  return Math.floor(getModelContextWindow() * (getDocumentBudgetPercent() / 100));
+}
+
 function setStatus(text, state = "neutral") {
   els.status.textContent = text;
   els.status.dataset.state = state;
+}
+
+function formatNumber(value) {
+  return Math.round(Number(value || 0)).toLocaleString("en-AU");
+}
+
+function fileExtension(name) {
+  return String(name || "").split(".").pop()?.toLowerCase() || "";
+}
+
+function stripHtml(text) {
+  const doc = new DOMParser().parseFromString(String(text || ""), "text/html");
+  doc.querySelectorAll("script,style,noscript,template").forEach((node) => node.remove());
+  return doc.body?.textContent?.replace(/\s+\n/g, "\n").replace(/[ \t]{2,}/g, " ").trim() || "";
+}
+
+function stripRtf(text) {
+  return String(text || "")
+    .replace(/\\'[0-9a-fA-F]{2}/g, " ")
+    .replace(/\\[a-zA-Z]+\d* ?/g, " ")
+    .replace(/[{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeDocumentText(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(/\u0000/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+}
+
+async function readTextFile(file) {
+  const text = await file.text();
+  const extension = fileExtension(file.name);
+  if (extension === "html" || extension === "htm" || file.type === "text/html") return stripHtml(text);
+  if (extension === "rtf" || file.type === "application/rtf") return stripRtf(text);
+  return text;
+}
+
+async function loadPdfJs() {
+  const pdfjs = await import("https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs");
+  pdfjs.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs";
+  return pdfjs;
+}
+
+async function readPdfFile(file) {
+  const pdfjs = await loadPdfJs();
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pages.push(content.items.map((item) => item.str).join(" "));
+  }
+  return pages.join("\n\n");
+}
+
+function loadMammoth() {
+  if (window.mammoth) return Promise.resolve(window.mammoth);
+  if (mammothLoader) return mammothLoader;
+  mammothLoader = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js";
+    script.async = true;
+    script.onload = () => window.mammoth ? resolve(window.mammoth) : reject(new Error("DOCX parser did not load."));
+    script.onerror = () => reject(new Error("Could not load DOCX parser."));
+    document.head.appendChild(script);
+  });
+  return mammothLoader;
+}
+
+async function readDocxFile(file) {
+  const mammoth = await loadMammoth();
+  const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+  return result.value || "";
+}
+
+async function extractDocument(file) {
+  const extension = fileExtension(file.name);
+  let text = "";
+  if (extension === "pdf" || file.type === "application/pdf") {
+    text = await readPdfFile(file);
+  } else if (extension === "docx" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    text = await readDocxFile(file);
+  } else if (SUPPORTED_TEXT_EXTENSIONS.has(extension) || file.type.startsWith("text/")) {
+    text = await readTextFile(file);
+  } else {
+    throw new Error("Unsupported file type. Use PDF, DOCX, TXT, Markdown, CSV, JSON, HTML, XML, YAML, code, log, or RTF files.");
+  }
+  const normalized = normalizeDocumentText(text);
+  if (!normalized) throw new Error("No readable text was found in this file.");
+  return {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    name: file.name,
+    type: file.type || extension.toUpperCase(),
+    chars: normalized.length,
+    tokens: estimateTokens(normalized),
+    text: normalized,
+  };
+}
+
+function documentTokenTotal(docs = uploadedDocuments) {
+  return docs.reduce((total, doc) => total + doc.tokens, 0);
+}
+
+function renderDocuments() {
+  const total = documentTokenTotal();
+  const budget = getDocumentBudgetTokens();
+  const percentUsed = budget ? Math.min(100, (total / budget) * 100) : 0;
+  const overBudget = total > budget;
+  els.docBudget.value = String(getDocumentBudgetPercent());
+  els.docMeter.style.width = `${percentUsed}%`;
+  els.docMeter.dataset.state = overBudget ? "bad" : total ? "good" : "neutral";
+  els.docStatus.textContent = uploadedDocuments.length
+    ? `${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"} using ${formatNumber(total)} of ${formatNumber(budget)} tokens.`
+    : `No documents attached. Budget is ${formatNumber(budget)} tokens.`;
+  els.docStatus.dataset.state = overBudget ? "bad" : total ? "good" : "neutral";
+  els.docList.innerHTML = uploadedDocuments.map((doc) => `
+    <div class="chat-doc-item">
+      <div>
+        <strong title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</strong>
+        <span>${formatNumber(doc.tokens)} tokens</span>
+      </div>
+      <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">Remove</button>
+    </div>
+  `).join("");
+  els.send.disabled = overBudget;
+}
+
+function buildDocumentContextMessage() {
+  if (!uploadedDocuments.length) return null;
+  const sections = uploadedDocuments.map((doc, index) => [
+    `Document ${index + 1}: ${doc.name}`,
+    `Estimated tokens: ${doc.tokens}`,
+    doc.text,
+  ].join("\n"));
+  return {
+    role: "system",
+    content: [
+      "The user uploaded the following document context. Use it when relevant, cite document names when answering from it, and ignore it when it is not relevant.",
+      ...sections.map((section) => `<document>\n${section}\n</document>`),
+    ].join("\n\n"),
+  };
 }
 
 function renderMessages(pending = false) {
@@ -110,6 +316,7 @@ function attachWebContext(index, context) {
 
 function buildPayload() {
   const system = els.system.value.trim();
+  const documentContext = buildDocumentContextMessage();
   const history = messages
     .filter((message) => message.role === "user" || message.role === "assistant")
     .slice(1)
@@ -119,6 +326,7 @@ function buildPayload() {
     model: els.model.value,
     messages: [
       ...(system ? [{ role: "system", content: system }] : []),
+      ...(documentContext ? [documentContext] : []),
       ...history,
     ],
     temperature: Number(els.temperature.value || 0.3),
@@ -145,9 +353,13 @@ async function loadModels() {
   const json = await res.json();
   if (!res.ok || !json.ok) throw new Error(json.error || "Could not load models");
   const models = Array.isArray(json.data?.data) ? json.data.data : [];
+  availableModels = models;
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
   if (!models.length) throw new Error("No VLLM models returned");
+  const contextWindow = getModelContextWindow(models[0]);
+  els.maxTokens.max = String(contextWindow);
   setStatus(`Connected to ${modelLabel(models[0].id)}`, "good");
+  renderDocuments();
 }
 
 async function loadWebSearchCapability() {
@@ -180,6 +392,10 @@ async function loadWebSearchCapability() {
 }
 
 async function sendMessage(content) {
+  if (documentTokenTotal() > getDocumentBudgetTokens()) {
+    setStatus("Document context is over budget", "bad");
+    return;
+  }
   messages.push({ role: "user", content });
   renderMessages(true);
   els.send.disabled = true;
@@ -282,6 +498,52 @@ els.input.addEventListener("keydown", (event) => {
 
 els.input.addEventListener("input", autosizeInput);
 
+els.model.addEventListener("change", () => {
+  els.maxTokens.max = String(getModelContextWindow());
+  renderDocuments();
+});
+
+els.docBudget.addEventListener("input", renderDocuments);
+
+els.documents.addEventListener("change", async () => {
+  const files = Array.from(els.documents.files || []);
+  if (!files.length) return;
+  els.documents.disabled = true;
+  setStatus(`Reading ${files.length} document${files.length === 1 ? "" : "s"}...`, "busy");
+  try {
+    const nextDocuments = [...uploadedDocuments];
+    for (const file of files) {
+      const doc = await extractDocument(file);
+      const totalIfAdded = documentTokenTotal(nextDocuments) + doc.tokens;
+      if (totalIfAdded > getDocumentBudgetTokens()) {
+        throw new Error(`${file.name} would exceed the document context budget.`);
+      }
+      nextDocuments.push(doc);
+    }
+    uploadedDocuments = nextDocuments;
+    renderDocuments();
+    setStatus(`Attached ${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"}`, "good");
+  } catch (error) {
+    setStatus(error.message, "bad");
+  } finally {
+    els.documents.value = "";
+    els.documents.disabled = false;
+    renderDocuments();
+  }
+});
+
+els.docList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-doc-id]");
+  if (!button) return;
+  uploadedDocuments = uploadedDocuments.filter((doc) => doc.id !== button.dataset.docId);
+  renderDocuments();
+});
+
+els.docClear.addEventListener("click", () => {
+  uploadedDocuments = [];
+  renderDocuments();
+});
+
 els.clear.addEventListener("click", () => {
   messages = [{ role: "assistant", content: "New chat started." }];
   renderMessages(false);
@@ -289,6 +551,7 @@ els.clear.addEventListener("click", () => {
 });
 
 renderMessages(false);
+renderDocuments();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
