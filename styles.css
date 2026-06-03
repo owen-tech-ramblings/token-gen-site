@@ -1439,7 +1439,7 @@ select option { color: var(--color-text-primary); background: #0f1729; }
 .chat-composer {
   padding: 14px;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: end;
   border-top: 1px solid var(--color-border-soft);
@@ -1448,7 +1448,9 @@ select option { color: var(--color-text-primary); background: #0f1729; }
 
 .chat-input-shell {
   display: grid;
-  gap: 6px;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: end;
   min-width: 0;
 }
 
@@ -1474,9 +1476,10 @@ select option { color: var(--color-text-primary); background: #0f1729; }
 
 .chat-attach-button input {
   position: absolute;
-  inset: 0;
+  width: 1px;
+  height: 1px;
   opacity: 0;
-  cursor: pointer;
+  pointer-events: none;
 }
 
 .chat-composer textarea {
