@@ -212,6 +212,14 @@ function documentTokenTotal(docs = uploadedDocuments) {
   return docs.reduce((total, doc) => total + doc.tokens, 0);
 }
 
+function documentBadge(name) {
+  const extension = fileExtension(name);
+  if (!extension) return "DOC";
+  if (extension === "markdown") return "MD";
+  if (extension === "yaml") return "YML";
+  return extension.slice(0, 4).toUpperCase();
+}
+
 function renderDocuments() {
   const total = documentTokenTotal();
   const budget = getDocumentBudgetTokens();
@@ -226,11 +234,12 @@ function renderDocuments() {
   els.docStatus.dataset.state = overBudget ? "bad" : total ? "good" : "neutral";
   els.docList.innerHTML = uploadedDocuments.map((doc) => `
     <div class="chat-doc-item">
+      <div class="chat-doc-badge">${escapeHtml(documentBadge(doc.name))}</div>
       <div>
         <strong title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</strong>
         <span>${formatNumber(doc.tokens)} tokens</span>
       </div>
-      <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">Remove</button>
+      <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">x</button>
     </div>
   `).join("");
   els.send.disabled = overBudget;
