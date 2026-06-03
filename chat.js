@@ -326,6 +326,10 @@ function attachWebContext(index, context) {
 function buildPayload() {
   const system = els.system.value.trim();
   const documentContext = buildDocumentContextMessage();
+  const systemParts = [
+    ...(system ? [system] : []),
+    ...(documentContext?.content ? [documentContext.content] : []),
+  ];
   const history = messages
     .filter((message) => message.role === "user" || message.role === "assistant")
     .slice(1)
@@ -334,8 +338,7 @@ function buildPayload() {
   return {
     model: els.model.value,
     messages: [
-      ...(system ? [{ role: "system", content: system }] : []),
-      ...(documentContext ? [documentContext] : []),
+      ...(systemParts.length ? [{ role: "system", content: systemParts.join("\n\n") }] : []),
       ...history,
     ],
     temperature: Number(els.temperature.value || 0.3),
