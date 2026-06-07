@@ -1483,6 +1483,33 @@ async function loadServerDetailsEndpoint(endpoint) {
   }
 }
 
+function normalizePublicGpu(gpuBody = {}) {
+  const gpus = Array.isArray(gpuBody.gpus) ? gpuBody.gpus.map((gpu) => {
+    const total = Number(gpu.memory_total_mb);
+    const used = Number(gpu.memory_used_mb);
+    const free = Number(gpu.memory_free_mb);
+    return {
+      ...gpu,
+      memory_free_mb: Number.isFinite(free) ? free : (Number.isFinite(total) && Number.isFinite(used) ? Math.max(0, total - used) : undefined),
+    };
+  }) : [];
+  return { ...gpuBody, gpus };
+}
+
+function normalizePublicVllm(vllmBody = {}) {
+  const activeModel = vllmBody.active_model || vllmBody.runtime_counters?.model_name || "";
+  const available = Array.isArray(vllmBody.available) ? vllmBody.available : (activeModel ? [{
+    is_active: true,
+    name: baseName(activeModel),
+    path: activeModel,
+  }] : []);
+  return {
+    ...vllmBody,
+    active: vllmBody.active || (activeModel ? { id: activeModel, name: baseName(activeModel) } : null),
+    available,
+  };
+}
+
 async function loadServerDetails() {
   const [health, publicStatus] = await Promise.all([
     loadServerDetailsEndpoint("health"),
@@ -1496,8 +1523,8 @@ async function loadServerDetails() {
     url: publicStatus.url,
   };
   const status = { ...publicStatusMeta, endpoint: "status", body: publicBody };
-  const vllm = { ...publicStatusMeta, endpoint: "vllm", body: publicBody.vllm || {} };
-  const gpu = { ...publicStatusMeta, endpoint: "gpu", body: publicBody.gpu || {} };
+  const vllm = { ...publicStatusMeta, endpoint: "vllm", body: normalizePublicVllm(publicBody.vllm || {}) };
+  const gpu = { ...publicStatusMeta, endpoint: "gpu", body: normalizePublicGpu(publicBody.gpu || {}) };
   return { health, status, vllm, gpu, loadedAt: new Date().toISOString(), apiBaseUrl: LIVE_SERVER_DETAILS_BASE_URL };
 }
 
