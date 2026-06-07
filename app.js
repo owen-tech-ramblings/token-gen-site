@@ -1748,27 +1748,11 @@ function renderServerMonitorPage(serverDetails) {
   const gpuWrap = $("#gpuStatusWrap");
   if (gpuWrap) {
     if (gpuList.length) {
-      const showGpuDriver = gpuList.some((gpu) => deepGet(gpu, ["driver_version", "driver"]));
-      const showGpuUuid = gpuList.some((gpu) => deepGet(gpu, ["uuid", "gpu_uuid"]));
-      const formatPowerPair = (draw, limit) => {
-        const drawText = formatWatts(draw);
-        const limitText = formatWatts(limit);
-        return limitText === "—" ? drawText : `${drawText} / ${limitText}`;
-      };
       const gpuCards = gpuList.map((gpu, idx) => {
         const used = deepGet(gpu, ["memory_used_mb", "memory_used", "memory.used", "mem_used", "used_memory"]);
         const total = deepGet(gpu, ["memory_total_mb", "memory_total", "memory.total", "mem_total", "total_memory"]);
         const free = deepGet(gpu, ["memory_free_mb", "memory_free", "memory.free"]);
         const memPct = pctUsed(used, total);
-        const detailRows = [
-          ["Memory", `${formatMb(used)} / ${formatMb(total)}`],
-          ["Free", formatMb(free)],
-          ["Temperature", formatTemp(gpu.temperature_c)],
-          ["Fan", formatPct(gpu.fan_speed_percent)],
-          ["Power", formatPowerPair(gpu.power_draw_watts, gpu.power_limit_watts)],
-        ];
-        if (showGpuDriver) detailRows.push(["Driver", deepGet(gpu, ["driver_version", "driver"])]);
-        if (showGpuUuid) detailRows.push(["UUID", deepGet(gpu, ["uuid", "gpu_uuid"])]);
         return `
           <article class="project-card server-gpu-card">
             <div class="card-head">
@@ -1777,14 +1761,22 @@ function renderServerMonitorPage(serverDetails) {
             </div>
             <p class="muted">${escapeHtml(gpu.name || "NVIDIA GPU")}</p>
             <div class="server-meter server-meter-compact"><span style="width:${memPct}%"></span></div>
-            ${renderKeyValueTable(detailRows)}
+            ${renderKeyValueTable([
+              ["Memory", `${formatMb(used)} / ${formatMb(total)}`],
+              ["Free", formatMb(free)],
+              ["Temperature", formatTemp(gpu.temperature_c)],
+              ["Fan", formatPct(gpu.fan_speed_percent)],
+              ["Power", `${formatWatts(gpu.power_draw_watts)} / ${formatWatts(gpu.power_limit_watts)}`],
+              ["Driver", gpu.driver_version],
+              ["UUID", gpu.uuid],
+            ])}
           </article>
         `;
       }).join("");
       gpuWrap.innerHTML = `
         <div class="server-monitor-grid mb-3">${gpuCards}</div>
         <div class="table-wrap"><table class="table">
-          <thead><tr><th>#</th><th>GPU</th><th>Util</th><th>Memory used</th><th>Free</th><th>Temp</th><th>Fan</th><th>Power</th>${showGpuDriver ? "<th>Driver</th>" : ""}${showGpuUuid ? "<th>UUID</th>" : ""}</tr></thead>
+          <thead><tr><th>#</th><th>GPU</th><th>Util</th><th>Memory used</th><th>Free</th><th>Temp</th><th>Fan</th><th>Power</th><th>Driver</th></tr></thead>
           <tbody>${gpuList.map((gpu, idx) => {
             const used = deepGet(gpu, ["memory_used_mb", "memory_used", "memory.used", "mem_used", "used_memory"]);
             const total = deepGet(gpu, ["memory_total_mb", "memory_total", "memory.total", "mem_total", "total_memory"]);
@@ -1796,9 +1788,8 @@ function renderServerMonitorPage(serverDetails) {
               <td>${escapeHtml(formatMb(deepGet(gpu, ["memory_free_mb", "memory_free", "memory.free"])))}</td>
               <td>${escapeHtml(formatTemp(deepGet(gpu, ["temperature_c", "temperature", "temperature_gpu", "temp"])))}</td>
               <td>${escapeHtml(formatPct(deepGet(gpu, ["fan_speed_percent", "fan_speed", "fan"])))}</td>
-              <td>${escapeHtml(formatPowerPair(deepGet(gpu, ["power_draw_watts", "power_draw", "power", "power_watts"]), gpu.power_limit_watts))}</td>
-              ${showGpuDriver ? `<td>${escapeHtml(deepGet(gpu, ["driver_version", "driver"]) || "—")}</td>` : ""}
-              ${showGpuUuid ? `<td>${escapeHtml(deepGet(gpu, ["uuid", "gpu_uuid"]) || "—")}</td>` : ""}
+              <td>${escapeHtml(`${formatWatts(deepGet(gpu, ["power_draw_watts", "power_draw", "power", "power_watts"]))} / ${formatWatts(gpu.power_limit_watts)}`)}</td>
+              <td>${escapeHtml(gpu.driver_version || "—")}</td>
             </tr>`;
           }).join("")}</tbody>
         </table></div>
