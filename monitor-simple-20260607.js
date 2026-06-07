@@ -44,6 +44,24 @@ function formatPct(value) {
   return `${n.toFixed(1).replace(/\.0$/, "")}%`;
 }
 
+function formatTokenRate(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value ?? "-";
+  return `${n.toFixed(1)} tok/s`;
+}
+
+function formatElapsedSeconds(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value ?? "-";
+  if (n < 60) return `${Math.round(n)}s`;
+  const minutes = Math.floor(n / 60);
+  const seconds = Math.round(n % 60);
+  if (minutes < 60) return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remMinutes = minutes % 60;
+  return remMinutes ? `${hours}h ${remMinutes}m` : `${hours}h`;
+}
+
 function formatWatts(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return value ?? "-";
@@ -291,10 +309,10 @@ function renderVllm(payload) {
         const row = rates[key] || {};
         return `<tr>
           <td>${escapeHtml(key)}</td>
-          <td>${escapeHtml(row.total_tokens_per_second ?? "-")}</td>
-          <td>${escapeHtml(row.prompt_tokens_per_second ?? "-")}</td>
-          <td>${escapeHtml(row.generation_tokens_per_second ?? "-")}</td>
-          <td>${escapeHtml(row.elapsed_seconds ?? "-")}</td>
+          <td>${escapeHtml(formatTokenRate(row.total_tokens_per_second))}</td>
+          <td>${escapeHtml(formatTokenRate(row.prompt_tokens_per_second))}</td>
+          <td>${escapeHtml(formatTokenRate(row.generation_tokens_per_second))}</td>
+          <td>${escapeHtml(formatElapsedSeconds(row.elapsed_seconds))}</td>
         </tr>`;
       }).join("")}</tbody>
     </table></div>
@@ -342,6 +360,7 @@ function renderTemperatures(payload) {
 function renderLaunchAndStorage(payload) {
   const vllm = payload.publicStatus?.vllm || {};
   const rates = vllm.token_rates || {};
+  const storage = rates.storage;
   $("#vllmLaunchWrap").innerHTML = `
     <div class="server-monitor-grid">
       <article class="project-card">
@@ -354,12 +373,12 @@ function renderLaunchAndStorage(payload) {
       </article>
       <article class="project-card">
         <h3>Token-rate storage</h3>
-        ${table([
+        ${storage ? table([
           ["Mode", rates.storage?.mode],
           ["Database", rates.storage?.database],
           ["Primary database", rates.storage?.primary_database],
           ["Fallback database", rates.storage?.fallback_database],
-        ])}
+        ]) : `<p class="muted">No token-rate storage data is included in public-status. Storage details are available only from authenticated API endpoints.</p>`}
       </article>
     </div>
   `;
