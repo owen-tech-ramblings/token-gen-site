@@ -1515,6 +1515,20 @@ async function loadServerDetails() {
     loadServerDetailsEndpoint("health"),
     loadServerDetailsEndpoint("publicStatus"),
   ]);
+  if (!publicStatus.ok) {
+    const errorBody = {
+      error: publicStatus.body?.error || `HTTP ${publicStatus.status || "n/a"}`,
+      source: publicStatus.url,
+    };
+    return {
+      health,
+      status: { ...publicStatus, endpoint: "status", body: errorBody },
+      vllm: { ...publicStatus, endpoint: "vllm", body: errorBody },
+      gpu: { ...publicStatus, endpoint: "gpu", body: errorBody },
+      loadedAt: new Date().toISOString(),
+      apiBaseUrl: LIVE_SERVER_DETAILS_BASE_URL,
+    };
+  }
   const publicBody = serverPayload(publicStatus);
   const publicStatusMeta = {
     ok: publicStatus.ok,
@@ -1694,14 +1708,25 @@ function renderServerMonitorPage(serverDetails) {
     freshness.textContent = `Updated ${fmtDateTime(serverDetails.loadedAt)} - ${apiStatus} - ${gpuStatus} - ${vllmStatus}`;
   }
 
-  stats.innerHTML = [
-    ["vLLM", formatTokenRate(vllmBody?.token_rates?.["1m"]), baseName(activeModel)],
-    ["GPU Memory", `${gpuMemPct.toFixed(1)}%`, `${formatMb(gpuUsedMb)} / ${formatMb(gpuTotalMb)}`],
-    ["System Memory", `${sysMemPct.toFixed(1)}%`, `${formatMaybeBytes(sysUsedBytes)} / ${formatMaybeBytes(sysTotalBytes)}`],
-    ["GPU Util", avgUtil !== undefined ? `${avgUtil.toFixed(0)}%` : "—", `${gpuList.length || gpuCount} devices`],
-    ["GPU Power", totalPower !== undefined ? formatWatts(totalPower) : "—", `Peak ${Number.isFinite(maxTemp) ? formatTemp(maxTemp) : "—"}`],
-    ["Requests", `${deepGet(vllmBody, ["runtime_counters.requests_running"]) ?? 0} running`, `${deepGet(vllmBody, ["runtime_counters.requests_waiting"]) ?? 0} waiting`],
-  ].map(([l, v, s]) => `<article class="server-panel server-metric"><div class="label">${escapeHtml(l)}</div><div class="metric">${escapeHtml(v)}</div><div class="muted">${escapeHtml(s || "")}</div></article>`).join("");
+  if (!serverDetails.status?.ok) {
+    stats.innerHTML = `
+      <article class="server-panel server-metric server-full">
+        <div class="label warn">Monitor API unavailable</div>
+        <div class="metric">No live stats loaded</div>
+        <div class="muted">${escapeHtml(statusBody.error || "The browser could not load the public status endpoint.")}</div>
+        <div class="muted">${escapeHtml(statusBody.source || `${LIVE_SERVER_DETAILS_BASE_URL}/api/public-status`)}</div>
+      </article>
+    `;
+  } else {
+    stats.innerHTML = [
+      ["vLLM", formatTokenRate(vllmBody?.token_rates?.["1m"]), baseName(activeModel)],
+      ["GPU Memory", `${gpuMemPct.toFixed(1)}%`, `${formatMb(gpuUsedMb)} / ${formatMb(gpuTotalMb)}`],
+      ["System Memory", `${sysMemPct.toFixed(1)}%`, `${formatMaybeBytes(sysUsedBytes)} / ${formatMaybeBytes(sysTotalBytes)}`],
+      ["GPU Util", avgUtil !== undefined ? `${avgUtil.toFixed(0)}%` : "—", `${gpuList.length || gpuCount} devices`],
+      ["GPU Power", totalPower !== undefined ? formatWatts(totalPower) : "—", `Peak ${Number.isFinite(maxTemp) ? formatTemp(maxTemp) : "—"}`],
+      ["Requests", `${deepGet(vllmBody, ["runtime_counters.requests_running"]) ?? 0} running`, `${deepGet(vllmBody, ["runtime_counters.requests_waiting"]) ?? 0} waiting`],
+    ].map(([l, v, s]) => `<article class="server-panel server-metric"><div class="label">${escapeHtml(l)}</div><div class="metric">${escapeHtml(v)}</div><div class="muted">${escapeHtml(s || "")}</div></article>`).join("");
+  }
 
   const summary = $("#serverStatusSummary");
   if (summary) {
@@ -1712,7 +1737,7 @@ function renderServerMonitorPage(serverDetails) {
           ${renderKeyValueTable([
             ["Health endpoint", serverDetails.health?.ok ? "reachable" : serverDetails.health?.body?.error || `HTTP ${serverDetails.health?.status || "n/a"}`],
             ["Runtime API", serverDetails.apiBaseUrl || "—"],
-            ["Authenticated status", serverDetails.status?.ok ? "reachable" : serverDetails.status?.body?.error || `HTTP ${serverDetails.status?.status || "n/a"}`],
+            ["Public status", serverDetails.status?.ok ? "reachable" : serverDetails.status?.body?.error || `HTTP ${serverDetails.status?.status || "n/a"}`],
             ["Host", host || "—"],
             ["FQDN", statusBody.fqdn || "—"],
             ["Uptime", formatSeconds(uptime)],
