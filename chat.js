@@ -38,6 +38,7 @@ let uploadedDocuments = [];
 let mammothLoader = null;
 
 const DEFAULT_CONTEXT_WINDOW = 131072;
+const DEFAULT_CHAT_MODEL = "Qwen-Qwen3.6-27B-FP8";
 const TOKEN_CHARS = 4;
 const SUPPORTED_TEXT_EXTENSIONS = new Set([
   "txt", "md", "markdown", "csv", "json", "jsonl", "html", "htm", "xml", "yaml", "yml", "log",
@@ -360,14 +361,47 @@ function extractAssistantMessage(data) {
   return JSON.stringify(data, null, 2);
 }
 
+async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    const json = await res.json().catch(() => ({}));
+    return { res, json };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function applyModelFallback(reason = "model discovery failed") {
+  const fallback = { id: DEFAULT_CHAT_MODEL, max_model_len: DEFAULT_CONTEXT_WINDOW };
+  availableModels = [fallback];
+  els.model.innerHTML = `<option value="${escapeHtml(fallback.id)}">${escapeHtml(modelLabel(fallback.id))}</option>`;
+  els.maxTokens.max = String(DEFAULT_CONTEXT_WINDOW);
+  setStatus(`Model discovery failed; using ${modelLabel(fallback.id)} fallback`, "bad");
+  renderDocuments();
+}
+
 async function loadModels() {
-  const res = await fetch(`${API_BASE}/api/chat/models`, { cache: "no-store" });
-  const json = await res.json();
-  if (!res.ok || !json.ok) throw new Error(json.error || "Could not load models");
+  let res;
+  let json;
+  try {
+    ({ res, json } = await fetchJsonWithTimeout(`${API_BASE}/api/chat/models`, { cache: "no-store" }));
+  } catch (error) {
+    applyModelFallback(error.name === "AbortError" ? "model discovery timed out" : error.message);
+    return;
+  }
+  if (!res.ok || !json.ok) {
+    applyModelFallback(json.error || `model discovery HTTP ${res.status}`);
+    return;
+  }
   const models = Array.isArray(json.data?.data) ? json.data.data : [];
+  if (!models.length) {
+    applyModelFallback("no models returned");
+    return;
+  }
   availableModels = models;
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
-  if (!models.length) throw new Error("No VLLM models returned");
   const contextWindow = getModelContextWindow(models[0]);
   els.maxTokens.max = String(contextWindow);
   setStatus(`Connected to ${modelLabel(models[0].id)}`, "good");
