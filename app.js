@@ -26,6 +26,7 @@ const ACTIVE_DAYS = 106; // ~3.5 months
 const BUILD_ID = "20260330-operator-email-summary-1";
 let TOKEN_PERIOD = "ytd";
 let refreshTimer = null;
+let lastGoodServerDetails = null;
 const TOKEN_FILTERS = {
   agent: [],
   project: [],
@@ -1673,6 +1674,43 @@ function serverPayload(result) {
   return result?.body?.data ?? result?.body ?? {};
 }
 
+function hasUsableServerDetails(serverDetails) {
+  const statusBody = serverPayload(serverDetails?.status);
+  const gpuBody = serverPayload(serverDetails?.gpu);
+  const gpuList = findFirstArray(gpuBody, ["gpus", "gpu", "devices", "data.gpus", "data.devices"]);
+  const gpuUsedMb = deepGet(gpuBody, ["memory_used_mb", "memory.used_mb"]);
+  const gpuTotalMb = deepGet(gpuBody, ["memory_total_mb", "memory.total_mb"]);
+  const sysUsedBytes = deepGet(statusBody, ["memory.used_bytes", "memory.used", "mem.used", "system.memory.used", "data.memory.used"]);
+  const sysTotalBytes = deepGet(statusBody, ["memory.total_bytes", "memory.total", "mem.total", "system.memory.total", "data.memory.total"]);
+  const hasGpuTotals = Number.isFinite(Number(gpuUsedMb)) && Number.isFinite(Number(gpuTotalMb)) && Number(gpuTotalMb) > 0;
+  const hasGpuList = gpuList.some((gpu) => Number.isFinite(Number(deepGet(gpu, ["memory_total_mb", "memory_total", "memory.total", "mem_total", "total_memory"]))));
+  const hasSystemMemory = Number.isFinite(Number(sysUsedBytes)) && Number.isFinite(Number(sysTotalBytes)) && Number(sysTotalBytes) > 0;
+  return Boolean(serverDetails?.status?.ok && serverDetails?.gpu?.ok && hasSystemMemory && (hasGpuTotals || hasGpuList));
+}
+
+function markServerMonitorUsingLastGood(lastGood, latest) {
+  const freshness = $("#serverMonitorFreshness");
+  if (!freshness) return;
+  freshness.classList.add("warn");
+  const latestStatus = latest?.status?.status || latest?.gpu?.status || "n/a";
+  freshness.textContent = `Keeping last good stats from ${fmtDateTime(lastGood.loadedAt)} - latest refresh had incomplete stats (HTTP ${latestStatus})`;
+}
+
+async function refreshServerMonitorPage() {
+  const next = await loadServerDetails();
+  if (hasUsableServerDetails(next)) {
+    lastGoodServerDetails = next;
+    renderServerMonitorPage(next);
+    return next;
+  }
+  if (lastGoodServerDetails) {
+    markServerMonitorUsingLastGood(lastGoodServerDetails, next);
+    return lastGoodServerDetails;
+  }
+  renderServerMonitorPage(next);
+  return next;
+}
+
 function renderServerMonitorPage(serverDetails) {
   const stats = $("#serverMonitorStats");
   if (!stats) return;
@@ -2004,8 +2042,7 @@ function renderServerMonitorPage(serverDetails) {
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
       refresh.textContent = "Refreshing...";
-      const next = await loadServerDetails();
-      renderServerMonitorPage(next);
+      await refreshServerMonitorPage();
       refresh.disabled = false;
       refresh.textContent = "Refresh";
     });
@@ -5452,7 +5489,7 @@ async function modelUsageFromJson(cfg) {
 
 async function boot() {
   if ($("#serverMonitorStats")) {
-    renderServerMonitorPage(await loadServerDetails());
+    await refreshServerMonitorPage();
     return;
   }
 
