@@ -1459,9 +1459,7 @@ function renderSystemPage(statusMetrics) {
 const LIVE_SERVER_DETAILS_BASE_URL = "https://token-gen-api.owenonthenet.com";
 const LIVE_SERVER_DETAILS_PATHS = {
   health: "/api/health",
-  status: "/api/status",
-  vllm: "/api/vllm",
-  gpu: "/api/gpu",
+  publicStatus: "/api/public-status",
 };
 
 async function loadServerDetailsEndpoint(endpoint) {
@@ -1486,12 +1484,20 @@ async function loadServerDetailsEndpoint(endpoint) {
 }
 
 async function loadServerDetails() {
-  const [health, status, vllm, gpu] = await Promise.all([
+  const [health, publicStatus] = await Promise.all([
     loadServerDetailsEndpoint("health"),
-    loadServerDetailsEndpoint("status"),
-    loadServerDetailsEndpoint("vllm"),
-    loadServerDetailsEndpoint("gpu"),
+    loadServerDetailsEndpoint("publicStatus"),
   ]);
+  const publicBody = serverPayload(publicStatus);
+  const publicStatusMeta = {
+    ok: publicStatus.ok,
+    status: publicStatus.status,
+    endpoint: "publicStatus",
+    url: publicStatus.url,
+  };
+  const status = { ...publicStatusMeta, endpoint: "status", body: publicBody };
+  const vllm = { ...publicStatusMeta, endpoint: "vllm", body: publicBody.vllm || {} };
+  const gpu = { ...publicStatusMeta, endpoint: "gpu", body: publicBody.gpu || {} };
   return { health, status, vllm, gpu, loadedAt: new Date().toISOString(), apiBaseUrl: LIVE_SERVER_DETAILS_BASE_URL };
 }
 
