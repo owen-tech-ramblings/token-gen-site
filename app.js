@@ -1456,44 +1456,17 @@ function renderSystemPage(statusMetrics) {
   `;
 }
 
-let serverApiManifestCache = null;
-const TOKEN_GEN_API_MANIFEST_URL = "https://api.token-gen.owenonthenet.com/.well-known/token-gen-api.json";
-const SERVER_DETAILS_ENDPOINTS = ["health", "status", "vllm", "gpu"];
+const LIVE_SERVER_DETAILS_BASE_URL = "https://token-gen-api.owenonthenet.com";
+const LIVE_SERVER_DETAILS_PATHS = {
+  health: "/api/health",
+  status: "/api/status",
+  vllm: "/api/vllm",
+  gpu: "/api/gpu",
+};
 
-function findManifestEndpoint(manifest, endpoint) {
-  const direct = manifest?.endpoints?.[endpoint] || manifest?.api?.endpoints?.[endpoint] || manifest?.routes?.[endpoint];
-  if (direct) return direct;
-
-  const endpointLists = [manifest?.endpoints, manifest?.api?.endpoints, manifest?.routes, manifest?.resources].filter(Array.isArray);
-  for (const list of endpointLists) {
-    const found = list.find((item) => item?.name === endpoint || item?.id === endpoint || item?.key === endpoint);
-    if (found) return found;
-  }
-  return null;
-}
-
-function manifestBaseUrl(manifest) {
-  const base = manifest?.baseUrl || manifest?.base_url || manifest?.apiBaseUrl || manifest?.api_base_url || manifest?.origin || manifest?.url;
-  return base || TOKEN_GEN_API_MANIFEST_URL;
-}
-
-function endpointUrlFromManifest(manifest, endpoint) {
-  const entry = findManifestEndpoint(manifest, endpoint);
-  const raw = typeof entry === "string" ? entry : entry?.url || entry?.href || entry?.path;
-  if (!raw) throw new Error(`Manifest does not define the ${endpoint} endpoint`);
-  return new URL(raw, manifestBaseUrl(manifest)).toString();
-}
-
-async function loadServerApiManifest(options = {}) {
-  if (serverApiManifestCache && !options.force) return serverApiManifestCache;
-  const res = await fetch(`${TOKEN_GEN_API_MANIFEST_URL}?v=${Date.now()}`, { cache: "no-store" });
-  if (!res.ok) throw new Error(`API manifest HTTP ${res.status} at ${TOKEN_GEN_API_MANIFEST_URL}`);
-  serverApiManifestCache = await res.json();
-  return serverApiManifestCache;
-}
-
-async function loadServerDetailsEndpoint(endpoint, manifest) {
-  const url = endpointUrlFromManifest(manifest, endpoint);
+async function loadServerDetailsEndpoint(endpoint) {
+  const path = LIVE_SERVER_DETAILS_PATHS[endpoint];
+  const url = `${LIVE_SERVER_DETAILS_BASE_URL}${path}`;
   try {
     const res = await fetch(`${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1512,38 +1485,14 @@ async function loadServerDetailsEndpoint(endpoint, manifest) {
   }
 }
 
-function unavailableServerDetails(error) {
-  const body = {
-    error: error.message,
-    manifest_url: TOKEN_GEN_API_MANIFEST_URL,
-  };
-  return Object.fromEntries(SERVER_DETAILS_ENDPOINTS.map((endpoint) => [
-    endpoint,
-    { ok: false, status: 0, endpoint, body },
-  ]));
-}
-
-async function loadServerDetails(options = {}) {
-  try {
-    const manifest = await loadServerApiManifest(options);
-    const [health, status, vllm, gpu] = await Promise.all(SERVER_DETAILS_ENDPOINTS.map((endpoint) => loadServerDetailsEndpoint(endpoint, manifest)));
-    return {
-      health,
-      status,
-      vllm,
-      gpu,
-      manifest,
-      manifestUrl: TOKEN_GEN_API_MANIFEST_URL,
-      loadedAt: new Date().toISOString(),
-    };
-  } catch (err) {
-    return {
-      ...unavailableServerDetails(err),
-      manifestUrl: TOKEN_GEN_API_MANIFEST_URL,
-      manifestError: err.message,
-      loadedAt: new Date().toISOString(),
-    };
-  }
+async function loadServerDetails() {
+  const [health, status, vllm, gpu] = await Promise.all([
+    loadServerDetailsEndpoint("health"),
+    loadServerDetailsEndpoint("status"),
+    loadServerDetailsEndpoint("vllm"),
+    loadServerDetailsEndpoint("gpu"),
+  ]);
+  return { health, status, vllm, gpu, loadedAt: new Date().toISOString(), apiBaseUrl: LIVE_SERVER_DETAILS_BASE_URL };
 }
 
 function deepGet(obj, keys = []) {
@@ -1705,18 +1654,11 @@ function renderServerMonitorPage(serverDetails) {
     : undefined;
   const freshness = $("#serverMonitorFreshness");
   if (freshness) {
-    if (serverDetails.manifestError) {
-      freshness.textContent = `Updated ${fmtDateTime(serverDetails.loadedAt)} - API manifest unavailable: ${serverDetails.manifestError}`;
-      freshness.classList.add("warn");
-    } else {
-      freshness.classList.remove("warn");
-    }
+    freshness.classList.remove("warn");
     const apiStatus = serverDetails.status?.ok ? "status online" : `status HTTP ${serverDetails.status?.status || "n/a"}`;
     const gpuStatus = serverDetails.gpu?.ok ? "GPU online" : `GPU HTTP ${serverDetails.gpu?.status || "n/a"}`;
     const vllmStatus = serverDetails.vllm?.ok ? "vLLM online" : `vLLM HTTP ${serverDetails.vllm?.status || "n/a"}`;
-    if (!serverDetails.manifestError) {
-      freshness.textContent = `Updated ${fmtDateTime(serverDetails.loadedAt)} - ${apiStatus} - ${gpuStatus} - ${vllmStatus}`;
-    }
+    freshness.textContent = `Updated ${fmtDateTime(serverDetails.loadedAt)} - ${apiStatus} - ${gpuStatus} - ${vllmStatus}`;
   }
 
   stats.innerHTML = [
@@ -1736,7 +1678,7 @@ function renderServerMonitorPage(serverDetails) {
           <div class="card-head"><h3>Connectivity</h3>${statusChip(serverDetails.status)}</div>
           ${renderKeyValueTable([
             ["Health endpoint", serverDetails.health?.ok ? "reachable" : serverDetails.health?.body?.error || `HTTP ${serverDetails.health?.status || "n/a"}`],
-            ["API manifest", serverDetails.manifestError || serverDetails.manifestUrl || "—"],
+            ["Runtime API", serverDetails.apiBaseUrl || "—"],
             ["Authenticated status", serverDetails.status?.ok ? "reachable" : serverDetails.status?.body?.error || `HTTP ${serverDetails.status?.status || "n/a"}`],
             ["Host", host || "—"],
             ["FQDN", statusBody.fqdn || "—"],
@@ -2004,7 +1946,7 @@ function renderServerMonitorPage(serverDetails) {
     refresh.addEventListener("click", async () => {
       refresh.disabled = true;
       refresh.textContent = "Refreshing...";
-      const next = await loadServerDetails({ force: true });
+      const next = await loadServerDetails();
       renderServerMonitorPage(next);
       refresh.disabled = false;
       refresh.textContent = "Refresh";
