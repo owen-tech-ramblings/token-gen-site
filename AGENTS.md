@@ -21,6 +21,43 @@ These files are the shared context between Codex CLI sessions working on the
 Token Gen site and API gateway. Do not rely on chat memory as the source of
 truth.
 
+## Development Roles
+
+These roles apply only to development of the Token Gen API and Token Gen web
+pages.
+
+### Token-Gen Server Codex: API Producer
+
+The Codex CLI session running on the Token-Gen server owns the API producer
+side:
+
+- Node API gateway runtime and deployment
+- Python `ServerDetailsAPI` integration behind the gateway
+- vLLM upstream connectivity
+- Tavily/web-search service connectivity
+- Cloudflare tunnel service target for `token-gen-api.owenonthenet.com`
+- `.well-known/token-gen-api.json` and `/api/agent.json` API contract contents
+- route auth/CORS behavior
+- live API route verification
+
+That Codex should make API behavior true before asking the website to consume it.
+
+### This PC Codex: Web Site Builder
+
+The Codex session on this PC owns the browser/site side:
+
+- static site files for `https://token-gen.owenonthenet.com`
+- monitor and chat page rendering
+- browser-safe API consumption
+- UI states for loading, degraded API responses, and errors
+- frontend Playwright/browser verification
+- cache-busting static assets when needed
+
+This Codex should not add private tokens to browser JavaScript or work around
+missing API behavior by inventing data. If the API contract or live route is
+missing, document it in `CURRENT_STATE.md`/`HANDOFF.md` and hand it to the
+Token-Gen Server Codex.
+
 ## Architecture Rules
 
 - `https://token-gen.owenonthenet.com` is the static site.

@@ -10,6 +10,9 @@ Last updated: 2026-06-08 09:16 Australia/Sydney
   - `HANDOFF.md`
 - Documented that both Codex CLI sessions should read and update these files.
 - Documented the required public API routes and expected gateway architecture.
+- Documented development responsibilities:
+  - Token-Gen Server Codex owns the API producer/gateway/runtime side.
+  - This PC Codex owns the static website/browser-consumer side.
 
 ## Current Live Status
 
@@ -26,7 +29,10 @@ Fresh route check shows the required API routes are currently returning 200:
 
 1. Read `AGENTS.md`, `CURRENT_STATE.md`, and `HANDOFF.md`.
 2. Run `git status --short --branch`.
-3. Re-check live API routes before diagnosing monitor or chat issues:
+3. Confirm whether the task belongs to the API producer role or website builder
+   role. If the other role owns the fix, update the docs with evidence and hand
+   it off instead of papering over the boundary.
+4. Re-check live API routes before diagnosing monitor or chat issues:
 
 ```bash
 for path in /api/health /api/public-status /.well-known/token-gen-api.json /api/agent.json /api/chat/models /api/web-search/health; do
@@ -35,9 +41,8 @@ for path in /api/health /api/public-status /.well-known/token-gen-api.json /api/
 done
 ```
 
-4. Update this file before stopping with:
+5. Update this file before stopping with:
    - files changed
    - commits made
    - live verification output summary
    - remaining broken routes or risks
-

@@ -22,6 +22,20 @@ The Node gateway should proxy to:
 Python `ServerDetailsAPI` should not be the direct public browser API unless it
 also provides all required public monitor and chat routes.
 
+## Development Responsibilities
+
+These roles apply only to Token Gen API and Token Gen webpage development:
+
+- Token-Gen Server Codex is the API producer. It owns gateway/runtime routing,
+  upstream service connectivity, `.well-known`/agent API contract documents,
+  CORS/auth behavior, Cloudflare tunnel target, and live API verification.
+- This PC Codex is the web site builder. It owns static page rendering,
+  browser-safe API consumption, UI degraded/error states, frontend verification,
+  and cache-busting static assets.
+- The website should consume the API contract and live public routes. It should
+  not embed secrets, call private status routes directly, or invent values when
+  API data is absent.
+
 ## Required Public Routes
 
 - `/api/health`
@@ -69,4 +83,3 @@ Observed status:
   fall back to the default model but the gateway/vLLM route still needs fixing.
 - If `/api/public-status` or `/.well-known/token-gen-api.json` returns 404, the
   public API hostname is likely pointed at a stale gateway build or wrong service.
-
