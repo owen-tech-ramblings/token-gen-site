@@ -3,67 +3,51 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Token Gen Server - VLLM Monitor</title>
-    <link rel="stylesheet" href="./styles.css?v=server-monitor-20260522-0048" />
+    <title>Token Gen</title>
+    <link rel="stylesheet" href="./styles.css?v=token-gen-home-20260608" />
   </head>
   <body>
-    <main class="server-app">
-      <header class="server-header">
-        <div>
-          <h1>Token Gen Server</h1>
-          <p class="server-status-line" id="serverMonitorFreshness">Loading server health, GPU, and vLLM API data...</p>
+    <main class="home-app">
+      <section class="home-hero" aria-labelledby="homeTitle">
+        <div class="home-scene" aria-hidden="true">
+          <div class="home-node home-node-api">API</div>
+          <div class="home-node home-node-gpu">5x GPU</div>
+          <div class="home-node home-node-chat">Chat</div>
+          <div class="home-node home-node-games">Games</div>
+          <div class="home-beam home-beam-a"></div>
+          <div class="home-beam home-beam-b"></div>
+          <div class="home-beam home-beam-c"></div>
         </div>
-        <div class="server-header-actions">
-          <a class="btn" href="./chat.html">Chat</a>
-          <button class="btn btn-active" id="serverMonitorRefresh" type="button">Refresh</button>
+        <div class="home-copy">
+          <p class="home-kicker">Cloudflare Access protected</p>
+          <h1 id="homeTitle">Token Gen</h1>
+          <p class="home-lede">Local vLLM operations, chat, and experiments from the token-gen server.</p>
         </div>
-      </header>
-
-      <section class="server-grid" id="serverMonitorStats"></section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head">
-          <h2>Server health and status</h2>
-        </div>
-        <div id="serverStatusSummary"></div>
       </section>
 
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>GPU / nvidia-smi telemetry</h2></div>
-        <div id="gpuStatusWrap"></div>
-      </section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>Temperature sensors</h2></div>
-        <div id="temperatureStatusWrap"></div>
-      </section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>vLLM runtime</h2></div>
-        <div id="vllmStatusWrap"></div>
-      </section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>Token rates</h2></div>
-        <div id="tokenRatesWrap"></div>
-      </section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>vLLM launch and storage</h2></div>
-        <div id="vllmLaunchWrap"></div>
-      </section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>Services, disks, and network</h2></div>
-        <div id="serverInfrastructureWrap"></div>
-      </section>
-
-      <section class="server-panel server-full">
-        <div class="panel-head"><h2>Raw API snapshots</h2></div>
-        <div id="serverRawSnapshots"></div>
+      <section class="home-launcher" aria-label="Token Gen destinations">
+        <a class="home-tile home-tile-monitor" href="./server-monitor.html">
+          <span class="home-tile-icon" aria-hidden="true">▦</span>
+          <span>
+            <strong>Monitor</strong>
+            <small>Live GPU, vLLM, token-rate, memory, and service data from the token-gen API.</small>
+          </span>
+        </a>
+        <a class="home-tile home-tile-chat" href="./chat.html">
+          <span class="home-tile-icon" aria-hidden="true">◈</span>
+          <span>
+            <strong>Chat</strong>
+            <small>Talk directly to the active local model through the token-gen API.</small>
+          </span>
+        </a>
+        <a class="home-tile home-tile-games" href="./games/">
+          <span class="home-tile-icon" aria-hidden="true">✦</span>
+          <span>
+            <strong>Games</strong>
+            <small>Play the vampire survival build and future local experiments.</small>
+          </span>
+        </a>
       </section>
     </main>
-
-    <script type="module" src="./monitor-simple-20260607-token-rates.js"></script>
   </body>
 </html>

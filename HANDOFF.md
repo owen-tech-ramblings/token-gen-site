@@ -1,6 +1,6 @@
 # Token Gen Handoff
 
-Last updated: 2026-06-08 09:16 Australia/Sydney
+Last updated: 2026-06-08 12:56 Australia/Sydney
 
 ## Last Session Changes
 
@@ -9,10 +9,20 @@ Last updated: 2026-06-08 09:16 Australia/Sydney
   - `CURRENT_STATE.md`
   - `HANDOFF.md`
 - Documented that both Codex CLI sessions should read and update these files.
-- Documented the required public API routes and expected gateway architecture.
+- Documented the required public API routes and current token-gen API producer
+  architecture.
 - Documented development responsibilities:
-  - Token-Gen Server Codex owns the API producer/gateway/runtime side.
+  - Token-Gen Server Codex owns the API producer/runtime side.
   - This PC Codex owns the static website/browser-consumer side.
+- Current accepted architecture: website consumes the token-gen server API
+  directly; the PC-side Node API proxy is dormant/obsolete unless explicitly
+  reintroduced.
+- Website should be protected by Cloudflare Access with Google login for:
+  `jesse@owenonthenet.com`, `li-zen@owenonthenet.com`,
+  `gusulei@gmail.com`.
+- Cloudflare Access configuration is pending: Wrangler can read the
+  `owenonthenet.com` zone, but Access app endpoints return Cloudflare
+  `Authentication error` with the current OAuth token.
 
 ## Current Live Status
 

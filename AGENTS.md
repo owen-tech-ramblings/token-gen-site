@@ -18,8 +18,7 @@ After changing this repo, update `CURRENT_STATE.md` and `HANDOFF.md` with:
 - known remaining failures
 
 These files are the shared context between Codex CLI sessions working on the
-Token Gen site and API gateway. Do not rely on chat memory as the source of
-truth.
+Token Gen site and API. Do not rely on chat memory as the source of truth.
 
 ## Development Roles
 
@@ -31,8 +30,7 @@ pages.
 The Codex CLI session running on the Token-Gen server owns the API producer
 side:
 
-- Node API gateway runtime and deployment
-- Python `ServerDetailsAPI` integration behind the gateway
+- Python `ServerDetailsAPI` runtime and deployment
 - vLLM upstream connectivity
 - Tavily/web-search service connectivity
 - Cloudflare tunnel service target for `token-gen-api.owenonthenet.com`
@@ -49,6 +47,7 @@ The Codex session on this PC owns the browser/site side:
 - static site files for `https://token-gen.owenonthenet.com`
 - monitor and chat page rendering
 - browser-safe API consumption
+- Cloudflare Access website protection coordination
 - UI states for loading, degraded API responses, and errors
 - frontend Playwright/browser verification
 - cache-busting static assets when needed
@@ -61,15 +60,16 @@ Token-Gen Server Codex.
 ## Architecture Rules
 
 - `https://token-gen.owenonthenet.com` is the static site.
-- `https://token-gen-api.owenonthenet.com` must route to the Node API gateway.
-- The Node API gateway must expose both monitor and chat routes.
-- Python `ServerDetailsAPI` stays behind the Node gateway for status data.
+- `https://token-gen.owenonthenet.com/*` should be protected by Cloudflare Access.
+- Cloudflare Access allowlist should target `jesse@owenonthenet.com`,
+  `li-zen@owenonthenet.com`, and `gusulei@gmail.com`.
+- `https://token-gen-api.owenonthenet.com` routes to the token-gen server API.
+- The token-gen server API must expose both monitor and chat routes.
 - Browser JavaScript must never include `SERVER_DETAILS_TOKEN` or other secrets.
 - The monitor page uses public API routes only.
-- The chat page uses the chat and web-search proxy routes exposed by the Node
-  gateway.
-- Do not point the public API hostname directly at Python `ServerDetailsAPI`
-  unless the Node gateway is deliberately replaced with equivalent public routes.
+- The chat page uses the chat and web-search routes exposed by the token-gen API.
+- The PC-side Node API proxy is dormant/obsolete unless deliberately
+  reintroduced for a specific future feature.
 
 Required public API routes:
 
@@ -96,7 +96,7 @@ https://github.com/owen-tech-ramblings/token-gen-site.git
 Related paths:
 
 - Windows source mirror: `/mnt/c/Users/User/Documents/New project/token-gen-site`
-- Runtime API proxy: `/home/jesse/.openclaw/workspace/token-gen-api-proxy`
+- Dormant PC API proxy: `/home/jesse/.openclaw/workspace/token-gen-api-proxy`
 
 Commit and push public-site changes from this repo unless Jesse explicitly asks
 for a different target. Mirror changes to the Windows source copy when useful,

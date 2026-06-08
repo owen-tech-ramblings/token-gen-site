@@ -1516,7 +1516,164 @@ select option { color: var(--color-text-primary); background: #0f1729; }
 .server-status-line[data-state="busy"] { color: var(--warning); }
 .server-status-line[data-state="bad"] { color: var(--danger); }
 
+.home-app {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 15%, rgba(77, 226, 197, 0.18), transparent 30%),
+    linear-gradient(135deg, #0d1117 0%, #15191f 48%, #17130d 100%);
+  color: var(--color-text-primary);
+  padding: 32px;
+  display: grid;
+  grid-template-rows: minmax(420px, 58vh) auto;
+  gap: 24px;
+}
+
+.home-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  min-height: 420px;
+  display: flex;
+  align-items: flex-end;
+  padding: clamp(28px, 6vw, 72px);
+  background:
+    linear-gradient(180deg, rgba(13,17,23,0.1), rgba(13,17,23,0.82)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 82px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 1px, transparent 1px 82px);
+}
+
+.home-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 760px;
+}
+
+.home-kicker {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.home-copy h1 {
+  margin: 0;
+  font-size: clamp(4rem, 10vw, 9rem);
+  line-height: 0.9;
+  letter-spacing: 0;
+}
+
+.home-lede {
+  max-width: 660px;
+  margin: 18px 0 0;
+  color: var(--color-text-secondary);
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+}
+
+.home-scene {
+  position: absolute;
+  inset: 0;
+}
+
+.home-node {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: clamp(92px, 12vw, 148px);
+  aspect-ratio: 1;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.78);
+  background: rgba(255,255,255,0.06);
+  box-shadow: 0 18px 70px rgba(0,0,0,0.28);
+  font-weight: 800;
+}
+
+.home-node-api { top: 12%; left: 12%; }
+.home-node-gpu { top: 18%; right: 14%; }
+.home-node-chat { right: 28%; bottom: 27%; }
+.home-node-games { left: 34%; top: 36%; }
+
+.home-beam {
+  position: absolute;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(77,226,197,0.72), transparent);
+  transform-origin: left center;
+}
+
+.home-beam-a { top: 28%; left: 23%; width: 56%; transform: rotate(5deg); }
+.home-beam-b { top: 48%; left: 42%; width: 34%; transform: rotate(23deg); }
+.home-beam-c { top: 62%; left: 21%; width: 50%; transform: rotate(-16deg); }
+
+.home-launcher {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-tile {
+  min-height: 170px;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 8px;
+  color: inherit;
+  text-decoration: none;
+  background: rgba(255,255,255,0.055);
+}
+
+.home-tile:hover {
+  border-color: rgba(77,226,197,0.45);
+  background: rgba(77,226,197,0.08);
+}
+
+.home-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: rgba(77,226,197,0.12);
+  color: var(--accent);
+  font-size: 1.8rem;
+}
+
+.home-tile strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.35rem;
+}
+
+.home-tile small {
+  color: var(--color-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 900px) {
+  .home-app {
+    padding: 14px;
+    grid-template-rows: auto auto;
+  }
+  .home-hero {
+    min-height: 360px;
+    padding: 26px;
+  }
+  .home-launcher {
+    grid-template-columns: 1fr;
+  }
+  .home-node {
+    opacity: 0.72;
+  }
+  .home-node-api { left: 7%; top: 10%; }
+  .home-node-gpu { right: 7%; top: 16%; }
+  .home-node-chat { right: 10%; bottom: 28%; }
+  .home-node-games { left: 12%; top: 42%; }
   .server-app { padding: 14px; }
   .server-header { align-items: flex-start; flex-direction: column; position: static; }
   .server-header-actions { justify-content: flex-start; }

@@ -36,9 +36,9 @@ let webSearchSupported = false;
 let availableModels = [];
 let uploadedDocuments = [];
 let mammothLoader = null;
+let chatReady = false;
 
 const DEFAULT_CONTEXT_WINDOW = 131072;
-const DEFAULT_CHAT_MODEL = "Qwen-Qwen3.6-27B-FP8";
 const TOKEN_CHARS = 4;
 const SUPPORTED_TEXT_EXTENSIONS = new Set([
   "txt", "md", "markdown", "csv", "json", "jsonl", "html", "htm", "xml", "yaml", "yml", "log",
@@ -243,7 +243,7 @@ function renderDocuments() {
       <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">x</button>
     </div>
   `).join("");
-  els.send.disabled = overBudget;
+  els.send.disabled = overBudget || !chatReady;
 }
 
 function buildDocumentContextMessage() {
@@ -373,12 +373,14 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 6000) {
   }
 }
 
-function applyModelFallback(reason = "model discovery failed") {
-  const fallback = { id: DEFAULT_CHAT_MODEL, max_model_len: DEFAULT_CONTEXT_WINDOW };
-  availableModels = [fallback];
-  els.model.innerHTML = `<option value="${escapeHtml(fallback.id)}">${escapeHtml(modelLabel(fallback.id))}</option>`;
+function disableChat(reason = "Token Gen API model discovery failed") {
+  chatReady = false;
+  availableModels = [];
+  els.model.innerHTML = `<option value="">API unavailable</option>`;
   els.maxTokens.max = String(DEFAULT_CONTEXT_WINDOW);
-  setStatus(`Model discovery failed; using ${modelLabel(fallback.id)} fallback`, "bad");
+  els.input.disabled = true;
+  els.send.disabled = true;
+  setStatus(reason, "bad");
   renderDocuments();
 }
 
@@ -388,22 +390,24 @@ async function loadModels() {
   try {
     ({ res, json } = await fetchJsonWithTimeout(`${API_BASE}/api/chat/models`, { cache: "no-store" }));
   } catch (error) {
-    applyModelFallback(error.name === "AbortError" ? "model discovery timed out" : error.message);
+    disableChat(error.name === "AbortError" ? "Token Gen API model discovery timed out" : `Token Gen API model discovery failed: ${error.message}`);
     return;
   }
   if (!res.ok || !json.ok) {
-    applyModelFallback(json.error || `model discovery HTTP ${res.status}`);
+    disableChat(json.error || `Token Gen API model discovery failed: HTTP ${res.status}`);
     return;
   }
   const models = Array.isArray(json.data?.data) ? json.data.data : [];
   if (!models.length) {
-    applyModelFallback("no models returned");
+    disableChat("Token Gen API model discovery returned no models");
     return;
   }
   availableModels = models;
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
   const contextWindow = getModelContextWindow(models[0]);
   els.maxTokens.max = String(contextWindow);
+  els.input.disabled = false;
+  chatReady = true;
   setStatus(`Connected to ${modelLabel(models[0].id)}`, "good");
   renderDocuments();
 }
@@ -432,12 +436,16 @@ async function loadWebSearchCapability() {
     webSearchSupported = false;
     els.webSearch.checked = false;
     els.webSearch.disabled = true;
-    els.webStatus.textContent = "Web context needs a Token Gen API update before it can run.";
+    els.webStatus.textContent = "Web context service is not configured or unavailable.";
     els.webStatus.dataset.state = "bad";
   }
 }
 
 async function sendMessage(content) {
+  if (!chatReady) {
+    setStatus("Token Gen API model discovery is unavailable", "bad");
+    return;
+  }
   if (documentTokenTotal() > getDocumentBudgetTokens()) {
     setStatus("Document context is over budget", "bad");
     return;
@@ -514,8 +522,8 @@ async function sendMessage(content) {
     messages.push({ role: "assistant", content: `Request failed: ${error.message}` });
     setStatus("Chat request failed", "bad");
   } finally {
-    els.send.disabled = false;
-    els.input.disabled = false;
+    els.send.disabled = !chatReady || documentTokenTotal() > getDocumentBudgetTokens();
+    els.input.disabled = !chatReady;
     els.input.focus();
     renderMessages(false);
   }

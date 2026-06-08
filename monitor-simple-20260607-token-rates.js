@@ -1,7 +1,6 @@
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 const $ = (selector) => document.querySelector(selector);
 
-let lastGoodPayload = null;
 let refreshTimer = null;
 
 function escapeHtml(value) {
@@ -108,6 +107,38 @@ function renderRawJson(label, payload) {
     <article class="project-card server-json-card">
       <div class="card-head"><h3>${escapeHtml(label)}</h3></div>
       <pre class="json-block">${escapeHtml(JSON.stringify(payload ?? {}, null, 2))}</pre>
+    </article>
+  `;
+}
+
+function formatFieldValue(value) {
+  if (value === null || value === undefined) return "-";
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") return Number.isInteger(value) ? formatNum(value) : String(value);
+  if (typeof value === "string") return value;
+  return JSON.stringify(value);
+}
+
+function flattenFields(value, prefix = "") {
+  if (!value || typeof value !== "object") return [[prefix || "value", value]];
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => flattenFields(item, `${prefix}[${index}]`));
+  }
+  return Object.entries(value).flatMap(([key, child]) => {
+    const next = prefix ? `${prefix}.${key}` : key;
+    if (child && typeof child === "object") return flattenFields(child, next);
+    return [[next, child]];
+  });
+}
+
+function renderObjectDetails(title, value) {
+  const rows = flattenFields(value).map(([key, fieldValue]) => `
+    <tr><td>${escapeHtml(key)}</td><td>${escapeHtml(formatFieldValue(fieldValue))}</td></tr>
+  `).join("");
+  return `
+    <article class="project-card server-json-card">
+      <div class="card-head"><h3>${escapeHtml(title)}</h3></div>
+      <div class="table-wrap"><table class="table"><tbody>${rows}</tbody></table></div>
     </article>
   `;
 }
@@ -241,10 +272,8 @@ function renderGpuTable(payload) {
       <td>${escapeHtml(`${formatMb(item.memory_used_mb)} / ${formatMb(item.memory_total_mb)}`)}</td>
       <td>${escapeHtml(formatTemp(item.temperature_c))}</td>
       <td>${escapeHtml(formatWatts(item.power_draw_watts))}</td>
-      <td>${escapeHtml(item.driver_version ?? "-")}</td>
-      <td>${escapeHtml(item.uuid ?? "-")}</td>
     </tr>
-  `).join("") : `<tr><td colspan="8">No GPU list returned.</td></tr>`;
+  `).join("") : `<tr><td colspan="6">No GPU list returned.</td></tr>`;
 
   $("#gpuStatusWrap").innerHTML = `
     <div class="server-monitor-grid mb-3">
@@ -262,7 +291,7 @@ function renderGpuTable(payload) {
       </article>
     </div>
     <div class="table-wrap"><table class="table">
-      <thead><tr><th>#</th><th>GPU</th><th>Util</th><th>Memory</th><th>Temp</th><th>Power</th><th>Driver</th><th>UUID</th></tr></thead>
+      <thead><tr><th>#</th><th>GPU</th><th>Util</th><th>Memory</th><th>Temp</th><th>Power</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   `;
@@ -389,6 +418,7 @@ function renderRaw(payload) {
     <div class="server-monitor-grid">
       ${renderRawJson("Health", payload.health)}
       ${renderRawJson("Public status", payload.publicStatus)}
+      ${renderObjectDetails("All public-status fields", payload.publicStatus)}
     </div>
   `;
 }
@@ -421,6 +451,19 @@ function renderError(error) {
       <p class="muted">${escapeHtml(API_BASE)}/api/public-status</p>
     </article>
   `;
+  [
+    "serverStatusSummary",
+    "gpuStatusWrap",
+    "temperatureStatusWrap",
+    "vllmStatusWrap",
+    "tokenRatesWrap",
+    "vllmLaunchWrap",
+    "serverInfrastructureWrap",
+    "serverRawSnapshots",
+  ].forEach((id) => {
+    const node = $(`#${id}`);
+    if (node) node.innerHTML = "";
+  });
 }
 
 async function refreshMonitor() {
@@ -431,16 +474,9 @@ async function refreshMonitor() {
   }
   try {
     const payload = await loadMonitorPayload();
-    lastGoodPayload = payload;
     renderPayload(payload);
   } catch (error) {
-    if (lastGoodPayload) {
-      renderPayload(lastGoodPayload, "busy");
-      const freshness = $("#serverMonitorFreshness");
-      freshness.textContent = `Showing last good API data from ${formatDateTime(lastGoodPayload.loadedAt)} - refresh failed: ${error.message}`;
-    } else {
-      renderError(error);
-    }
+    renderError(error);
   } finally {
     if (button) {
       button.disabled = false;

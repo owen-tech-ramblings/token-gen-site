@@ -1,32 +1,39 @@
 # Token Gen Current State
 
-Last updated: 2026-06-08 09:16 Australia/Sydney
+Last updated: 2026-06-08 12:56 Australia/Sydney
 
 ## Repos And Surfaces
 
 - Static site repo: `/home/jesse/.openclaw/workspace/token-gen-site-pages`
-- API gateway workspace: `/home/jesse/.openclaw/workspace/token-gen-api-proxy`
+- Dormant PC API proxy workspace: `/home/jesse/.openclaw/workspace/token-gen-api-proxy`
 - Site: `https://token-gen.owenonthenet.com`
 - API: `https://token-gen-api.owenonthenet.com`
 
 ## Expected Architecture
 
-`token-gen-api.owenonthenet.com` should route to the Node API gateway.
+`token-gen.owenonthenet.com/*` should be protected by Cloudflare Access using
+Google auth. Initial allowed users:
 
-The Node gateway should proxy to:
+- `jesse@owenonthenet.com`
+- `li-zen@owenonthenet.com`
+- `gusulei@gmail.com`
 
-- Python `ServerDetailsAPI` for monitor/status data
-- vLLM for chat models and chat streaming
-- Token Gen web-search service for Tavily context
+`token-gen-api.owenonthenet.com` routes to the token-gen server API. The
+website is only a consumer of that API.
 
-Python `ServerDetailsAPI` should not be the direct public browser API unless it
-also provides all required public monitor and chat routes.
+The PC-side Node gateway is dormant/obsolete unless deliberately reintroduced
+for a specific future feature.
+
+Cloudflare Access setup is still pending. Wrangler OAuth login works for zone
+reads, but the current token returns Cloudflare `Authentication error` for
+Access app endpoints. Configure Access in the Cloudflare dashboard or provide a
+token/session with Zero Trust Access application/policy permissions.
 
 ## Development Responsibilities
 
 These roles apply only to Token Gen API and Token Gen webpage development:
 
-- Token-Gen Server Codex is the API producer. It owns gateway/runtime routing,
+- Token-Gen Server Codex is the API producer. It owns API/runtime routing,
   upstream service connectivity, `.well-known`/agent API contract documents,
   CORS/auth behavior, Cloudflare tunnel target, and live API verification.
 - This PC Codex is the web site builder. It owns static page rendering,
@@ -68,18 +75,20 @@ Observed status:
 ## Recent Site State
 
 - Monitor page was simplified to a direct public API renderer.
-- Chat page has a fallback model for model discovery failures:
-  `Qwen-Qwen3.6-27B-FP8`.
-- Current live chat check previously passed with:
-  - `chat.js?v=token-chat-model-fallback-20260608`
+- Chat page no longer uses fallback model discovery. If `/api/chat/models`
+  fails, chat is disabled until the API works.
+- Current chat asset:
+  - `chat.js?v=token-chat-api-required-20260608`
   - `/api/chat/models` returning 200
-  - `/api/web-search/health` returning 200
+- `/api/web-search/health` returns 200 but currently reports Tavily unavailable
+  when the web-search service is not configured/running.
 
 ## Known Risks
 
 - Cloudflare/API routing has changed during recent work. Always re-check live
   API routes before assuming the gateway state.
-- If `/api/chat/models` hangs or returns Cloudflare 502, the chat page should
-  fall back to the default model but the gateway/vLLM route still needs fixing.
+- Cloudflare Access is not verified as active yet. Do not assume the site is
+  private until an unauthenticated browser is redirected to Access login.
+- If `/api/chat/models` hangs or returns an error, the chat page disables chat.
 - If `/api/public-status` or `/.well-known/token-gen-api.json` returns 404, the
-  public API hostname is likely pointed at a stale gateway build or wrong service.
+  public API hostname is likely pointed at a stale service or wrong tunnel.
