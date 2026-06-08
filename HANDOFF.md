@@ -1,9 +1,16 @@
 # Token Gen Handoff
 
-Last updated: 2026-06-08 12:56 Australia/Sydney
+Last updated: 2026-06-09 01:35 Australia/Sydney
 
 ## Last Session Changes
 
+- Updated the monitor page counter rendering:
+  - `monitor-simple-20260607-token-rates.js`
+  - `server-monitor.html`
+- The Counters card now uses `vllm.lifetime_counters` when the public API
+  provides a populated object. When the API returns no lifetime data, it labels
+  the values as current runtime process counters and says lifetime counters are
+  not provided by the API.
 - Added shared Codex context files for the Token Gen project:
   - `AGENTS.md`
   - `CURRENT_STATE.md`
@@ -34,6 +41,31 @@ Fresh route check shows the required API routes are currently returning 200:
 - `/api/agent.json`
 - `/api/chat/models`
 - `/api/web-search/health`
+
+## Current Metrics Diagnosis
+
+The website is not hiding the >25M lifetime counter. The API is not currently
+providing it to the public monitor page.
+
+Evidence checked on 2026-06-09:
+
+- `https://token-gen-api.owenonthenet.com/api/public-status` contains current
+  process counters under `vllm.runtime_counters` and no populated lifetime
+  counter object.
+- Token-gen local `http://100.98.87.102:8765/api/public-status` contains
+  `vllm.lifetime_counters: {}`.
+- Authenticated `/api/vllm` and `/api/usage` return lifetime as `null`.
+- Authenticated `/api/storage` reports Owen_Share unavailable and metrics
+  storage degraded.
+- Token-gen fstab still points `/mnt/owenshare` at
+  `//192.168.68.54/Owen_Share`; that host/port is timing out.
+- `192.168.68.59:445` is reachable, but the saved Owen_Share credentials fail
+  there, so the mount target should be confirmed before changing fstab.
+
+API producer next step: restore the Owen_Share mount or update it to the
+confirmed current SMB host for `Owen_Share`, then verify `/api/vllm` returns a
+populated `lifetime_counters.total_tokens` and `/api/public-status` forwards
+that value.
 
 ## Next Steps For Any Codex CLI Session
 

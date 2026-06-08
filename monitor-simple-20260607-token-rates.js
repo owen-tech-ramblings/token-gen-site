@@ -49,6 +49,10 @@ function formatTokenRate(value) {
   return `${n.toFixed(1)} tok/s`;
 }
 
+function hasMetricValues(value) {
+  return Boolean(value && typeof value === "object" && Object.values(value).some((item) => item !== null && item !== undefined));
+}
+
 function formatElapsedSeconds(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return value ?? "-";
@@ -300,6 +304,9 @@ function renderGpuTable(payload) {
 function renderVllm(payload) {
   const vllm = payload.publicStatus?.vllm || {};
   const counters = vllm.runtime_counters || {};
+  const lifetimeCounters = hasMetricValues(vllm.lifetime_counters) ? vllm.lifetime_counters : null;
+  const displayedCounters = lifetimeCounters || counters;
+  const counterScope = lifetimeCounters ? "Lifetime" : "Runtime process";
   const rates = vllm.token_rates || {};
   $("#vllmStatusWrap").innerHTML = `
     <div class="server-monitor-grid">
@@ -319,13 +326,17 @@ function renderVllm(payload) {
       <article class="project-card">
         <h3>Counters</h3>
         ${table([
-          ["Prompt tokens", formatNum(counters.prompt_tokens)],
-          ["Generation tokens", formatNum(counters.generation_tokens)],
-          ["Total tokens", formatNum(counters.total_tokens)],
-          ["Successful requests", formatNum(counters.request_success_total)],
-          ["Errored requests", formatNum(counters.request_error_total)],
-          ["Aborted requests", formatNum(counters.request_abort_total)],
+          ["Scope", counterScope],
+          ["Prompt tokens", formatNum(displayedCounters.prompt_tokens)],
+          ["Generation tokens", formatNum(displayedCounters.generation_tokens)],
+          ["Total tokens", formatNum(displayedCounters.total_tokens)],
+          ["Successful requests", formatNum(displayedCounters.request_success_total)],
+          ["Errored requests", formatNum(displayedCounters.request_error_total)],
+          ["Aborted requests", formatNum(displayedCounters.request_abort_total)],
+          ["First seen", lifetimeCounters ? formatDateTime(lifetimeCounters.first_seen_ts) : "Not provided by API"],
+          ["Last seen", lifetimeCounters ? formatDateTime(lifetimeCounters.last_seen_ts) : "Not provided by API"],
         ])}
+        ${lifetimeCounters ? "" : `<p class="muted">Lifetime counters are not included in public-status. Showing current vLLM process counters only.</p>`}
       </article>
     </div>
   `;

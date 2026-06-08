@@ -1,6 +1,6 @@
 # Token Gen Current State
 
-Last updated: 2026-06-08 12:56 Australia/Sydney
+Last updated: 2026-06-09 01:35 Australia/Sydney
 
 ## Repos And Surfaces
 
@@ -75,6 +75,10 @@ Observed status:
 ## Recent Site State
 
 - Monitor page was simplified to a direct public API renderer.
+- Monitor counters now label their scope. If
+  `public-status.vllm.lifetime_counters` is populated, the Counters card shows
+  lifetime totals. If the API returns an empty/null lifetime object, the card
+  explicitly says it is showing current vLLM process counters only.
 - Chat page no longer uses fallback model discovery. If `/api/chat/models`
   fails, chat is disabled until the API works.
 - Current chat asset:
@@ -92,3 +96,12 @@ Observed status:
 - If `/api/chat/models` hangs or returns an error, the chat page disables chat.
 - If `/api/public-status` or `/.well-known/token-gen-api.json` returns 404, the
   public API hostname is likely pointed at a stale service or wrong tunnel.
+- Lifetime token totals are currently an API/storage issue, not a website
+  renderer issue. On 2026-06-09, live `/api/public-status` exposed
+  `vllm.lifetime_counters` as `{}` and private `/api/vllm`/`/api/usage`
+  exposed lifetime as `null`. Private `/api/storage` reported
+  `owenshare_reachable: false` and `last_storage_error: "network storage unavailable"`.
+  Token-gen `/etc/fstab` points `//192.168.68.54/Owen_Share` at
+  `/mnt/owenshare`, but `192.168.68.54:445` times out from token-gen and this
+  PC. `192.168.68.59:445` is reachable from this PC, but the saved
+  Owen_Share credentials fail there, so do not repoint the mount blindly.
