@@ -2,6 +2,27 @@
 
 Last updated: 2026-06-09 01:35 Australia/Sydney
 
+## Alignment Update - 2026-06-21
+
+`TOKEN_GEN_SOURCE_OF_TRUTH.md` is now the routing authority for Codex CLI,
+Codex app, and other agents.
+
+Current live API authority:
+
+- `https://token-gen-api.owenonthenet.com`
+- `token-gen:/home/zenfree/server-details-api/server_details_api.py`
+- `server-details-api.service`
+
+The PC-side Node API proxy is dormant/local reference code unless Jesse
+explicitly asks for a Cloudflare routing migration.
+
+Before any API behavior edit, agents must verify:
+
+```bash
+curl -sS https://token-gen-api.owenonthenet.com/api/agent.json
+ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_details_api.py'
+```
+
 ## Repos And Surfaces
 
 - Static site repo: `/home/jesse/.openclaw/workspace/token-gen-site-pages`
@@ -50,8 +71,16 @@ These roles apply only to Token Gen API and Token Gen webpage development:
 - `/.well-known/token-gen-api.json`
 - `/api/agent.json`
 - `/api/chat/models`
+- `/api/chat/completions`
 - `/api/chat/stream`
 - `/api/web-search/health`
+
+Required protected Discord bot routes:
+
+- `/api/discord-auth-check`
+- `/api/discord/chat/models`
+- `/api/discord/chat/completions`
+- `/api/discord/chat/stream`
 
 ## Live Route Status
 

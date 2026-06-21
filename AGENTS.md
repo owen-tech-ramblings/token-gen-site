@@ -6,6 +6,7 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 
 Before changing this repo, read:
 
+- `TOKEN_GEN_SOURCE_OF_TRUTH.md`
 - `AGENTS.md`
 - `CURRENT_STATE.md`
 - `HANDOFF.md`
@@ -19,6 +20,10 @@ After changing this repo, update `CURRENT_STATE.md` and `HANDOFF.md` with:
 
 These files are the shared context between Codex CLI sessions working on the
 Token Gen site and API. Do not rely on chat memory as the source of truth.
+
+`TOKEN_GEN_SOURCE_OF_TRUTH.md` is the routing authority. If it conflicts with
+`CURRENT_STATE.md`, `HANDOFF.md`, older plans, or a local gateway route, stop
+and verify the live API before editing.
 
 ## Development Roles
 
@@ -64,12 +69,24 @@ Token-Gen Server Codex.
 - Cloudflare Access allowlist should target `jesse@owenonthenet.com`,
   `li-zen@owenonthenet.com`, and `gusulei@gmail.com`.
 - `https://token-gen-api.owenonthenet.com` routes to the token-gen server API.
+- The active public API source is currently
+  `token-gen:/home/zenfree/server-details-api/server_details_api.py`.
 - The token-gen server API must expose both monitor and chat routes.
 - Browser JavaScript must never include `SERVER_DETAILS_TOKEN` or other secrets.
 - The monitor page uses public API routes only.
 - The chat page uses the chat and web-search routes exposed by the token-gen API.
 - The PC-side Node API proxy is dormant/obsolete unless deliberately
   reintroduced for a specific future feature.
+
+Before changing API behavior, run or verify:
+
+```bash
+curl -sS https://token-gen-api.owenonthenet.com/api/agent.json
+ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_details_api.py'
+```
+
+Do not infer the live runtime from local files. Do not repoint Cloudflare to the
+PC-side Node gateway unless Jesse explicitly asks for a routing migration.
 
 Required public API routes:
 
@@ -78,8 +95,16 @@ Required public API routes:
 - `/.well-known/token-gen-api.json`
 - `/api/agent.json`
 - `/api/chat/models`
+- `/api/chat/completions`
 - `/api/chat/stream`
 - `/api/web-search/health`
+
+Required protected Discord bot routes:
+
+- `/api/discord-auth-check`
+- `/api/discord/chat/models`
+- `/api/discord/chat/completions`
+- `/api/discord/chat/stream`
 
 Before committing:
 

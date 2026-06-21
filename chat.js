@@ -37,6 +37,7 @@ let availableModels = [];
 let uploadedDocuments = [];
 let mammothLoader = null;
 let chatReady = false;
+let chatUserIdPromise = null;
 
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
@@ -108,6 +109,25 @@ function setStatus(text, state = "neutral") {
 
 function formatNumber(value) {
   return Math.round(Number(value || 0)).toLocaleString("en-AU");
+}
+
+async function resolveChatUserId() {
+  try {
+    const res = await fetch("/cdn-cgi/access/get-identity", { cache: "no-store", credentials: "include" });
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const email = data.email || data.user_email || data.identity?.email;
+      if (email) return String(email).trim();
+    }
+    throw new Error("Cloudflare Access identity is unavailable for this session.");
+  } catch {
+    throw new Error("Cloudflare Access identity is unavailable for this session.");
+  }
+}
+
+function getChatUserId() {
+  if (!chatUserIdPromise) chatUserIdPromise = resolveChatUserId();
+  return chatUserIdPromise;
 }
 
 function fileExtension(name) {
@@ -324,7 +344,7 @@ function attachWebContext(index, context) {
   renderMessages(false);
 }
 
-function buildPayload() {
+function buildPayload(userId) {
   const system = els.system.value.trim();
   const documentContext = buildDocumentContextMessage();
   const systemParts = [
@@ -350,6 +370,10 @@ function buildPayload() {
       fetch_mode: els.webFetchMode.value,
       max_results: Number(els.webResults.value || 5),
       context_token_budget: Number(els.webBudget.value || 10000),
+    },
+    metadata: {
+      source: "token_gen_chat",
+      user_id: userId,
     },
   };
 }
@@ -457,14 +481,19 @@ async function sendMessage(content) {
   setStatus(els.webSearch.checked ? "Gathering web context..." : "Generating response...", "busy");
 
   try {
+    const chatUserId = await getChatUserId();
     if (els.webSearch.checked && !webSearchSupported) {
       throw new Error("Web context is enabled, but Tavily web context is not available yet.");
     }
 
     const res = await fetch(`${API_BASE}/api/chat/stream`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(buildPayload()),
+      headers: {
+        "content-type": "application/json",
+        "x-token-gen-user": chatUserId,
+        "x-token-gen-user-source": "cloudflare-access",
+      },
+      body: JSON.stringify(buildPayload(chatUserId)),
     });
     if (!res.ok || !res.body) {
       const text = await res.text();

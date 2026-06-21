@@ -2,6 +2,24 @@
 
 Last updated: 2026-06-09 01:35 Australia/Sydney
 
+## 2026-06-21 Alignment Guardrail
+
+Added `TOKEN_GEN_SOURCE_OF_TRUTH.md` as the shared routing contract for Codex
+CLI and Codex app. Read it before changing the Token Gen site, API, Cloudflare
+tunnel, bot helper, or generated client code.
+
+Key rule: the active public API currently lives on `token-gen` at
+`/home/zenfree/server-details-api/server_details_api.py`. The PC-side Node
+gateway is dormant/local reference code unless Jesse explicitly asks to migrate
+Cloudflare routing to it.
+
+Required API preflight:
+
+```bash
+curl -sS https://token-gen-api.owenonthenet.com/api/agent.json
+ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_details_api.py'
+```
+
 ## Last Session Changes
 
 - Updated the monitor page counter rendering:
@@ -69,7 +87,8 @@ that value.
 
 ## Next Steps For Any Codex CLI Session
 
-1. Read `AGENTS.md`, `CURRENT_STATE.md`, and `HANDOFF.md`.
+1. Read `TOKEN_GEN_SOURCE_OF_TRUTH.md`, `AGENTS.md`, `CURRENT_STATE.md`, and
+   `HANDOFF.md`.
 2. Run `git status --short --branch`.
 3. Confirm whether the task belongs to the API producer role or website builder
    role. If the other role owns the fix, update the docs with evidence and hand
