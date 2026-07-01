@@ -22,6 +22,20 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 chat image bugfix:
+  - Fixed generated-image Download so it creates a blob URL and triggers a
+    download without leaving `chat.html`.
+  - Added a separate open-in-new-tab icon link for generated images.
+  - Fixed uploaded PNG/JPG image edits by sending `image_base64` as a data URL
+    and `source_filename_prefix`, without an `image.filename` object. The API
+    interprets `image.filename` as an existing ComfyUI `/view` reference, which
+    caused uploaded files to fail with `HTTP Error 404: Not Found`.
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - local Playwright check for download behavior and upload edit payload
+    - live `/api/image/edits` uploaded-base64 payload returned 200 when
+      `image.filename` was omitted
 - Updated the monitor page counter rendering:
   - `monitor-simple-20260607-token-rates.js`
   - `server-monitor.html`

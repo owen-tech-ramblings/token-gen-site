@@ -1576,6 +1576,18 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   justify-content: center;
 }
 
+.chat-image-actions .btn-icon {
+  width: 38px;
+  min-width: 38px;
+  padding: 0;
+}
+
+.chat-image-actions .btn-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
 .chat-composer {
   position: relative;
   padding: 14px;

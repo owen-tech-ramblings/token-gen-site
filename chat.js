@@ -268,7 +268,7 @@ function readUploadedImage(file) {
         kind: "base64",
         name: file.name,
         mimeType: file.type,
-        image_base64: base64,
+        image_base64: dataUrl,
         previewUrl: dataUrl,
       });
     };
@@ -496,7 +496,25 @@ function renderImageOutputs(message) {
                 <span>${escapeHtml(output.size || "")}${output.quality ? ` / ${escapeHtml(output.quality)}` : ""}</span>
               </figcaption>
               <div class="chat-image-actions">
-                <a class="btn" href="${escapeHtml(output.url)}" download="${escapeHtml(output.filename || `token-gen-image-${index + 1}.png`)}">Download</a>
+                <button
+                  class="btn"
+                  type="button"
+                  data-image-download="${escapeHtml(output.url)}"
+                  data-image-download-name="${escapeHtml(output.filename || `token-gen-image-${index + 1}.png`)}"
+                >Download</button>
+                <a
+                  class="btn btn-icon"
+                  href="${escapeHtml(output.url)}"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Open image in a new tab"
+                  aria-label="Open image in a new tab"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M14 4h6v6h-2V7.41l-8.29 8.3-1.42-1.42 8.3-8.29H14V4Z"></path>
+                    <path d="M5 5h6v2H7v10h10v-4h2v6H5V5Z"></path>
+                  </svg>
+                </a>
                 <button
                   class="btn"
                   type="button"
@@ -861,12 +879,30 @@ function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode
     else payload.image_url = source.url;
   } else {
     payload.image_base64 = source.image_base64;
-    payload.image = {
-      filename: source.name,
-      mime_type: source.mimeType,
-    };
+    payload.source_filename_prefix = source.name || "token-gen-upload";
   }
   return payload;
+}
+
+async function downloadImage(url, filename) {
+  const absoluteUrl = absoluteImageUrl(url);
+  const safeName = filename || "token-gen-image.png";
+  if (!absoluteUrl) throw new Error("Image URL is unavailable.");
+  const response = await fetch(absoluteUrl, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = safeName;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } finally {
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 30_000);
+  }
 }
 
 async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode) {
@@ -1140,6 +1176,24 @@ els.docClear.addEventListener("click", () => {
 });
 
 els.thread.addEventListener("click", (event) => {
+  const downloadButton = event.target.closest("[data-image-download]");
+  if (downloadButton) {
+    event.preventDefault();
+    const url = downloadButton.dataset.imageDownload || "";
+    const filename = downloadButton.dataset.imageDownloadName || "token-gen-image.png";
+    downloadButton.disabled = true;
+    setStatus("Preparing image download...", "busy");
+    downloadImage(url, filename)
+      .then(() => setStatus("Image download started", "good"))
+      .catch((error) => {
+        setStatus(`Download failed: ${error.message}`, "bad");
+        window.open(absoluteImageUrl(url), "_blank", "noopener,noreferrer");
+      })
+      .finally(() => {
+        downloadButton.disabled = false;
+      });
+    return;
+  }
   const button = event.target.closest("[data-image-iterate]");
   if (!button) return;
   const prompt = button.dataset.imageIterate || "";

@@ -103,6 +103,18 @@ Observed status:
 
 ## Recent Site State
 
+- 2026-07-02 update:
+  - Chat image Download now uses a browser blob download helper so it does not
+    navigate away from the chat page.
+  - Generated images also expose a separate open-in-new-tab icon link.
+  - Uploaded PNG/JPG image edits now send a data URL `image_base64` plus
+    `source_filename_prefix`; they no longer send `image.filename`, because the
+    API treats that as an existing ComfyUI image reference.
+  - Current chat asset:
+    - `chat.js?v=token-chat-image-download-upload-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    a local Playwright browser check, and a live `/api/image/edits` payload
+    check returning 200 for uploaded base64 without `image.filename`.
 - Monitor page was simplified to a direct public API renderer.
 - Monitor counters now label their scope. If
   `public-status.vllm.lifetime_counters` is populated, the Counters card shows
