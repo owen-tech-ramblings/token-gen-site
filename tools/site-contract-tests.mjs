@@ -22,11 +22,21 @@ assert.match(chatHtml, /id="chatMode"/, "Chat HTML must include a mode selector.
 assert.match(chatHtml, /id="chatImageSize"/, "Chat HTML must include image size settings.");
 assert.match(chatHtml, /id="chatImageQuality"/, "Chat HTML must include image quality settings.");
 assert.match(chatHtml, /id="chatImageSamples"/, "Chat HTML must include image sample count settings.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-image-generation-20260701/, "Chat HTML must cache-bust the image-generation script.");
+assert.match(chatHtml, /id="chatImageSourceMode"/, "Chat HTML must include image source mode settings.");
+assert.match(chatHtml, /id="chatImageUpload"/, "Chat HTML must include PNG/JPG upload for image edits.");
+assert.match(chatHtml, /id="chatImageStyle"/, "Chat HTML must include image style settings.");
+assert.match(chatHtml, /id="chatImageOrientation"/, "Chat HTML must include image orientation settings.");
+assert.match(chatHtml, /id="chatImageContentFilter"/, "Chat HTML must include image content filter settings.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-image-edits-20260702/, "Chat HTML must cache-bust the image-edit script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
+assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
 assert.match(chatJs, /\/api\/image\/history\/\$\{/, "Chat must poll image generation history.");
 assert.match(chatJs, /generateImageSamplesSequentially/, "Chat must generate multiple image samples consecutively.");
+assert.match(chatJs, /generateImageEditSamplesSequentially/, "Chat must generate multiple image edit samples consecutively.");
+assert.match(chatJs, /buildStyledImagePrompt/, "Chat must inject style, orientation, and content-filter settings into image prompts.");
+assert.match(chatJs, /image_base64/, "Chat must support uploaded image edits with base64 payloads.");
+assert.match(chatJs, /image_url/, "Chat must support generated-image iteration with image URLs.");
 assert.match(chatJs, /renderImageOutputs/, "Chat must render generated image outputs in the thread.");
 
 assert.match(monitorJs, /function renderObjectDetails/, "Monitor must include a generic object renderer for all public-status fields.");

@@ -1203,6 +1203,72 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   border-radius: var(--radius-sm);
 }
 
+.chat-image-upload {
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  border: 1px dashed rgba(255,216,122,0.38);
+  background: rgba(255,216,122,0.045);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.chat-image-upload:hover {
+  border-color: rgba(255,216,122,0.68);
+  background: rgba(255,216,122,0.08);
+}
+
+.chat-image-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chat-image-source-preview:empty {
+  display: none;
+}
+
+.chat-image-source-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(6, 10, 20, 0.38);
+  border-radius: var(--radius-sm);
+}
+
+.chat-image-source-card img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.chat-image-source-card strong,
+.chat-image-source-card span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-image-source-card strong {
+  color: var(--color-text-primary);
+  font-size: 0.82rem;
+}
+
+.chat-image-source-card span {
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
 .chat-doc-panel {
   display: grid;
   gap: 10px;

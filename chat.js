@@ -20,9 +20,15 @@ const els = {
   webResults: $("#chatWebResults"),
   webBudget: $("#chatWebBudget"),
   webStatus: $("#chatWebStatus"),
+  imageSourceMode: $("#chatImageSourceMode"),
   imageSize: $("#chatImageSize"),
   imageQuality: $("#chatImageQuality"),
   imageSamples: $("#chatImageSamples"),
+  imageStyle: $("#chatImageStyle"),
+  imageOrientation: $("#chatImageOrientation"),
+  imageContentFilter: $("#chatImageContentFilter"),
+  imageUpload: $("#chatImageUpload"),
+  imageSourcePreview: $("#chatImageSourcePreview"),
   imageStatus: $("#chatImageStatus"),
   clear: $("#chatClear"),
   thread: $("#chatThread"),
@@ -41,6 +47,7 @@ let webSearchSupported = false;
 let imageGenerationSupported = false;
 let availableModels = [];
 let uploadedDocuments = [];
+let activeImageSource = null;
 let mammothLoader = null;
 let chatReady = false;
 let chatUserIdPromise = null;
@@ -53,6 +60,39 @@ const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", steps: 4, cfg: 1.0 },
   standard: { label: "Standard", steps: 9, cfg: 1.0 },
   high: { label: "High", steps: 14, cfg: 1.0 },
+};
+const IMAGE_STYLE_PROMPTS = {
+  none: "",
+  photorealistic: "Render in a photorealistic style with natural lighting, realistic materials, and believable detail.",
+  pencil: "Render as a pencil drawing with visible graphite linework, sketch texture, and tonal shading.",
+  "van-gogh": "Render in a Van Gogh-inspired post-impressionist style with expressive brushwork, swirling movement, and rich color.",
+  comic: "Render as comic art with bold inking, crisp shapes, dynamic contrast, and graphic color.",
+  manga: "Render as manga art with clean linework, expressive composition, and polished screen-tone style shading.",
+  futuristic: "Render with a futuristic science-fiction aesthetic, advanced materials, sleek lighting, and high-tech visual language.",
+};
+const IMAGE_STYLE_LABELS = {
+  none: "No style",
+  photorealistic: "Photorealistic",
+  pencil: "Pencil drawing",
+  "van-gogh": "Van Gogh",
+  comic: "Comic",
+  manga: "Manga",
+  futuristic: "Futuristic",
+};
+const IMAGE_CONTENT_FILTER_PROMPTS = {
+  kid: "Content filter: kid friendly, safe for children, no adult themes, no graphic violence.",
+  normal: "Content filter: normal general-audience output, avoid explicit or graphic content.",
+  adult: "Content filter: adult 18+ themes are acceptable when requested, while avoiding illegal, abusive, or non-consensual sexual content.",
+};
+const IMAGE_CONTENT_FILTER_LABELS = {
+  kid: "Kid friendly",
+  normal: "Normal",
+  adult: "Adult 18+ ok",
+};
+const IMAGE_ORIENTATION_LABELS = {
+  square: "Square",
+  portrait: "Portrait",
+  landscape: "Landscape",
 };
 const IMAGE_INTENT_PATTERN = /\b(create|generate|make|draw|render|paint|illustrate|design)\b[^.?!\n]{0,80}\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b|\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b[^.?!\n]{0,80}\b(create|generate|make|draw|render|paint|illustrate|design)\b/i;
 const DIRECT_IMAGE_COMMAND_PATTERN = /^\s*(draw|paint|illustrate|render)\b/i;
@@ -137,6 +177,104 @@ function canSendCurrentMode() {
 
 function updateSendState() {
   els.send.disabled = !canSendCurrentMode() || documentTokenTotal() > getDocumentBudgetTokens();
+}
+
+function absoluteImageUrl(url) {
+  if (!url) return "";
+  return url.startsWith("http") ? url : `${API_BASE}${url}`;
+}
+
+function outputImageReference(output) {
+  const filename = output?.filename || output?.image?.filename;
+  if (!filename) return null;
+  return {
+    filename,
+    subfolder: output?.subfolder || output?.image?.subfolder || "",
+    type: output?.type || output?.image?.type || "output",
+  };
+}
+
+function imageDimensions() {
+  const size = clampNumber(els.imageSize.value, 1024, 512, 1024);
+  const shortSide = Math.max(384, Math.round(size * 0.75));
+  if (els.imageOrientation.value === "portrait") return { width: shortSide, height: size };
+  if (els.imageOrientation.value === "landscape") return { width: size, height: shortSide };
+  return { width: size, height: size };
+}
+
+function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value) {
+  const style = IMAGE_STYLE_PROMPTS[els.imageStyle.value] || "";
+  const orientation = IMAGE_ORIENTATION_LABELS[els.imageOrientation.value] || "Square";
+  const contentFilter = IMAGE_CONTENT_FILTER_PROMPTS[els.imageContentFilter.value] || IMAGE_CONTENT_FILTER_PROMPTS.normal;
+  const modeInstruction = sourceMode === "edit"
+    ? "Use the provided source image as the base image and apply the requested changes while preserving unrelated details."
+    : sourceMode === "style"
+      ? "Use the provided source image as a style reference only. Create a new image matching its visual style, palette, texture, lighting, and mood without copying the exact composition."
+      : "Create a new image from the request.";
+  return [
+    prompt,
+    "",
+    modeInstruction,
+    `Orientation: ${orientation}.`,
+    style,
+    contentFilter,
+  ].filter(Boolean).join("\n");
+}
+
+function setActiveImageSource(source) {
+  activeImageSource = source;
+  renderImageSourcePreview();
+}
+
+function clearActiveImageSource() {
+  activeImageSource = null;
+  renderImageSourcePreview();
+}
+
+function renderImageSourcePreview() {
+  if (!els.imageSourcePreview) return;
+  if (!activeImageSource) {
+    els.imageSourcePreview.innerHTML = `<p class="chat-web-note">No source image selected.</p>`;
+    return;
+  }
+  const src = activeImageSource.previewUrl || activeImageSource.url || "";
+  els.imageSourcePreview.innerHTML = `
+    <div class="chat-image-source-card">
+      ${src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(activeImageSource.name || "Selected source image")}" />` : ""}
+      <div>
+        <strong>${escapeHtml(activeImageSource.name || "Source image")}</strong>
+        <span>${escapeHtml(activeImageSource.kind === "url" ? "Generated image" : "Uploaded image")}</span>
+      </div>
+      <button class="chat-doc-remove" type="button" data-image-source-clear aria-label="Clear source image">x</button>
+    </div>
+  `;
+}
+
+function readUploadedImage(file) {
+  return new Promise((resolve, reject) => {
+    if (!file || !["image/png", "image/jpeg"].includes(file.type)) {
+      reject(new Error("Upload a PNG or JPG image."));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const base64 = dataUrl.split(",")[1] || "";
+      if (!base64) {
+        reject(new Error("Could not read the uploaded image."));
+        return;
+      }
+      resolve({
+        kind: "base64",
+        name: file.name,
+        mimeType: file.type,
+        image_base64: base64,
+        previewUrl: dataUrl,
+      });
+    };
+    reader.onerror = () => reject(new Error("Could not read the uploaded image."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function setStatus(text, state = "neutral") {
@@ -359,7 +497,15 @@ function renderImageOutputs(message) {
               </figcaption>
               <div class="chat-image-actions">
                 <a class="btn" href="${escapeHtml(output.url)}" download="${escapeHtml(output.filename || `token-gen-image-${index + 1}.png`)}">Download</a>
-                <button class="btn" type="button" data-image-iterate="${escapeHtml(output.prompt || message.imagePrompt || "")}">Iterate</button>
+                <button
+                  class="btn"
+                  type="button"
+                  data-image-iterate="${escapeHtml(output.prompt || message.imagePrompt || "")}"
+                  data-image-url="${escapeHtml(output.url || "")}"
+                  data-image-filename="${escapeHtml(output.filename || `Sample ${index + 1}`)}"
+                  data-image-subfolder="${escapeHtml(output.subfolder || "")}"
+                  data-image-type="${escapeHtml(output.type || "output")}"
+                >Iterate</button>
               </div>
             </figure>
           `).join("")}
@@ -651,25 +797,32 @@ async function sendMessage(content) {
 }
 
 function imageSettings() {
-  const size = clampNumber(els.imageSize.value, 1024, 512, 1024);
+  const dimensions = imageDimensions();
   const samples = Math.round(clampNumber(els.imageSamples.value, 1, 1, 4));
   const quality = IMAGE_QUALITY_SETTINGS[els.imageQuality.value] || IMAGE_QUALITY_SETTINGS.standard;
   return {
-    size,
+    ...dimensions,
     samples,
     qualityKey: els.imageQuality.value,
     qualityLabel: quality.label,
+    styleLabel: IMAGE_STYLE_LABELS[els.imageStyle.value] || "No style",
+    orientationLabel: IMAGE_ORIENTATION_LABELS[els.imageOrientation.value] || "Square",
+    contentFilterLabel: IMAGE_CONTENT_FILTER_LABELS[els.imageContentFilter.value] || "Normal",
     steps: quality.steps,
     cfg: quality.cfg,
   };
 }
 
+function imageSummary(settings) {
+  return `${settings.width} x ${settings.height} / ${settings.qualityLabel} / ${settings.orientationLabel}`;
+}
+
 function buildImagePayload(prompt, settings, sampleIndex) {
   return {
-    prompt,
+    prompt: buildStyledImagePrompt(prompt, "new"),
     negative_prompt: "text, watermark, signature, blurry, distorted hands, low quality",
-    width: settings.size,
-    height: settings.size,
+    width: settings.width,
+    height: settings.height,
     steps: settings.steps,
     cfg: settings.cfg,
     seed: Date.now() + sampleIndex,
@@ -691,6 +844,61 @@ async function submitImageGeneration(prompt, settings, sampleIndex) {
   return json.prompt_id;
 }
 
+function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
+  if (!source) throw new Error("Select or upload a source image first.");
+  const payload = {
+    prompt: buildStyledImagePrompt(prompt, sourceMode),
+    negative_prompt: "text, watermark, signature, blurry, distorted hands, low quality",
+    strength: sourceMode === "style" ? 0.72 : 0.45,
+    denoise: sourceMode === "style" ? 0.72 : 0.45,
+    steps: settings.steps,
+    cfg: settings.cfg,
+    seed: Date.now() + sampleIndex,
+    filename_prefix: "token_gen_chat_edit",
+  };
+  if (source.kind === "url") {
+    if (source.image) payload.image = source.image;
+    else payload.image_url = source.url;
+  } else {
+    payload.image_base64 = source.image_base64;
+    payload.image = {
+      filename: source.name,
+      mime_type: source.mimeType,
+    };
+  }
+  return payload;
+}
+
+async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode) {
+  const res = await fetch(`${API_BASE}/api/image/edits`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode)),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.ok === false || !json.prompt_id) {
+    throw new Error(json.error || json.message || `Image edit failed: HTTP ${res.status}`);
+  }
+  return json.prompt_id;
+}
+
+function historyExecutionError(json) {
+  const records = json?.data && typeof json.data === "object" ? Object.values(json.data) : [];
+  for (const record of records) {
+    const status = record?.status || {};
+    const statusString = status.status_str || record?.status_str || "";
+    const messages = Array.isArray(status.messages) ? status.messages : [];
+    const executionError = messages
+      .map((entry) => Array.isArray(entry) ? entry[1] : null)
+      .find((entry) => entry?.exception_message || entry?.exception_type);
+    if (statusString === "error" || executionError) {
+      const type = executionError?.exception_type ? `${executionError.exception_type}: ` : "";
+      return `${type}${executionError?.exception_message || "Image generation failed in ComfyUI."}`.trim();
+    }
+  }
+  return "";
+}
+
 async function pollImageGeneration(promptId) {
   for (let attempt = 0; attempt < IMAGE_POLL_ATTEMPTS; attempt += 1) {
     await new Promise((resolve) => setTimeout(resolve, IMAGE_POLL_INTERVAL_MS));
@@ -699,6 +907,8 @@ async function pollImageGeneration(promptId) {
     if (!res.ok || json.ok === false) {
       throw new Error(json.error || json.message || `Image history failed: HTTP ${res.status}`);
     }
+    const nestedError = historyExecutionError(json);
+    if (nestedError) throw new Error(nestedError);
     if (Array.isArray(json.outputs) && json.outputs.length) return json.outputs;
     if (json.status === "failed" || json.status === "error") {
       throw new Error("Image generation failed.");
@@ -721,19 +931,55 @@ async function generateImageSamplesSequentially(prompt, assistantIndex) {
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
     const sampleOutputs = await pollImageGeneration(promptId);
     for (const output of sampleOutputs) {
+      const imageRef = outputImageReference(output);
       outputs.push({
         ...output,
+        ...(imageRef || {}),
         prompt,
         quality: settings.qualityLabel,
-        size: `${settings.size} x ${settings.size}`,
+        size: imageSummary(settings),
         alt: prompt,
-        url: output.url?.startsWith("http") ? output.url : `${API_BASE}${output.url || ""}`,
+        url: absoluteImageUrl(output.url),
       });
     }
     updateAssistantImageMessage(assistantIndex, {
       imageOutputs: [...outputs],
       imageProgress: index + 1 < settings.samples ? `Completed ${label}. Starting next sample...` : "",
       content: index + 1 < settings.samples ? "Choose any completed sample, or wait for the rest." : "Image generation complete.",
+    });
+  }
+}
+
+async function generateImageEditSamplesSequentially(prompt, assistantIndex, sourceMode) {
+  const settings = imageSettings();
+  const source = activeImageSource;
+  const outputs = [];
+  for (let index = 0; index < settings.samples; index += 1) {
+    const label = `sample ${index + 1} of ${settings.samples}`;
+    updateAssistantImageMessage(assistantIndex, {
+      imageProgress: `${sourceMode === "style" ? "Using source style for" : "Editing"} ${label}...`,
+      content: outputs.length ? "Still generating the remaining samples." : "",
+    });
+    setStatus(`${sourceMode === "style" ? "Generating style reference image" : "Editing image"} ${index + 1} of ${settings.samples}...`, "busy");
+    const promptId = await submitImageEdit(prompt, settings, index, source, sourceMode);
+    updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
+    const sampleOutputs = await pollImageGeneration(promptId);
+    for (const output of sampleOutputs) {
+      const imageRef = outputImageReference(output);
+      outputs.push({
+        ...output,
+        ...(imageRef || {}),
+        prompt,
+        quality: settings.qualityLabel,
+        size: imageSummary(settings),
+        alt: prompt,
+        url: absoluteImageUrl(output.url),
+      });
+    }
+    updateAssistantImageMessage(assistantIndex, {
+      imageOutputs: [...outputs],
+      imageProgress: index + 1 < settings.samples ? `Completed ${label}. Starting next sample...` : "",
+      content: index + 1 < settings.samples ? "Choose any completed sample, or wait for the rest." : "Image edit complete.",
     });
   }
 }
@@ -754,7 +1000,17 @@ async function sendImageMessage(content) {
   els.input.disabled = true;
 
   try {
-    await generateImageSamplesSequentially(content, assistantIndex);
+    const sourceMode = els.imageSourceMode.value;
+    if (sourceMode === "edit" || sourceMode === "style") {
+      if (!activeImageSource) {
+        throw new Error(sourceMode === "style"
+          ? "Upload an image to use as the style reference."
+          : "Upload an image or choose Iterate on a generated image first.");
+      }
+      await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode);
+    } else {
+      await generateImageSamplesSequentially(content, assistantIndex);
+    }
     setStatus(`Image generation complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
     updateAssistantImageMessage(assistantIndex, {
@@ -811,8 +1067,35 @@ els.mode.addEventListener("change", () => {
   }
 });
 
+els.imageSourceMode.addEventListener("change", () => {
+  if (els.imageSourceMode.value !== "new" && !activeImageSource) {
+    setStatus(els.imageSourceMode.value === "style" ? "Upload a style reference image" : "Upload an image or choose Iterate on a generated image", "busy");
+  }
+  renderImageSourcePreview();
+});
+
 els.imageSamples.addEventListener("input", () => {
   els.imageSamples.value = String(Math.round(clampNumber(els.imageSamples.value, 1, 1, 4)));
+});
+
+els.imageUpload.addEventListener("change", async () => {
+  const file = els.imageUpload.files?.[0];
+  if (!file) return;
+  els.imageUpload.disabled = true;
+  setStatus(`Reading ${file.name}...`, "busy");
+  try {
+    const source = await readUploadedImage(file);
+    setActiveImageSource(source);
+    els.mode.value = "image";
+    if (els.imageSourceMode.value === "new") els.imageSourceMode.value = "edit";
+    setStatus(`${file.name} ready for image edits`, "good");
+  } catch (error) {
+    setStatus(error.message, "bad");
+  } finally {
+    els.imageUpload.value = "";
+    els.imageUpload.disabled = false;
+    updateSendState();
+  }
 });
 
 els.docBudget.addEventListener("input", renderDocuments);
@@ -860,11 +1143,34 @@ els.thread.addEventListener("click", (event) => {
   const button = event.target.closest("[data-image-iterate]");
   if (!button) return;
   const prompt = button.dataset.imageIterate || "";
+  const url = button.dataset.imageUrl || "";
+  const image = button.dataset.imageFilename ? {
+    filename: button.dataset.imageFilename,
+    subfolder: button.dataset.imageSubfolder || "",
+    type: button.dataset.imageType || "output",
+  } : null;
+  setActiveImageSource({
+    kind: "url",
+    name: image?.filename || "Generated image",
+    prompt,
+    previewUrl: url,
+    url,
+    image,
+  });
   els.mode.value = "image";
+  els.imageSourceMode.value = "edit";
   els.input.value = `Create a variation of this image: ${prompt}`;
   autosizeInput();
   updateSendState();
   els.input.focus();
+});
+
+els.imageSourcePreview.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-image-source-clear]");
+  if (!button) return;
+  clearActiveImageSource();
+  if (els.imageSourceMode.value !== "new") els.imageSourceMode.value = "new";
+  updateSendState();
 });
 
 els.clear.addEventListener("click", () => {
@@ -875,6 +1181,7 @@ els.clear.addEventListener("click", () => {
 
 renderMessages(false);
 renderDocuments();
+renderImageSourcePreview();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
