@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Token Gen Chat</title>
-    <link rel="stylesheet" href="./styles.css?v=token-chat-documents-composer-20260603e" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-image-generation-20260701" />
   </head>
   <body>
     <main class="chat-app">
@@ -23,6 +23,14 @@
 
       <section class="chat-shell" aria-label="Token Gen chat workspace">
         <aside class="chat-sidebar">
+          <div class="chat-control">
+            <label class="label" for="chatMode">Mode</label>
+            <select id="chatMode">
+              <option value="chat">Chat</option>
+              <option value="auto" selected>Auto</option>
+              <option value="image">Image</option>
+            </select>
+          </div>
           <div class="chat-control">
             <label class="label" for="chatModel">Model</label>
             <select id="chatModel"></select>
@@ -76,6 +84,28 @@
               <input id="chatWebBudget" class="input" type="number" min="500" max="10000" step="500" value="10000" />
             </div>
           </section>
+          <section class="chat-image-panel" aria-label="Image generation settings">
+            <div>
+              <span class="label">Image generation</span>
+              <p class="chat-web-note" id="chatImageStatus">Checking image service...</p>
+            </div>
+            <div class="chat-control-grid">
+              <label class="label" for="chatImageSize">Size</label>
+              <select id="chatImageSize">
+                <option value="512">512 x 512</option>
+                <option value="768">768 x 768</option>
+                <option value="1024" selected>1024 x 1024</option>
+              </select>
+              <label class="label" for="chatImageQuality">Quality</label>
+              <select id="chatImageQuality">
+                <option value="draft">Draft</option>
+                <option value="standard" selected>Standard</option>
+                <option value="high">High</option>
+              </select>
+              <label class="label" for="chatImageSamples">Samples</label>
+              <input id="chatImageSamples" class="input" type="number" min="1" max="4" step="1" value="1" />
+            </div>
+          </section>
           <button class="btn" id="chatClear" type="button">New chat</button>
         </aside>
 
@@ -101,6 +131,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-user-metrics-20260621"></script>
+    <script type="module" src="./chat.js?v=token-chat-image-generation-20260701"></script>
   </body>
 </html>
