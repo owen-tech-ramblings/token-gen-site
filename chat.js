@@ -277,6 +277,69 @@ function readUploadedImage(file) {
   });
 }
 
+function readBlobAsDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read the source image."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load the source image."));
+    image.src = src;
+  });
+}
+
+async function sourceImageDataUrl(source) {
+  if (source?.image_base64) return source.image_base64;
+  const url = absoluteImageUrl(source?.previewUrl || source?.url);
+  if (!url) throw new Error("Source image URL is unavailable.");
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`Source image fetch failed: HTTP ${response.status}`);
+  return readBlobAsDataUrl(await response.blob());
+}
+
+async function resizeImageSourceForEdit(source, settings) {
+  const dataUrl = await sourceImageDataUrl(source);
+  const image = await loadImageElement(dataUrl);
+  if (image.naturalWidth === settings.width && image.naturalHeight === settings.height) {
+    return {
+      ...source,
+      kind: "base64",
+      image_base64: dataUrl,
+      previewUrl: dataUrl,
+    };
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = settings.width;
+  canvas.height = settings.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Image resizing is unavailable in this browser.");
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const scale = Math.min(settings.width / image.naturalWidth, settings.height / image.naturalHeight);
+  const width = Math.round(image.naturalWidth * scale);
+  const height = Math.round(image.naturalHeight * scale);
+  const left = Math.round((settings.width - width) / 2);
+  const top = Math.round((settings.height - height) / 2);
+  ctx.drawImage(image, left, top, width, height);
+
+  const resizedDataUrl = canvas.toDataURL("image/png");
+  return {
+    ...source,
+    kind: "base64",
+    image_base64: resizedDataUrl,
+    previewUrl: resizedDataUrl,
+    resizedFor: `${settings.width}x${settings.height}`,
+  };
+}
+
 function setStatus(text, state = "neutral") {
   els.status.textContent = text;
   els.status.dataset.state = state;
@@ -862,8 +925,9 @@ async function submitImageGeneration(prompt, settings, sampleIndex) {
   return json.prompt_id;
 }
 
-function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
+async function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
   if (!source) throw new Error("Select or upload a source image first.");
+  const preparedSource = await resizeImageSourceForEdit(source, settings);
   const payload = {
     prompt: buildStyledImagePrompt(prompt, sourceMode),
     negative_prompt: "text, watermark, signature, blurry, distorted hands, low quality",
@@ -874,13 +938,8 @@ function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode
     seed: Date.now() + sampleIndex,
     filename_prefix: "token_gen_chat_edit",
   };
-  if (source.kind === "url") {
-    if (source.image) payload.image = source.image;
-    else payload.image_url = source.url;
-  } else {
-    payload.image_base64 = source.image_base64;
-    payload.source_filename_prefix = source.name || "token-gen-upload";
-  }
+  payload.image_base64 = preparedSource.image_base64;
+  payload.source_filename_prefix = preparedSource.name || "token-gen-source";
   return payload;
 }
 
@@ -906,10 +965,11 @@ async function downloadImage(url, filename) {
 }
 
 async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode) {
+  const payload = await buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode);
   const res = await fetch(`${API_BASE}/api/image/edits`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode)),
+    body: JSON.stringify(payload),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false || !json.prompt_id) {

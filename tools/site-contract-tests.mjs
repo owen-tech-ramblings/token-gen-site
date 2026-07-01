@@ -27,7 +27,7 @@ assert.match(chatHtml, /id="chatImageUpload"/, "Chat HTML must include PNG/JPG u
 assert.match(chatHtml, /id="chatImageStyle"/, "Chat HTML must include image style settings.");
 assert.match(chatHtml, /id="chatImageOrientation"/, "Chat HTML must include image orientation settings.");
 assert.match(chatHtml, /id="chatImageContentFilter"/, "Chat HTML must include image content filter settings.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-image-download-upload-20260702/, "Chat HTML must cache-bust the image download/upload script.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-image-edit-size-20260702/, "Chat HTML must cache-bust the image edit sizing script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -38,7 +38,10 @@ assert.match(chatJs, /buildStyledImagePrompt/, "Chat must inject style, orientat
 assert.match(chatJs, /image_base64/, "Chat must support uploaded image edits with base64 payloads.");
 assert.match(chatJs, /source_filename_prefix/, "Uploaded image edits must send a source filename prefix, not an existing image reference.");
 assert.doesNotMatch(chatJs, /filename:\s*source\.name/, "Uploaded image edits must not send image.filename because the API treats it as an existing ComfyUI reference.");
-assert.match(chatJs, /image_url/, "Chat must support generated-image iteration with image URLs.");
+assert.match(chatJs, /resizeImageSourceForEdit/, "Image edits must resize the source image to the selected output dimensions before submission.");
+assert.match(chatJs, /canvas\.toDataURL\("image\/png"\)/, "Image edit source resizing must submit a browser-generated PNG data URL.");
+assert.match(chatJs, /settings\.width/, "Image edit source resizing must use the configured output width.");
+assert.match(chatJs, /settings\.height/, "Image edit source resizing must use the configured output height.");
 assert.match(chatJs, /data-image-download/, "Chat must download images without navigating away from the conversation.");
 assert.match(chatJs, /function downloadImage/, "Chat must use a blob download helper for generated images.");
 assert.match(chatJs, /target="_blank"/, "Chat must open generated images in a new tab when requested.");

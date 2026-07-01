@@ -104,6 +104,17 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - Image edit/style requests now resize the selected source image in the
+    browser to the configured output dimensions before calling
+    `/api/image/edits`. This prevents edits of a 512 x 384 uploaded/source
+    image from saving at 512 x 384 when the user selected 1024 x 1024.
+  - Current chat asset:
+    - `chat.js?v=token-chat-image-edit-size-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    and a local Playwright check proving a 64 x 48 uploaded PNG is submitted to
+    `/api/image/edits` as a 1024 x 1024 PNG data URL when 1024 square is
+    selected.
+- 2026-07-02 update:
   - Chat image Download now uses a browser blob download helper so it does not
     navigate away from the chat page.
   - Generated images also expose a separate open-in-new-tab icon link.

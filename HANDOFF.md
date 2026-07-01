@@ -22,6 +22,19 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 chat image sizing bugfix:
+  - Fixed image edit/style generation so the selected source image is resized
+    in the browser to the configured output dimensions before submission to
+    `/api/image/edits`.
+  - This addresses edits saving at the source image size, such as 512 x 384,
+    even when the user selected 1024 x 1024.
+  - Cache-busted `chat.html` to
+    `chat.js?v=token-chat-image-edit-size-20260702`.
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - local Playwright check proving a 64 x 48 uploaded PNG is submitted as a
+      1024 x 1024 PNG data URL when 1024 square is selected
 - 2026-07-02 chat image bugfix:
   - Fixed generated-image Download so it creates a blob URL and triggers a
     download without leaving `chat.html`.
