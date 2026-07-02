@@ -1,6 +1,6 @@
 # Token Gen Handoff
 
-Last updated: 2026-06-09 01:35 Australia/Sydney
+Last updated: 2026-07-02 Australia/Sydney
 
 ## 2026-06-21 Alignment Guardrail
 
@@ -22,6 +22,32 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 chat UI polish:
+  - Cleaned up the chat image settings panel so controls are grouped into
+    Source, Output, Prompt guidance, Edit control, Enhance, and Reference
+    images.
+  - Replaced the cramped edit-strength number field with a range slider and
+    live value chip. Preservation presets still set the underlying strength.
+  - Kept the document attach control inside the chat input shell and kept Send
+    as the existing right-side action, while preventing the composer from
+    collapsing or splitting into awkward rows on desktop.
+  - Desktop chat now uses internal sidebar/thread scrolling so the outer page
+    does not create a giant blank scroll area.
+  - Prompt injection for image requests now distinguishes the user request from
+    settings guidance more clearly and tells the image model not to invent
+    unrelated objects, outfits, text, logos, or background changes. Edit prompts
+    explicitly preserve unmentioned source-image details and existing
+    relationships/interactions.
+  - Cache-busted `chat.html` to:
+    - `styles.css?v=token-chat-ui-polish-20260702`
+    - `chat.js?v=token-chat-ui-polish-20260702`
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - `git diff --check`
+    - local Playwright desktop/mobile UI screenshot check
+    - local Playwright image guidance payload check
+    - local Playwright masked edit and upscale payload checks
 - 2026-07-02 chat image mask/upscale integration:
   - Verified the updated public API contract now documents:
     - `/api/image/edits` with optional `mask_base64`

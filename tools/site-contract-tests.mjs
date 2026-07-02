@@ -36,9 +36,10 @@ assert.match(chatHtml, /id="chatImageUpscaleScale"/, "Chat HTML must include ups
 assert.match(chatHtml, /id="chatImageUpscaleMethod"/, "Chat HTML must include upscale method settings.");
 assert.match(chatHtml, /value="upscale"/, "Chat source mode must include enhance/upscale support.");
 assert.match(chatHtml, /chat-image-settings/, "Chat HTML must group image controls in a collapsible settings area.");
-assert.match(chatHtml, /Lower values keep the source image closer/, "Chat HTML must explain lower edit values preserve more of the source image.");
-assert.match(chatHtml, /White\/light areas are changed; black\/dark areas are preserved/, "Chat HTML must explain mask light/dark behavior.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-image-mask-upscale-20260702/, "Chat HTML must cache-bust the image mask/upscale script.");
+assert.match(chatHtml, /Lower keeps the source closer/, "Chat HTML must explain lower edit values preserve more of the source image.");
+assert.match(chatHtml, /White\/light mask areas are changed; black\/dark areas are preserved/, "Chat HTML must explain mask light/dark behavior.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-ui-polish-20260702/, "Chat HTML must cache-bust the polished chat CSS.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-ui-polish-20260702/, "Chat HTML must cache-bust the polished chat script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -50,7 +51,7 @@ assert.match(chatJs, /generateImageUpscaleSamplesSequentially/, "Chat must gener
 assert.match(chatJs, /buildStyledImagePrompt/, "Chat must inject style, orientation, and content-filter settings into image prompts.");
 assert.match(chatJs, /USER IMAGE REQUEST/, "Image prompt injection must keep the user's image request in its own block.");
 assert.match(chatJs, /IMAGE SETTINGS GUIDANCE/, "Image prompt injection must add structured settings guidance for image requests.");
-assert.match(chatJs, /unmentioned clothing, identity, pose, hand placement/, "Image edit prompts must explicitly preserve unrelated source-image details.");
+assert.match(chatJs, /Preserve every unmentioned part of the image/, "Image edit prompts must explicitly preserve unrelated source-image details.");
 assert.match(chatJs, /IMAGE_EDIT_PRESERVATION_SETTINGS/, "Chat must define image edit preservation presets.");
 assert.match(chatJs, /IMAGE_CREATIVITY_SETTINGS/, "Chat must define image creativity settings.");
 assert.match(chatJs, /image_base64/, "Chat must support uploaded image edits with base64 payloads.");

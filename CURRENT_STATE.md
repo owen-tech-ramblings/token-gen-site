@@ -1,6 +1,6 @@
 # Token Gen Current State
 
-Last updated: 2026-06-09 01:35 Australia/Sydney
+Last updated: 2026-07-02 Australia/Sydney
 
 ## Alignment Update - 2026-06-21
 
@@ -103,6 +103,31 @@ Observed status:
 
 ## Recent Site State
 
+- 2026-07-02 update:
+  - Chat image settings have been polished into clear sections instead of a
+    long mixed control grid:
+    - Source
+    - Output
+    - Prompt guidance
+    - Edit control
+    - Enhance
+    - Reference images
+  - Edit strength is now a slider with a live value chip, and preservation
+    presets still update the slider value.
+  - The bottom chat composer is kept as one stable row on desktop, with the
+    attach button inside the input shell and Send left in its original position.
+  - Desktop chat layout now uses internal sidebar/thread scrolling to avoid the
+    large blank outer-page scroll seen in browser screenshots.
+  - Image prompt guidance was tightened so settings are treated as execution
+    guidance and do not invent unrelated objects, outfits, logos, text, or
+    background changes. Edit prompts explicitly preserve unmentioned parts of
+    the source image and existing physical relationships/interactions.
+  - Current chat assets:
+    - `styles.css?v=token-chat-ui-polish-20260702`
+    - `chat.js?v=token-chat-ui-polish-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    `git diff --check`, local Playwright UI screenshots for desktop/mobile,
+    and local Playwright payload checks for image guidance, masks, and upscale.
 - 2026-07-02 update:
   - The site now consumes the updated image API contract:
     - `/api/image/edits` with optional `mask_base64`

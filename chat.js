@@ -30,6 +30,7 @@ const els = {
   imageContentFilter: $("#chatImageContentFilter"),
   imageEditPreservation: $("#chatImageEditPreservation"),
   imageEditStrength: $("#chatImageEditStrength"),
+  imageEditStrengthValue: $("#chatImageEditStrengthValue"),
   imageUpscaleScale: $("#chatImageUpscaleScale"),
   imageUpscaleMethod: $("#chatImageUpscaleMethod"),
   imageUpload: $("#chatImageUpload"),
@@ -99,7 +100,7 @@ const IMAGE_CONTENT_FILTER_LABELS = {
 };
 const IMAGE_CREATIVITY_SETTINGS = {
   low: {
-    label: "Low",
+    label: "Conservative",
     prompt: "Creativity: low. Follow the request conservatively and avoid adding unrequested subjects, outfits, props, scenery, or composition changes.",
   },
   balanced: {
@@ -107,7 +108,7 @@ const IMAGE_CREATIVITY_SETTINGS = {
     prompt: "Creativity: balanced. Add reasonable visual polish while staying faithful to the request and avoiding unrelated changes.",
   },
   high: {
-    label: "High",
+    label: "Exploratory",
     prompt: "Creativity: high. Allow more imaginative interpretation, but still respect the requested subjects, constraints, and edit preservation rules.",
   },
 };
@@ -249,20 +250,19 @@ function imageDimensions() {
 function imageModeInstruction(sourceMode, settings) {
   if (sourceMode === "edit") {
     return [
-      "Mode: source-image edit.",
-      "Use the provided source image as the base image.",
-      `Edit change strength / denoise: ${settings.editStrength.toFixed(2)}. Lower values mean more precise preservation; higher values mean more change and variation.`,
+      "Mode: edit the selected source image.",
+      `Edit control: ${settings.preservationLabel} preservation at ${settings.editStrength.toFixed(2)} change strength. Lower values preserve more of the original; higher values allow more visible change.`,
       settings.preservationPrompt,
-      "Do not change unmentioned clothing, identity, pose, hand placement, facial expressions, object positions, camera angle, crop, lighting, or composition.",
-      "If the user asks to add or improve something, keep existing people and relationships intact unless the user explicitly asks to change them.",
+      "Preserve every unmentioned part of the image: people, identity, clothing, pose, hand placement, facial expression, object positions, camera angle, crop, lighting, composition, and background.",
+      "When adding or improving something, keep existing relationships and physical interactions intact unless the user explicitly asks to change them.",
     ].join("\n");
   }
   if (sourceMode === "style") {
     return [
-      "Mode: source-image style reference.",
-      "Use the provided image as a visual style reference only: palette, texture, medium, lighting, and mood.",
+      "Mode: use the selected source image as a style reference.",
+      "Borrow visual qualities only: palette, texture, medium, lighting, and mood.",
       `Style reference strength / denoise: ${settings.editStrength.toFixed(2)}. Lower values stay closer to the source image; higher values allow more variation.`,
-      "Create a new composition that follows the user request. Do not copy private identity details or exact composition unless the user explicitly asks.",
+      "Create a new composition that follows the user request. Do not copy identity details or exact composition unless explicitly requested.",
     ].join("\n");
   }
   if (sourceMode === "upscale") {
@@ -279,21 +279,20 @@ function imageModeInstruction(sourceMode, settings) {
 function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, settings = imageSettings()) {
   const style = IMAGE_STYLE_PROMPTS[settings.styleKey] || "";
   const contentFilter = IMAGE_CONTENT_FILTER_PROMPTS[settings.contentFilterKey] || IMAGE_CONTENT_FILTER_PROMPTS.normal;
-  const styleInstruction = style || "Style: no specific style preset selected; follow the user's requested visual style if they provided one.";
+  const styleInstruction = style || "Style preset: none. Follow any visual style named directly in the user request.";
   return [
     "USER IMAGE REQUEST:",
     prompt,
     "",
     "IMAGE SETTINGS GUIDANCE:",
-    "The user request above is the main task. The settings below are execution constraints; do not add unrelated subject matter or override the user's request.",
+    "Use the user request as the main task. Treat the settings below as execution guidance, not extra subject matter. Do not add unrelated objects, people, outfits, text, logos, or background changes.",
     imageModeInstruction(sourceMode, settings),
-    `Resolution: ${settings.width} x ${settings.height}.`,
-    `Orientation: ${settings.orientationLabel}.`,
+    `Canvas: ${settings.width} x ${settings.height}, ${settings.orientationLabel.toLowerCase()} orientation.`,
     sourceMode === "edit" && activeImageMask
-      ? "Mask guidance: an edit mask is provided. Only regenerate white or light masked regions. Preserve black or dark unmasked regions exactly."
+      ? "Mask: an edit mask is provided. Only regenerate white or light masked regions. Preserve black or dark unmasked regions exactly."
       : "",
-    settings.qualityPrompt,
-    `Samples requested: ${settings.samples}. Keep each sample faithful to the same request; vary only natural rendering details.`,
+    `Render effort: ${settings.qualityLabel}. ${settings.qualityPrompt}`,
+    `Samples: ${settings.samples}. Keep every sample faithful to the same request; vary only natural rendering details.`,
     styleInstruction,
     settings.creativityPrompt,
     contentFilter,
@@ -1335,6 +1334,13 @@ function autosizeInput() {
   els.input.style.height = `${Math.min(180, els.input.scrollHeight)}px`;
 }
 
+function syncImageEditStrengthValue() {
+  if (!els.imageEditStrengthValue) return;
+  const value = clampNumber(els.imageEditStrength.value, 0.25, 0.05, 0.8).toFixed(2);
+  els.imageEditStrengthValue.value = value;
+  els.imageEditStrengthValue.textContent = value;
+}
+
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   const content = els.input.value.trim();
@@ -1387,10 +1393,16 @@ els.imageSamples.addEventListener("input", () => {
 els.imageEditPreservation.addEventListener("change", () => {
   const preset = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.precise;
   els.imageEditStrength.value = preset.strength.toFixed(2);
+  syncImageEditStrengthValue();
+});
+
+els.imageEditStrength.addEventListener("input", () => {
+  syncImageEditStrengthValue();
 });
 
 els.imageEditStrength.addEventListener("change", () => {
   els.imageEditStrength.value = clampNumber(els.imageEditStrength.value, 0.25, 0.05, 0.8).toFixed(2);
+  syncImageEditStrengthValue();
 });
 
 els.imageUpload.addEventListener("change", async () => {
@@ -1543,6 +1555,8 @@ els.clear.addEventListener("click", () => {
 renderMessages(false);
 renderDocuments();
 renderImageSourcePreview();
+renderImageMaskPreview();
+syncImageEditStrengthValue();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
