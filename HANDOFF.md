@@ -22,6 +22,27 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 uploaded image preview bugfix:
+  - Fixed a blank/stalled page risk after uploading larger PNG/JPG source
+    images in chat.
+  - Root cause: the preview renderer put the full uploaded base64 data URL into
+    the DOM as the `<img src>`. Reproducing with
+    `C:\Users\User\Downloads\image0.jpeg` showed page HTML growing to about
+    7.5 MB after upload.
+  - Uploaded image previews now use lightweight browser object URLs. The full
+    base64 payload is still retained in JS state for `/api/image/edits` and
+    `/api/image/upscale` requests.
+  - Preview object URLs are revoked when a source/mask image is replaced or
+    cleared.
+  - Cache-busted `chat.html` to:
+    - `chat.js?v=token-chat-upload-preview-20260702`
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - `git diff --check`
+    - local Playwright reproduction with a 5.6 MB JPEG source upload
+    - local Playwright desktop/mobile UI check
+    - local Playwright image guidance, masked edit, and upscale payload checks
 - 2026-07-02 chat UI polish:
   - Cleaned up the chat image settings panel so controls are grouped into
     Source, Output, Prompt guidance, Edit control, Enhance, and Reference

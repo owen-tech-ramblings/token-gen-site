@@ -104,6 +104,23 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - Fixed a blank/stalled chat screen risk after uploading larger PNG/JPG
+    source images.
+  - Root cause: uploaded image previews reused the full base64 data URL, which
+    injected the entire image payload into the DOM. A 5.6 MB JPEG made the
+    rendered page HTML grow to about 7.5 MB before this fix.
+  - Uploaded source/mask previews now use lightweight `URL.createObjectURL`
+    blob URLs, while the base64 data URL remains only in JS state for API
+    payloads.
+  - Replaced/cleared uploaded preview object URLs are revoked to avoid leaking
+    browser memory.
+  - Current chat asset:
+    - `chat.js?v=token-chat-upload-preview-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    `git diff --check`, a local Playwright reproduction using
+    `C:\Users\User\Downloads\image0.jpeg`, and the existing local Playwright
+    UI/image payload checks.
+- 2026-07-02 update:
   - Chat image settings have been polished into clear sections instead of a
     long mixed control grid:
     - Source

@@ -39,7 +39,7 @@ assert.match(chatHtml, /chat-image-settings/, "Chat HTML must group image contro
 assert.match(chatHtml, /Lower keeps the source closer/, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /White\/light mask areas are changed; black\/dark areas are preserved/, "Chat HTML must explain mask light/dark behavior.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-ui-polish-20260702/, "Chat HTML must cache-bust the polished chat CSS.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-ui-polish-20260702/, "Chat HTML must cache-bust the polished chat script.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-upload-preview-20260702/, "Chat HTML must cache-bust the upload preview fix script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -55,6 +55,8 @@ assert.match(chatJs, /Preserve every unmentioned part of the image/, "Image edit
 assert.match(chatJs, /IMAGE_EDIT_PRESERVATION_SETTINGS/, "Chat must define image edit preservation presets.");
 assert.match(chatJs, /IMAGE_CREATIVITY_SETTINGS/, "Chat must define image creativity settings.");
 assert.match(chatJs, /image_base64/, "Chat must support uploaded image edits with base64 payloads.");
+assert.match(chatJs, /URL\.createObjectURL\(file\)/, "Uploaded image previews must use lightweight object URLs instead of injecting full base64 into the DOM.");
+assert.match(chatJs, /URL\.revokeObjectURL/, "Uploaded image preview object URLs must be released when replaced or cleared.");
 assert.match(chatJs, /source_filename_prefix/, "Uploaded image edits must send a source filename prefix, not an existing image reference.");
 assert.doesNotMatch(chatJs, /filename:\s*source\.name/, "Uploaded image edits must not send image.filename because the API treats it as an existing ComfyUI reference.");
 assert.match(chatJs, /resizeImageSourceForEdit/, "Image edits must resize the source image to the selected output dimensions before submission.");

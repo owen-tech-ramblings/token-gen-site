@@ -299,22 +299,30 @@ function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, 
   ].filter(Boolean).join("\n");
 }
 
+function releaseImagePreviewUrl(source) {
+  if (source?.previewObjectUrl) URL.revokeObjectURL(source.previewObjectUrl);
+}
+
 function setActiveImageSource(source) {
+  releaseImagePreviewUrl(activeImageSource);
   activeImageSource = source;
   renderImageSourcePreview();
 }
 
 function clearActiveImageSource() {
+  releaseImagePreviewUrl(activeImageSource);
   activeImageSource = null;
   renderImageSourcePreview();
 }
 
 function setActiveImageMask(mask) {
+  releaseImagePreviewUrl(activeImageMask);
   activeImageMask = mask;
   renderImageMaskPreview();
 }
 
 function clearActiveImageMask() {
+  releaseImagePreviewUrl(activeImageMask);
   activeImageMask = null;
   renderImageMaskPreview();
 }
@@ -363,11 +371,13 @@ function readUploadedImage(file) {
       reject(new Error("Upload a PNG or JPG image."));
       return;
     }
+    const previewObjectUrl = URL.createObjectURL(file);
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = String(reader.result || "");
       const base64 = dataUrl.split(",")[1] || "";
       if (!base64) {
+        URL.revokeObjectURL(previewObjectUrl);
         reject(new Error("Could not read the uploaded image."));
         return;
       }
@@ -376,10 +386,14 @@ function readUploadedImage(file) {
         name: file.name,
         mimeType: file.type,
         image_base64: dataUrl,
-        previewUrl: dataUrl,
+        previewUrl: previewObjectUrl,
+        previewObjectUrl,
       });
     };
-    reader.onerror = () => reject(new Error("Could not read the uploaded image."));
+    reader.onerror = () => {
+      URL.revokeObjectURL(previewObjectUrl);
+      reject(new Error("Could not read the uploaded image."));
+    };
     reader.readAsDataURL(file);
   });
 }
