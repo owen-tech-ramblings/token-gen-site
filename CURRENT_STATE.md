@@ -104,6 +104,24 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - Added a dedicated uploaded-image `Restyle source image` mode for workflows
+    such as converting an uploaded image to pencil drawing, Van Gogh, comic,
+    manga, etc.
+  - Root cause: normal `Edit source image` mode correctly used strict
+    preservation and low denoise for localized edits, but that fought full-image
+    style transfer. Restyle mode now uses the edit API with stronger defaults
+    (`flexible` preservation and `0.65` strength/denoise) while preserving
+    composition, identity, pose, hand placement, and object layout.
+  - Selecting a style preset while a source image is loaded and Source is still
+    `Edit source image` automatically switches to `Restyle source image`.
+  - Current chat assets:
+    - `styles.css?v=token-chat-image-restyle-20260702`
+    - `chat.js?v=token-chat-image-restyle-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    `git diff --check`, local Playwright uploaded-image restyle payload check,
+    normal edit payload checks, masked edit/upscale checks, generation API
+    controls check, and desktop/mobile UI checks.
+- 2026-07-02 update:
   - Reviewed the live public image model contract at
     `https://token-gen-api.owenonthenet.com/api/image/models`.
   - The chat image UI now supports the newly documented API controls:

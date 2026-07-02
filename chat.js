@@ -266,6 +266,17 @@ function imageModeInstruction(sourceMode, settings) {
       "When adding or improving something, keep existing relationships and physical interactions intact unless the user explicitly asks to change them.",
     ].join("\n");
   }
+  if (sourceMode === "restyle") {
+    return [
+      "Mode: restyle the selected source image.",
+      "Use the source image as the base composition and convert the whole image into the selected visual style.",
+      `Restyle strength / denoise: ${settings.editStrength.toFixed(2)}. Lower values keep more source texture; higher values apply the new style more strongly.`,
+      settings.preservationPrompt,
+      "Preserve the recognizable subject identity, pose, hand placement, relationships between people, object layout, camera angle, crop, and scene composition.",
+      "Do change the visual medium, linework, brushwork, color treatment, texture, and rendering technique to match the requested style.",
+      "Do not add unrelated objects, replace clothing shapes, change facial identity, change who is present, or redesign the scene unless the user explicitly asks.",
+    ].join("\n");
+  }
   if (sourceMode === "style") {
     return [
       "Mode: use the selected source image as a style reference.",
@@ -305,7 +316,7 @@ function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, 
     styleInstruction,
     settings.creativityPrompt,
     `API controls: quality=${settings.qualityKey}, creativity=${settings.creativity.toFixed(2)}, content_rating=${settings.contentRating}, sampler=${settings.samplerName}, scheduler=${settings.scheduler}.`,
-    sourceMode === "edit" || sourceMode === "style" ? `API edit preservation: ${settings.preservation}.` : "",
+    sourceMode === "edit" || sourceMode === "restyle" || sourceMode === "style" ? `API edit preservation: ${settings.preservation}.` : "",
     contentFilter,
   ].filter(Boolean).join("\n");
 }
@@ -1263,10 +1274,10 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
   for (let index = 0; index < settings.samples; index += 1) {
     const label = `sample ${index + 1} of ${settings.samples}`;
     updateAssistantImageMessage(assistantIndex, {
-      imageProgress: `${sourceMode === "style" ? "Using source style for" : "Editing"} ${label}...`,
+      imageProgress: `${sourceMode === "style" ? "Using source style for" : sourceMode === "restyle" ? "Restyling" : "Editing"} ${label}...`,
       content: outputs.length ? "Still generating the remaining samples." : "",
     });
-    setStatus(`${sourceMode === "style" ? "Generating style reference image" : "Editing image"} ${index + 1} of ${settings.samples}...`, "busy");
+    setStatus(`${sourceMode === "style" ? "Generating style reference image" : sourceMode === "restyle" ? "Restyling image" : "Editing image"} ${index + 1} of ${settings.samples}...`, "busy");
     const promptId = await submitImageEdit(prompt, settings, index, source, sourceMode);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
     const sampleOutputs = await pollImageGeneration(promptId);
@@ -1341,7 +1352,7 @@ async function sendImageMessage(content) {
 
   try {
     const sourceMode = els.imageSourceMode.value;
-    if (sourceMode === "edit" || sourceMode === "style" || sourceMode === "upscale") {
+      if (sourceMode === "edit" || sourceMode === "restyle" || sourceMode === "style" || sourceMode === "upscale") {
       if (!activeImageSource) {
         throw new Error(sourceMode === "style"
           ? "Upload an image to use as the style reference."
@@ -1380,6 +1391,13 @@ function syncImageEditStrengthValue() {
   const value = clampNumber(els.imageEditStrength.value, 0.25, 0.05, 0.8).toFixed(2);
   els.imageEditStrengthValue.value = value;
   els.imageEditStrengthValue.textContent = value;
+}
+
+function applyRestyleDefaults() {
+  els.imageEditPreservation.value = "flexible";
+  els.imageEditStrength.value = "0.65";
+  if (els.imageCreativity.value === "0.25") els.imageCreativity.value = "0.50";
+  syncImageEditStrengthValue();
 }
 
 els.form.addEventListener("submit", (event) => {
@@ -1424,6 +1442,12 @@ els.imageSourceMode.addEventListener("change", () => {
       ? "Upload a style reference image"
       : "Upload an image or choose Iterate on a generated image", "busy");
   }
+  if (els.imageSourceMode.value === "restyle") {
+    applyRestyleDefaults();
+    if (els.imageStyle.value === "none") {
+      setStatus("Choose a style preset or describe the style change in your prompt", "busy");
+    }
+  }
   renderImageSourcePreview();
 });
 
@@ -1444,6 +1468,14 @@ els.imageEditStrength.addEventListener("input", () => {
 els.imageEditStrength.addEventListener("change", () => {
   els.imageEditStrength.value = clampNumber(els.imageEditStrength.value, 0.25, 0.05, 0.8).toFixed(2);
   syncImageEditStrengthValue();
+});
+
+els.imageStyle.addEventListener("change", () => {
+  if (activeImageSource && els.imageStyle.value !== "none" && els.imageSourceMode.value === "edit") {
+    els.imageSourceMode.value = "restyle";
+    applyRestyleDefaults();
+    setStatus("Restyle mode selected for the uploaded source image", "good");
+  }
 });
 
 els.imageUploadButton.addEventListener("click", () => {
@@ -1467,7 +1499,10 @@ els.imageUpload.addEventListener("change", async () => {
     const source = await readUploadedImage(file);
     setActiveImageSource(source);
     els.mode.value = "image";
-    if (els.imageSourceMode.value === "new") els.imageSourceMode.value = "edit";
+    if (els.imageSourceMode.value === "new") {
+      els.imageSourceMode.value = els.imageStyle.value !== "none" ? "restyle" : "edit";
+      if (els.imageSourceMode.value === "restyle") applyRestyleDefaults();
+    }
     setStatus(`${file.name} ready for image edits`, "good");
   } catch (error) {
     setStatus(error.message, "bad");

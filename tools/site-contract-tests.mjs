@@ -39,14 +39,15 @@ assert.match(chatHtml, /id="chatImageScheduler"/, "Chat HTML must include image 
 assert.match(chatHtml, /id="chatImageUpscaleScale"/, "Chat HTML must include upscale scale settings.");
 assert.match(chatHtml, /id="chatImageUpscaleMethod"/, "Chat HTML must include upscale method settings.");
 assert.match(chatHtml, /value="upscale"/, "Chat source mode must include enhance/upscale support.");
+assert.match(chatHtml, /value="restyle"/, "Chat source mode must include uploaded-image restyle support.");
 assert.match(chatHtml, /value="max">Max/, "Chat image quality must include the API max quality option.");
 assert.match(chatHtml, /value="adult_ok"/, "Chat image content rating must use the API adult_ok value.");
 assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include the API flexible value.");
 assert.match(chatHtml, /chat-image-settings/, "Chat HTML must group image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower keeps the source closer/, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /White\/light mask areas are changed; black\/dark areas are preserved/, "Chat HTML must explain mask light/dark behavior.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-image-api-controls-20260702/, "Chat HTML must cache-bust the image API controls CSS.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-image-api-controls-20260702/, "Chat HTML must cache-bust the image API controls script.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-image-restyle-20260702/, "Chat HTML must cache-bust the image restyle CSS.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-image-restyle-20260702/, "Chat HTML must cache-bust the image restyle script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -64,6 +65,8 @@ assert.match(chatJs, /quality:\s*settings\.qualityKey/, "Image payloads must sen
 assert.match(chatJs, /sampler_name:\s*settings\.samplerName/, "Image payloads must send the API sampler_name parameter.");
 assert.match(chatJs, /scheduler:\s*settings\.scheduler/, "Image payloads must send the API scheduler parameter.");
 assert.match(chatJs, /preservation:\s*settings\.preservation/, "Image edit payloads must send the API preservation parameter.");
+assert.match(chatJs, /Mode: restyle the selected source image/, "Image prompts must include an explicit uploaded-image restyle mode.");
+assert.match(chatJs, /applyRestyleDefaults/, "Chat must apply stronger defaults for uploaded-image restyling.");
 assert.match(chatJs, /Preserve every unmentioned part of the image/, "Image edit prompts must explicitly preserve unrelated source-image details.");
 assert.match(chatJs, /IMAGE_EDIT_PRESERVATION_SETTINGS/, "Chat must define image edit preservation presets.");
 assert.match(chatJs, /IMAGE_CREATIVITY_SETTINGS/, "Chat must define image creativity settings.");

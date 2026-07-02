@@ -22,6 +22,33 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 uploaded-image restyle mode:
+  - Added `Restyle source image` for converting an uploaded source image into
+    a selected style such as pencil drawing, Van Gogh, comic, manga, etc.
+  - This fixes the conflict where normal edit mode used strict preservation and
+    low denoise, which is appropriate for small edits but too conservative for
+    whole-image style transfer.
+  - Restyle mode routes through `/api/image/edits` with stronger defaults:
+    - preservation: `flexible`
+    - strength/denoise: `0.65`
+  - Restyle prompt text now explicitly says to change the visual medium,
+    linework, brushwork, color treatment, texture, and rendering technique while
+    preserving identity, pose, relationships, composition, camera angle, and
+    object layout.
+  - Selecting a style preset on an uploaded source image auto-switches from
+    `Edit source image` to `Restyle source image`.
+  - Cache-busted `chat.html` to:
+    - `styles.css?v=token-chat-image-restyle-20260702`
+    - `chat.js?v=token-chat-image-restyle-20260702`
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - `git diff --check`
+    - local Playwright uploaded-image restyle payload check
+    - local Playwright edit payload check
+    - local Playwright generation API controls check
+    - local Playwright masked edit/upscale checks
+    - local Playwright desktop/mobile UI check
 - 2026-07-02 image API controls:
   - Reviewed live `/api/image/models`; the useful new parameter metadata is in
     that public endpoint rather than the protected `/docs`/`/openapi.json`
