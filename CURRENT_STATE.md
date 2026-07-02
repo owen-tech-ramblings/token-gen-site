@@ -104,6 +104,21 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - Reworked the chat upload triggers to avoid label-wrapped hidden file inputs,
+    because Jesse reported the page still disappeared when pressing the upload
+    button.
+  - Source image, mask image, and document attach now use explicit buttons with
+    standalone hidden file inputs opened by click handlers. This keeps the UI
+    looking the same while avoiding a brittle embedded-browser file input
+    activation path.
+  - Current chat assets:
+    - `styles.css?v=token-chat-upload-button-20260702`
+    - `chat.js?v=token-chat-upload-button-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    `git diff --check`, local Playwright upload-button click test, local
+    Playwright large JPEG upload test, and existing local Playwright image
+    payload/layout checks.
+- 2026-07-02 update:
   - Fixed a blank/stalled chat screen risk after uploading larger PNG/JPG
     source images.
   - Root cause: uploaded image previews reused the full base64 data URL, which

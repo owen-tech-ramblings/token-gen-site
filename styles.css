@@ -1324,6 +1324,9 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   display: grid;
   place-items: center;
   min-height: 38px;
+  width: 100%;
+  font: inherit;
+  text-align: center;
   border: 1px dashed rgba(255,216,122,0.38);
   background: rgba(255,216,122,0.045);
   border-radius: var(--radius-sm);
@@ -1337,12 +1340,13 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   background: rgba(255,216,122,0.08);
 }
 
-.chat-image-upload input {
+.chat-file-input {
   position: absolute;
   width: 1px;
   height: 1px;
   opacity: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .chat-image-source-preview:empty {
@@ -1747,14 +1751,6 @@ select option { color: var(--color-text-primary); background: #0f1729; }
 .chat-attach-button:hover {
   border-color: rgba(77,226,197,0.48);
   background: rgba(77,226,197,0.08);
-}
-
-.chat-attach-button input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
 }
 
 .chat-composer textarea {

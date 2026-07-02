@@ -24,7 +24,9 @@ assert.match(chatHtml, /id="chatImageQuality"/, "Chat HTML must include image qu
 assert.match(chatHtml, /id="chatImageSamples"/, "Chat HTML must include image sample count settings.");
 assert.match(chatHtml, /id="chatImageSourceMode"/, "Chat HTML must include image source mode settings.");
 assert.match(chatHtml, /id="chatImageUpload"/, "Chat HTML must include PNG/JPG upload for image edits.");
+assert.match(chatHtml, /id="chatImageUploadButton"/, "Chat HTML must use an explicit image upload button.");
 assert.match(chatHtml, /id="chatImageMaskUpload"/, "Chat HTML must include optional PNG/JPG mask upload for inpainting edits.");
+assert.match(chatHtml, /id="chatImageMaskUploadButton"/, "Chat HTML must use an explicit mask upload button.");
 assert.match(chatHtml, /id="chatImageMaskPreview"/, "Chat HTML must include image mask preview and clear UI.");
 assert.match(chatHtml, /id="chatImageStyle"/, "Chat HTML must include image style settings.");
 assert.match(chatHtml, /id="chatImageCreativity"/, "Chat HTML must include image creativity settings.");
@@ -38,8 +40,8 @@ assert.match(chatHtml, /value="upscale"/, "Chat source mode must include enhance
 assert.match(chatHtml, /chat-image-settings/, "Chat HTML must group image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower keeps the source closer/, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /White\/light mask areas are changed; black\/dark areas are preserved/, "Chat HTML must explain mask light/dark behavior.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-ui-polish-20260702/, "Chat HTML must cache-bust the polished chat CSS.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-upload-preview-20260702/, "Chat HTML must cache-bust the upload preview fix script.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-upload-button-20260702/, "Chat HTML must cache-bust the upload button fix CSS.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-upload-button-20260702/, "Chat HTML must cache-bust the upload button fix script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -57,6 +59,8 @@ assert.match(chatJs, /IMAGE_CREATIVITY_SETTINGS/, "Chat must define image creati
 assert.match(chatJs, /image_base64/, "Chat must support uploaded image edits with base64 payloads.");
 assert.match(chatJs, /URL\.createObjectURL\(file\)/, "Uploaded image previews must use lightweight object URLs instead of injecting full base64 into the DOM.");
 assert.match(chatJs, /URL\.revokeObjectURL/, "Uploaded image preview object URLs must be released when replaced or cleared.");
+assert.match(chatJs, /imageUploadButton\.addEventListener\("click"/, "Image upload must be opened by an explicit button click handler.");
+assert.match(chatJs, /imageMaskUploadButton\.addEventListener\("click"/, "Mask upload must be opened by an explicit button click handler.");
 assert.match(chatJs, /source_filename_prefix/, "Uploaded image edits must send a source filename prefix, not an existing image reference.");
 assert.doesNotMatch(chatJs, /filename:\s*source\.name/, "Uploaded image edits must not send image.filename because the API treats it as an existing ComfyUI reference.");
 assert.match(chatJs, /resizeImageSourceForEdit/, "Image edits must resize the source image to the selected output dimensions before submission.");

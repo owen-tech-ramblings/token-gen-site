@@ -33,6 +33,9 @@ const els = {
   imageEditStrengthValue: $("#chatImageEditStrengthValue"),
   imageUpscaleScale: $("#chatImageUpscaleScale"),
   imageUpscaleMethod: $("#chatImageUpscaleMethod"),
+  documentsButton: $("#chatDocumentsButton"),
+  imageUploadButton: $("#chatImageUploadButton"),
+  imageMaskUploadButton: $("#chatImageMaskUploadButton"),
   imageUpload: $("#chatImageUpload"),
   imageMaskUpload: $("#chatImageMaskUpload"),
   imageSourcePreview: $("#chatImageSourcePreview"),
@@ -1417,6 +1420,18 @@ els.imageEditStrength.addEventListener("input", () => {
 els.imageEditStrength.addEventListener("change", () => {
   els.imageEditStrength.value = clampNumber(els.imageEditStrength.value, 0.25, 0.05, 0.8).toFixed(2);
   syncImageEditStrengthValue();
+});
+
+els.imageUploadButton.addEventListener("click", () => {
+  els.imageUpload.click();
+});
+
+els.imageMaskUploadButton.addEventListener("click", () => {
+  els.imageMaskUpload.click();
+});
+
+els.documentsButton.addEventListener("click", () => {
+  els.documents.click();
 });
 
 els.imageUpload.addEventListener("change", async () => {

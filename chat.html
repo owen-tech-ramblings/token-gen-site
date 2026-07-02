@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Token Gen Chat</title>
-    <link rel="stylesheet" href="./styles.css?v=token-chat-ui-polish-20260702" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-upload-button-20260702" />
   </head>
   <body>
     <main class="chat-app">
@@ -219,15 +219,11 @@
             </details>
             <div class="chat-setting-group chat-reference-group">
               <div class="chat-setting-title">Reference images</div>
-              <label class="chat-image-upload" for="chatImageUpload">
-                <span>Upload source PNG/JPG</span>
-                <input id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
-              </label>
+              <button class="chat-image-upload" id="chatImageUploadButton" type="button">Upload source PNG/JPG</button>
+              <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
               <div class="chat-image-source-preview" id="chatImageSourcePreview"></div>
-              <label class="chat-image-upload chat-image-mask-upload" for="chatImageMaskUpload">
-                <span>Upload edit mask PNG/JPG</span>
-                <input id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
-              </label>
+              <button class="chat-image-upload chat-image-mask-upload" id="chatImageMaskUploadButton" type="button">Upload edit mask PNG/JPG</button>
+              <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
               <p class="chat-control-help">Optional for edits. White/light mask areas are changed; black/dark areas are preserved.</p>
               <div class="chat-image-source-preview" id="chatImageMaskPreview"></div>
             </div>
@@ -239,15 +235,16 @@
           <div class="chat-thread" id="chatThread" aria-live="polite"></div>
           <form class="chat-composer" id="chatForm">
             <div class="chat-input-shell">
-              <label class="chat-attach-button" for="chatDocuments" title="Attach documents">
+              <button class="chat-attach-button" id="chatDocumentsButton" type="button" title="Attach documents" aria-label="Attach documents">
                 <span aria-hidden="true">+</span>
-                <input
-                  id="chatDocuments"
-                  type="file"
-                  multiple
-                  accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.pdf,.docx,.rtf,.js,.ts,.tsx,.jsx,.py,.ps1,.sh,.sql,.css"
-                />
-              </label>
+              </button>
+              <input
+                class="chat-file-input"
+                id="chatDocuments"
+                type="file"
+                multiple
+                accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.pdf,.docx,.rtf,.js,.ts,.tsx,.jsx,.py,.ps1,.sh,.sql,.css"
+              />
               <div class="chat-doc-list" id="chatDocList"></div>
               <textarea id="chatInput" rows="1" placeholder="Message Token Gen"></textarea>
             </div>
@@ -257,6 +254,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-upload-preview-20260702"></script>
+    <script type="module" src="./chat.js?v=token-chat-upload-button-20260702"></script>
   </body>
 </html>

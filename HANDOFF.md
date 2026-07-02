@@ -22,6 +22,28 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 upload button hardening:
+  - Jesse reported the page still disappeared when pressing the upload button,
+    so the upload activation path was changed rather than only the post-upload
+    preview behavior.
+  - Replaced label-wrapped hidden file inputs with explicit buttons for:
+    - source image upload
+    - edit mask upload
+    - document attach
+  - The standalone hidden file inputs are now opened from button click
+    handlers. This should be more reliable in embedded/live browser contexts
+    while preserving the same visual layout.
+  - Cache-busted `chat.html` to:
+    - `styles.css?v=token-chat-upload-button-20260702`
+    - `chat.js?v=token-chat-upload-button-20260702`
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - `git diff --check`
+    - local Playwright upload-button click/filechooser test
+    - local Playwright 5.6 MB JPEG source upload test
+    - local Playwright desktop/mobile UI check
+    - local Playwright image guidance, masked edit, and upscale payload checks
 - 2026-07-02 uploaded image preview bugfix:
   - Fixed a blank/stalled page risk after uploading larger PNG/JPG source
     images in chat.
