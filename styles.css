@@ -1173,6 +1173,14 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   align-items: center;
 }
 
+.chat-control-help {
+  grid-column: 1 / -1;
+  margin: -2px 0 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .chat-toggle {
   display: flex;
   align-items: center;
@@ -1201,6 +1209,23 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   border: 1px solid rgba(255,216,122,0.28);
   background: rgba(255,216,122,0.055);
   border-radius: var(--radius-sm);
+}
+
+.chat-image-settings {
+  border-top: 1px solid rgba(255,216,122,0.18);
+  padding-top: 8px;
+}
+
+.chat-image-settings summary {
+  cursor: pointer;
+  color: var(--color-text-primary);
+  font-size: 0.9rem;
+  font-weight: 650;
+  list-style-position: inside;
+}
+
+.chat-image-settings .chat-control-grid {
+  margin-top: 10px;
 }
 
 .chat-image-upload {

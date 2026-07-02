@@ -22,6 +22,26 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 chat image guidance controls:
+  - Added collapsible Image settings in the chat sidebar.
+  - Added creativity, preservation preset, and editable change
+    strength/denoise controls.
+  - Normal edit requests now use the configured edit change value instead of
+    hardcoded `0.45`.
+  - Reworked image prompt injection so image calls send the user's request in a
+    `USER IMAGE REQUEST` block followed by `IMAGE SETTINGS GUIDANCE`. Text chat
+    requests do not receive these image prompt additions.
+  - Added verbose preservation instructions to reduce unrequested changes to
+    clothing, pose, hand placement, facial identity, composition, lighting, and
+    background details.
+  - No API change was required for these controls because `/api/image/edits`
+    already accepts `strength` and `denoise`.
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - local Playwright payload check for rendered controls, edit
+      strength/denoise, source resize, and structured prompt guidance
+    - local Playwright layout screenshot check for the sidebar settings
 - 2026-07-02 chat image sizing bugfix:
   - Fixed image edit/style generation so the selected source image is resized
     in the browser to the configured output dimensions before submission to

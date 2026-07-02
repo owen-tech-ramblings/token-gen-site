@@ -90,49 +90,70 @@
               <p class="chat-web-note" id="chatImageStatus">Checking image service...</p>
             </div>
             <div class="chat-control-grid">
-              <label class="label" for="chatImageSourceMode">Source</label>
+              <label class="label" for="chatImageSourceMode" title="Choose whether to create a new image, edit the selected image, or use the selected image as a style reference.">Source</label>
               <select id="chatImageSourceMode">
                 <option value="new" selected>Create new</option>
                 <option value="edit">Edit selected/uploaded</option>
                 <option value="style">Use uploaded style</option>
               </select>
-              <label class="label" for="chatImageSize">Size</label>
-              <select id="chatImageSize">
-                <option value="512">512 x 512</option>
-                <option value="768">768 x 768</option>
-                <option value="1024" selected>1024 x 1024</option>
-              </select>
-              <label class="label" for="chatImageQuality">Quality</label>
-              <select id="chatImageQuality">
-                <option value="draft">Draft</option>
-                <option value="standard" selected>Standard</option>
-                <option value="high">High</option>
-              </select>
-              <label class="label" for="chatImageSamples">Samples</label>
-              <input id="chatImageSamples" class="input" type="number" min="1" max="4" step="1" value="1" />
-              <label class="label" for="chatImageStyle">Style</label>
-              <select id="chatImageStyle">
-                <option value="none" selected>None</option>
-                <option value="photorealistic">Photorealistic</option>
-                <option value="pencil">Pencil drawing</option>
-                <option value="van-gogh">Van Gogh</option>
-                <option value="comic">Comic</option>
-                <option value="manga">Manga</option>
-                <option value="futuristic">Futuristic</option>
-              </select>
-              <label class="label" for="chatImageOrientation">Orientation</label>
-              <select id="chatImageOrientation">
-                <option value="square" selected>Square</option>
-                <option value="portrait">Portrait</option>
-                <option value="landscape">Landscape</option>
-              </select>
-              <label class="label" for="chatImageContentFilter">Content</label>
-              <select id="chatImageContentFilter">
-                <option value="kid">Kid friendly</option>
-                <option value="normal" selected>Normal</option>
-                <option value="adult">Adult 18+ ok</option>
-              </select>
             </div>
+            <details class="chat-image-settings" open>
+              <summary>Image settings</summary>
+              <div class="chat-control-grid">
+                <label class="label" for="chatImageSize" title="Output resolution before orientation is applied.">Size</label>
+                <select id="chatImageSize">
+                  <option value="512">512 x 512</option>
+                  <option value="768">768 x 768</option>
+                  <option value="1024" selected>1024 x 1024</option>
+                </select>
+                <label class="label" for="chatImageOrientation" title="Output shape. Portrait and landscape use the selected size on the long edge.">Orientation</label>
+                <select id="chatImageOrientation">
+                  <option value="square" selected>Square</option>
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+                <label class="label" for="chatImageQuality" title="Controls render effort. Higher quality uses more steps and can take longer.">Quality</label>
+                <select id="chatImageQuality">
+                  <option value="draft">Draft</option>
+                  <option value="standard" selected>Standard</option>
+                  <option value="high">High</option>
+                </select>
+                <label class="label" for="chatImageSamples" title="Generate samples one after another so you can pick the best result.">Samples</label>
+                <input id="chatImageSamples" class="input" type="number" min="1" max="4" step="1" value="1" />
+                <label class="label" for="chatImageStyle" title="Adds style guidance to image prompts without changing the text you typed.">Style</label>
+                <select id="chatImageStyle">
+                  <option value="none" selected>None</option>
+                  <option value="photorealistic">Photorealistic</option>
+                  <option value="pencil">Pencil drawing</option>
+                  <option value="van-gogh">Van Gogh</option>
+                  <option value="comic">Comic</option>
+                  <option value="manga">Manga</option>
+                  <option value="futuristic">Futuristic</option>
+                </select>
+                <label class="label" for="chatImageCreativity" title="Controls how strongly the prompt asks for conservative vs imaginative output.">Creativity</label>
+                <select id="chatImageCreativity">
+                  <option value="low">Low</option>
+                  <option value="balanced" selected>Balanced</option>
+                  <option value="high">High</option>
+                </select>
+                <label class="label" for="chatImageContentFilter" title="Adds content safety guidance to image prompts.">Content</label>
+                <select id="chatImageContentFilter">
+                  <option value="kid">Kid friendly</option>
+                  <option value="normal" selected>Normal</option>
+                  <option value="adult">Adult 18+ ok</option>
+                </select>
+                <label class="label" for="chatImageEditPreservation" title="For image edits, lower change keeps the original closer; higher change allows more variation.">Preservation</label>
+                <select id="chatImageEditPreservation">
+                  <option value="strict">Strict</option>
+                  <option value="precise" selected>Precise</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="creative">Creative</option>
+                </select>
+                <p class="chat-control-help">Lower values keep the source image closer. Higher values allow larger changes and more variation.</p>
+                <label class="label" for="chatImageEditStrength" title="Image edit strength / denoise. Lower is more precise; higher changes more of the image.">Change</label>
+                <input id="chatImageEditStrength" class="input" type="number" min="0.05" max="0.8" step="0.05" value="0.25" />
+              </div>
+            </details>
             <label class="chat-image-upload" for="chatImageUpload">
               <span>Upload PNG/JPG</span>
               <input id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
@@ -164,6 +185,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-image-edit-size-20260702"></script>
+    <script type="module" src="./chat.js?v=token-chat-image-guidance-controls-20260702"></script>
   </body>
 </html>

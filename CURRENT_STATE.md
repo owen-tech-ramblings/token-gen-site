@@ -104,6 +104,23 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - Image settings in chat now include a collapsible settings area with
+    creativity, preservation preset, and edit change strength controls.
+  - Normal image edits now use the configured edit change value for both
+    `strength` and `denoise` instead of a hardcoded `0.45`.
+  - Image prompt injection is now structured as `USER IMAGE REQUEST` plus
+    `IMAGE SETTINGS GUIDANCE`, and only applies to image generation/edit API
+    calls, not normal text chat.
+  - Edit prompts now explicitly ask the image model to preserve unmentioned
+    identity, clothing, pose, hand placement, facial expression, object
+    positions, camera angle, lighting, crop, composition, and unrelated
+    background details.
+  - Current chat asset:
+    - `chat.js?v=token-chat-image-guidance-controls-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    and local Playwright checks for rendered controls plus edit payload
+    strength/denoise/prompt guidance.
+- 2026-07-02 update:
   - Image edit/style requests now resize the selected source image in the
     browser to the configured output dimensions before calling
     `/api/image/edits`. This prevents edits of a 512 x 384 uploaded/source
