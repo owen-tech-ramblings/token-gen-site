@@ -104,6 +104,24 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - The site now consumes the updated image API contract:
+    - `/api/image/edits` with optional `mask_base64`
+    - `/api/image/upscale` for deterministic, non-creative enhance/upscale
+  - Chat image source mode now includes `Enhance/upscale selected`.
+  - Image settings now include upscale scale and method controls.
+  - Edit mode now supports an optional uploaded PNG/JPG mask. The UI explains
+    that white/light mask areas change and black/dark mask areas are preserved.
+  - Mask images are resized in-browser to the selected output dimensions before
+    being sent as `mask_base64`.
+  - Upscale/enhance requests send the selected source image to
+    `/api/image/upscale` without creative prompt text, using configured
+    `scale`, `width`, `height`, and `method`.
+  - Current chat asset:
+    - `chat.js?v=token-chat-image-mask-upscale-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    local Playwright payload checks for masked edit and upscale requests, and
+    a local Playwright layout screenshot check.
+- 2026-07-02 update:
   - Image settings in chat now include a collapsible settings area with
     creativity, preservation preset, and edit change strength controls.
   - Normal image edits now use the configured edit change value for both

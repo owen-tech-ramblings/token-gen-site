@@ -22,6 +22,25 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 chat image mask/upscale integration:
+  - Verified the updated public API contract now documents:
+    - `/api/image/edits` with optional `mask_base64`
+    - `/api/image/upscale`
+  - Added `Enhance/upscale selected` source mode in chat.
+  - Added optional edit mask upload and preview/clear behavior.
+  - Masked edit payloads send resized `mask_base64` alongside the resized
+    `image_base64`.
+  - Added upscale scale/method controls and routed enhance/upscale jobs to
+    `/api/image/upscale`.
+  - Upscale payloads intentionally do not send creative prompt text.
+  - Cache-busted `chat.html` to
+    `chat.js?v=token-chat-image-mask-upscale-20260702`.
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - local Playwright masked-edit payload check
+    - local Playwright upscale payload check
+    - local Playwright layout screenshot check
 - 2026-07-02 chat image guidance controls:
   - Added collapsible Image settings in the chat sidebar.
   - Added creativity, preservation preset, and editable change

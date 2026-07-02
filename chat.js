@@ -30,8 +30,12 @@ const els = {
   imageContentFilter: $("#chatImageContentFilter"),
   imageEditPreservation: $("#chatImageEditPreservation"),
   imageEditStrength: $("#chatImageEditStrength"),
+  imageUpscaleScale: $("#chatImageUpscaleScale"),
+  imageUpscaleMethod: $("#chatImageUpscaleMethod"),
   imageUpload: $("#chatImageUpload"),
+  imageMaskUpload: $("#chatImageMaskUpload"),
   imageSourcePreview: $("#chatImageSourcePreview"),
+  imageMaskPreview: $("#chatImageMaskPreview"),
   imageStatus: $("#chatImageStatus"),
   clear: $("#chatClear"),
   thread: $("#chatThread"),
@@ -51,6 +55,7 @@ let imageGenerationSupported = false;
 let availableModels = [];
 let uploadedDocuments = [];
 let activeImageSource = null;
+let activeImageMask = null;
 let mammothLoader = null;
 let chatReady = false;
 let chatUserIdPromise = null;
@@ -260,6 +265,14 @@ function imageModeInstruction(sourceMode, settings) {
       "Create a new composition that follows the user request. Do not copy private identity details or exact composition unless the user explicitly asks.",
     ].join("\n");
   }
+  if (sourceMode === "upscale") {
+    return [
+      "Mode: deterministic enhance/upscale.",
+      "Use the selected source image as the exact source for resolution or quality improvement.",
+      "Do not creatively redraw, redesign, restyle, replace clothing, change identity, change hand positions, change pose, alter relationships between people, or change the background.",
+      "Preserve composition and content while improving technical clarity according to the selected upscale settings.",
+    ].join("\n");
+  }
   return "Mode: new image. Create a new image from the user request using the settings below.";
 }
 
@@ -276,6 +289,9 @@ function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, 
     imageModeInstruction(sourceMode, settings),
     `Resolution: ${settings.width} x ${settings.height}.`,
     `Orientation: ${settings.orientationLabel}.`,
+    sourceMode === "edit" && activeImageMask
+      ? "Mask guidance: an edit mask is provided. Only regenerate white or light masked regions. Preserve black or dark unmasked regions exactly."
+      : "",
     settings.qualityPrompt,
     `Samples requested: ${settings.samples}. Keep each sample faithful to the same request; vary only natural rendering details.`,
     styleInstruction,
@@ -294,6 +310,16 @@ function clearActiveImageSource() {
   renderImageSourcePreview();
 }
 
+function setActiveImageMask(mask) {
+  activeImageMask = mask;
+  renderImageMaskPreview();
+}
+
+function clearActiveImageMask() {
+  activeImageMask = null;
+  renderImageMaskPreview();
+}
+
 function renderImageSourcePreview() {
   if (!els.imageSourcePreview) return;
   if (!activeImageSource) {
@@ -309,6 +335,25 @@ function renderImageSourcePreview() {
         <span>${escapeHtml(activeImageSource.kind === "url" ? "Generated image" : "Uploaded image")}</span>
       </div>
       <button class="chat-doc-remove" type="button" data-image-source-clear aria-label="Clear source image">x</button>
+    </div>
+  `;
+}
+
+function renderImageMaskPreview() {
+  if (!els.imageMaskPreview) return;
+  if (!activeImageMask) {
+    els.imageMaskPreview.innerHTML = `<p class="chat-web-note">No edit mask selected.</p>`;
+    return;
+  }
+  const src = activeImageMask.previewUrl || activeImageMask.url || "";
+  els.imageMaskPreview.innerHTML = `
+    <div class="chat-image-source-card">
+      ${src ? `<img src="${escapeHtml(src)}" alt="${escapeHtml(activeImageMask.name || "Selected edit mask")}" />` : ""}
+      <div>
+        <strong>${escapeHtml(activeImageMask.name || "Edit mask")}</strong>
+        <span>Mask: light changes, dark preserves</span>
+      </div>
+      <button class="chat-doc-remove" type="button" data-image-mask-clear aria-label="Clear edit mask">x</button>
     </div>
   `;
 }
@@ -947,6 +992,7 @@ function imageSettings() {
   const creativity = IMAGE_CREATIVITY_SETTINGS[els.imageCreativity.value] || IMAGE_CREATIVITY_SETTINGS.balanced;
   const preservation = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.precise;
   const editStrength = clampNumber(els.imageEditStrength.value, preservation.strength, 0.05, 0.8);
+  const upscaleScale = Math.round(clampNumber(els.imageUpscaleScale.value, 2, 1, 4));
   return {
     ...dimensions,
     samples,
@@ -965,6 +1011,8 @@ function imageSettings() {
     preservationLabel: preservation.label,
     preservationPrompt: preservation.prompt,
     editStrength,
+    upscaleScale,
+    upscaleMethod: els.imageUpscaleMethod.value || "lanczos",
     steps: quality.steps,
     cfg: quality.cfg,
   };
@@ -1030,6 +1078,24 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
   };
   payload.image_base64 = preparedSource.image_base64;
   payload.source_filename_prefix = preparedSource.name || "token-gen-source";
+  if (sourceMode === "edit" && activeImageMask) {
+    const preparedMask = await resizeImageSourceForEdit(activeImageMask, settings);
+    payload.mask_base64 = preparedMask.image_base64;
+  }
+  return payload;
+}
+
+async function buildImageUpscalePayload(settings, sampleIndex, source) {
+  if (!source) throw new Error("Upload an image or choose Iterate on a generated image first.");
+  const dataUrl = await sourceImageDataUrl(source);
+  const payload = {
+    image_base64: dataUrl,
+    scale: settings.upscaleScale,
+    width: settings.width,
+    height: settings.height,
+    method: settings.upscaleMethod,
+    filename_prefix: `token_gen_chat_upscale_${sampleIndex + 1}`,
+  };
   return payload;
 }
 
@@ -1064,6 +1130,20 @@ async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false || !json.prompt_id) {
     throw new Error(json.error || json.message || `Image edit failed: HTTP ${res.status}`);
+  }
+  return json.prompt_id;
+}
+
+async function submitImageUpscale(settings, sampleIndex, source) {
+  const payload = await buildImageUpscalePayload(settings, sampleIndex, source);
+  const res = await fetch(`${API_BASE}/api/image/upscale`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || json.ok === false || !json.prompt_id) {
+    throw new Error(json.error || json.message || `Image upscale failed: HTTP ${res.status}`);
   }
   return json.prompt_id;
 }
@@ -1170,6 +1250,40 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
   }
 }
 
+async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex) {
+  const settings = imageSettings();
+  const source = activeImageSource;
+  const outputs = [];
+  for (let index = 0; index < settings.samples; index += 1) {
+    const label = `sample ${index + 1} of ${settings.samples}`;
+    updateAssistantImageMessage(assistantIndex, {
+      imageProgress: `Enhancing ${label}...`,
+      content: outputs.length ? "Still enhancing the remaining samples." : "",
+    });
+    setStatus(`Enhancing image ${index + 1} of ${settings.samples}...`, "busy");
+    const promptId = await submitImageUpscale(settings, index, source);
+    updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering enhanced ${label}...` });
+    const sampleOutputs = await pollImageGeneration(promptId);
+    for (const output of sampleOutputs) {
+      const imageRef = outputImageReference(output);
+      outputs.push({
+        ...output,
+        ...(imageRef || {}),
+        prompt,
+        quality: "Deterministic enhance",
+        size: `${settings.width} x ${settings.height} / ${settings.upscaleScale}x / ${settings.upscaleMethod}`,
+        alt: prompt,
+        url: absoluteImageUrl(output.url),
+      });
+    }
+    updateAssistantImageMessage(assistantIndex, {
+      imageOutputs: [...outputs],
+      imageProgress: index + 1 < settings.samples ? `Completed ${label}. Starting next sample...` : "",
+      content: index + 1 < settings.samples ? "Choose any completed sample, or wait for the rest." : "Image enhance complete.",
+    });
+  }
+}
+
 async function sendImageMessage(content) {
   if (!imageGenerationSupported) {
     setStatus("Image generation is unavailable", "bad");
@@ -1187,13 +1301,17 @@ async function sendImageMessage(content) {
 
   try {
     const sourceMode = els.imageSourceMode.value;
-    if (sourceMode === "edit" || sourceMode === "style") {
+    if (sourceMode === "edit" || sourceMode === "style" || sourceMode === "upscale") {
       if (!activeImageSource) {
         throw new Error(sourceMode === "style"
           ? "Upload an image to use as the style reference."
           : "Upload an image or choose Iterate on a generated image first.");
       }
-      await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode);
+      if (sourceMode === "upscale") {
+        await generateImageUpscaleSamplesSequentially(content, assistantIndex);
+      } else {
+        await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode);
+      }
     } else {
       await generateImageSamplesSequentially(content, assistantIndex);
     }
@@ -1255,7 +1373,9 @@ els.mode.addEventListener("change", () => {
 
 els.imageSourceMode.addEventListener("change", () => {
   if (els.imageSourceMode.value !== "new" && !activeImageSource) {
-    setStatus(els.imageSourceMode.value === "style" ? "Upload a style reference image" : "Upload an image or choose Iterate on a generated image", "busy");
+    setStatus(els.imageSourceMode.value === "style"
+      ? "Upload a style reference image"
+      : "Upload an image or choose Iterate on a generated image", "busy");
   }
   renderImageSourcePreview();
 });
@@ -1289,6 +1409,26 @@ els.imageUpload.addEventListener("change", async () => {
   } finally {
     els.imageUpload.value = "";
     els.imageUpload.disabled = false;
+    updateSendState();
+  }
+});
+
+els.imageMaskUpload.addEventListener("change", async () => {
+  const file = els.imageMaskUpload.files?.[0];
+  if (!file) return;
+  els.imageMaskUpload.disabled = true;
+  setStatus(`Reading mask ${file.name}...`, "busy");
+  try {
+    const mask = await readUploadedImage(file);
+    setActiveImageMask(mask);
+    els.mode.value = "image";
+    if (els.imageSourceMode.value === "new") els.imageSourceMode.value = "edit";
+    setStatus(`${file.name} ready as an edit mask`, "good");
+  } catch (error) {
+    setStatus(error.message, "bad");
+  } finally {
+    els.imageMaskUpload.value = "";
+    els.imageMaskUpload.disabled = false;
     updateSendState();
   }
 });
@@ -1386,9 +1526,17 @@ els.imageSourcePreview.addEventListener("click", (event) => {
   updateSendState();
 });
 
+els.imageMaskPreview.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-image-mask-clear]");
+  if (!button) return;
+  clearActiveImageMask();
+  updateSendState();
+});
+
 els.clear.addEventListener("click", () => {
   messages = [{ role: "assistant", content: "New chat started." }];
   renderMessages(false);
+  clearActiveImageMask();
   els.input.focus();
 });
 
