@@ -71,10 +71,10 @@ const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const IMAGE_POLL_ATTEMPTS = 80;
 const IMAGE_QUALITY_SETTINGS = {
-  draft: { label: "Draft", steps: 4, cfg: 1.0, prompt: "Quality: draft preview, prioritize speed over fine detail." },
-  standard: { label: "Standard", steps: 9, cfg: 1.0, prompt: "Quality: standard render, balance detail, speed, and prompt adherence." },
-  high: { label: "High", steps: 14, cfg: 1.0, prompt: "Quality: high-detail render, prioritize clean detail, texture, and polished output." },
-  max: { label: "Max", steps: 20, cfg: 1.0, prompt: "Quality: maximum render effort, prioritize the cleanest detail and strongest polish even if generation takes longer." },
+  draft: { label: "Draft", steps: 4, cfg: 1.0, prompt: "Prioritize a quick preview over fine detail." },
+  standard: { label: "Standard", steps: 9, cfg: 1.0, prompt: "Balance detail, speed, and prompt adherence." },
+  high: { label: "High", steps: 14, cfg: 1.0, prompt: "Prioritize clean detail, texture, and polished output." },
+  max: { label: "Max", steps: 20, cfg: 1.0, prompt: "Use the strongest render effort for clean detail and polished output." },
 };
 const IMAGE_STYLE_PROMPTS = {
   none: "",
@@ -95,10 +95,10 @@ const IMAGE_STYLE_LABELS = {
   futuristic: "Futuristic",
 };
 const IMAGE_CONTENT_FILTER_PROMPTS = {
-  kid: "Content filter: kid friendly, safe for children, no adult themes, no graphic violence.",
-  teen: "Content filter: teen appropriate, allow mild dramatic themes while avoiding explicit or graphic content.",
-  standard: "Content filter: standard general-audience output, avoid explicit or graphic content.",
-  adult_ok: "Content filter: adult 18+ themes are acceptable when requested, while avoiding illegal, abusive, or non-consensual sexual content.",
+  kid: "Keep the result safe for children, with no adult themes or graphic violence.",
+  teen: "Keep the result appropriate for teens; mild dramatic themes are acceptable, but avoid explicit or graphic content.",
+  standard: "Keep the result suitable for a general audience and avoid explicit or graphic content.",
+  adult_ok: "Adult themes are acceptable only when the user clearly requests them; avoid illegal, abusive, or non-consensual sexual content.",
 };
 const IMAGE_CONTENT_FILTER_LABELS = {
   kid: "Kid friendly",
@@ -110,17 +110,17 @@ const IMAGE_CREATIVITY_SETTINGS = {
   "0.25": {
     label: "Conservative",
     value: 0.25,
-    prompt: "Creativity: low. Follow the request conservatively and avoid adding unrequested subjects, outfits, props, scenery, or composition changes.",
+    prompt: "Follow the request conservatively and avoid adding unrequested subjects, outfits, props, scenery, or composition changes.",
   },
   "0.50": {
     label: "Balanced",
     value: 0.5,
-    prompt: "Creativity: balanced. Add reasonable visual polish while staying faithful to the request and avoiding unrelated changes.",
+    prompt: "Add reasonable visual polish while staying faithful to the request and avoiding unrelated changes.",
   },
   "0.80": {
     label: "Exploratory",
     value: 0.8,
-    prompt: "Creativity: high. Allow more imaginative interpretation, but still respect the requested subjects, constraints, and edit preservation rules.",
+    prompt: "Allow more imaginative interpretation, while still respecting the requested subjects and constraints.",
   },
 };
 const IMAGE_EDIT_PRESERVATION_SETTINGS = {
@@ -128,19 +128,19 @@ const IMAGE_EDIT_PRESERVATION_SETTINGS = {
     label: "Strict",
     value: "strict",
     strength: 0.2,
-    prompt: "Preservation: strict. Make the smallest possible localized change. Keep all unmentioned pixels, people, clothing, pose, hand positions, facial identity, camera angle, crop, lighting, and background details as close to the source image as possible.",
+    prompt: "Make the smallest possible localized change. Keep unmentioned pixels, people, clothing, pose, hand positions, facial identity, camera angle, crop, lighting, and background details as close to the source image as possible.",
   },
   balanced: {
     label: "Balanced",
     value: "balanced",
     strength: 0.38,
-    prompt: "Preservation: balanced. Allow moderate changes needed to satisfy the requested edit, but do not redesign unrelated people, clothing, poses, relationships, objects, or scene composition.",
+    prompt: "Allow moderate changes needed to satisfy the requested edit, but do not redesign unrelated people, clothing, poses, relationships, objects, or scene composition.",
   },
   flexible: {
     label: "Flexible",
     value: "flexible",
     strength: 0.58,
-    prompt: "Preservation: flexible. Allow broader variation needed for the requested change, but still keep the source image recognizable and do not contradict explicit user instructions.",
+    prompt: "Allow broader variation needed for the requested change, but still keep the source image recognizable and do not contradict explicit user instructions.",
   },
 };
 const IMAGE_ORIENTATION_LABELS = {
@@ -259,8 +259,8 @@ function imageDimensions() {
 function imageModeInstruction(sourceMode, settings) {
   if (sourceMode === "edit") {
     return [
-      "Mode: edit the selected source image.",
-      `Edit control: ${settings.preservationLabel} preservation at ${settings.editStrength.toFixed(2)} change strength. Lower values preserve more of the original; higher values allow more visible change.`,
+      "Edit the selected source image.",
+      `Use ${settings.preservationLabel.toLowerCase()} preservation with ${settings.editStrength.toFixed(2)} change strength; lower values preserve more of the original and higher values allow more visible change.`,
       settings.preservationPrompt,
       "Preserve every unmentioned part of the image: people, identity, clothing, pose, hand placement, facial expression, object positions, camera angle, crop, lighting, composition, and background.",
       "When adding or improving something, keep existing relationships and physical interactions intact unless the user explicitly asks to change them.",
@@ -268,9 +268,9 @@ function imageModeInstruction(sourceMode, settings) {
   }
   if (sourceMode === "restyle") {
     return [
-      "Mode: restyle the selected source image.",
+      "Restyle the selected source image.",
       "Use the source image as the base composition and convert the whole image into the selected visual style.",
-      `Restyle strength / denoise: ${settings.editStrength.toFixed(2)}. Lower values keep more source texture; higher values apply the new style more strongly.`,
+      `Apply the new style strongly at ${settings.editStrength.toFixed(2)} change strength.`,
       settings.preservationPrompt,
       "Preserve the recognizable subject identity, pose, hand placement, relationships between people, object layout, camera angle, crop, and scene composition.",
       "Do change the visual medium, linework, brushwork, color treatment, texture, and rendering technique to match the requested style.",
@@ -279,45 +279,41 @@ function imageModeInstruction(sourceMode, settings) {
   }
   if (sourceMode === "style") {
     return [
-      "Mode: use the selected source image as a style reference.",
+      "Use the selected source image as a style reference.",
       "Borrow visual qualities only: palette, texture, medium, lighting, and mood.",
-      `Style reference strength / denoise: ${settings.editStrength.toFixed(2)}. Lower values stay closer to the source image; higher values allow more variation.`,
+      `Use ${settings.editStrength.toFixed(2)} style-reference strength.`,
       "Create a new composition that follows the user request. Do not copy identity details or exact composition unless explicitly requested.",
     ].join("\n");
   }
   if (sourceMode === "upscale") {
     return [
-      "Mode: deterministic enhance/upscale.",
+      "Enhance or upscale the selected source image.",
       "Use the selected source image as the exact source for resolution or quality improvement.",
       "Do not creatively redraw, redesign, restyle, replace clothing, change identity, change hand positions, change pose, alter relationships between people, or change the background.",
       "Preserve composition and content while improving technical clarity according to the selected upscale settings.",
     ].join("\n");
   }
-  return "Mode: new image. Create a new image from the user request using the settings below.";
+  return "Create a new image from the user request.";
 }
 
 function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, settings = imageSettings()) {
   const style = IMAGE_STYLE_PROMPTS[settings.styleKey] || "";
   const contentFilter = IMAGE_CONTENT_FILTER_PROMPTS[settings.contentFilterKey] || IMAGE_CONTENT_FILTER_PROMPTS.standard;
-  const styleInstruction = style || "Style preset: none. Follow any visual style named directly in the user request.";
+  const styleInstruction = style || "Follow any visual style named directly in the user request.";
   return [
-    "USER IMAGE REQUEST:",
     prompt,
-    "",
-    "IMAGE SETTINGS GUIDANCE:",
-    "Use the user request as the main task. Treat the settings below as execution guidance, not extra subject matter. Do not add unrelated objects, people, outfits, text, logos, or background changes.",
+    "Use the user request as the main task. Treat the following as rendering guidance, not extra subject matter.",
     imageModeInstruction(sourceMode, settings),
-    `Canvas: ${settings.width} x ${settings.height}, ${settings.orientationLabel.toLowerCase()} orientation.`,
+    `Render as a ${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image.`,
     sourceMode === "edit" && activeImageMask
-      ? "Mask: an edit mask is provided. Only regenerate white or light masked regions. Preserve black or dark unmasked regions exactly."
+      ? "An edit mask is provided. Only regenerate white or light masked regions. Preserve black or dark unmasked regions exactly."
       : "",
-    `Render effort: ${settings.qualityLabel}. ${settings.qualityPrompt}`,
-    `Samples: ${settings.samples}. Keep every sample faithful to the same request; vary only natural rendering details.`,
+    settings.qualityPrompt,
+    "Keep every sample faithful to the same request; vary only natural rendering details.",
     styleInstruction,
     settings.creativityPrompt,
-    `API controls: quality=${settings.qualityKey}, creativity=${settings.creativity.toFixed(2)}, content_rating=${settings.contentRating}, sampler=${settings.samplerName}, scheduler=${settings.scheduler}.`,
-    sourceMode === "edit" || sourceMode === "restyle" || sourceMode === "style" ? `API edit preservation: ${settings.preservation}.` : "",
     contentFilter,
+    "Do not render user interface elements, browser chrome, settings panels, text labels, captions, borders, frames, blank white rectangles, or screenshots unless the user explicitly asks for those objects.",
   ].filter(Boolean).join("\n");
 }
 
@@ -1062,10 +1058,35 @@ function imageSummary(settings) {
   return `${settings.width} x ${settings.height} / ${settings.qualityLabel} / ${settings.orientationLabel} / ${settings.creativityLabel}`;
 }
 
+function imageNegativePrompt(extra = []) {
+  return [
+    "text",
+    "watermark",
+    "signature",
+    "caption",
+    "browser chrome",
+    "web page",
+    "screenshot",
+    "user interface",
+    "settings panel",
+    "control panel",
+    "labels",
+    "blank white rectangle",
+    "white box",
+    "border",
+    "frame",
+    "matte",
+    "blurry",
+    "distorted hands",
+    "low quality",
+    ...extra,
+  ].join(", ");
+}
+
 function buildImagePayload(prompt, settings, sampleIndex) {
   return {
     prompt: buildStyledImagePrompt(prompt, "new", settings),
-    negative_prompt: "text, watermark, signature, blurry, distorted hands, low quality",
+    negative_prompt: imageNegativePrompt(),
     width: settings.width,
     height: settings.height,
     steps: settings.steps,
@@ -1099,13 +1120,7 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
   const preparedSource = await resizeImageSourceForEdit(source, settings);
   const payload = {
     prompt: buildStyledImagePrompt(prompt, sourceMode, settings),
-    negative_prompt: [
-      "text",
-      "watermark",
-      "signature",
-      "blurry",
-      "distorted hands",
-      "low quality",
+    negative_prompt: imageNegativePrompt([
       "unrequested clothing changes",
       "unrequested pose changes",
       "changed identity",
@@ -1113,7 +1128,7 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
       "changed hand positions",
       "changed relationship between people",
       "unrequested background redesign",
-    ].join(", "),
+    ]),
     strength: settings.editStrength,
     denoise: settings.editStrength,
     steps: settings.steps,

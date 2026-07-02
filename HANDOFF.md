@@ -22,6 +22,31 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-03 image prompt cleanup:
+  - Jesse provided a generated image that visibly rendered browser chrome,
+    settings-panel text, `Quality.max`, `Creativity...0.80`, `API edit
+    preservation`, and a blank bordered rectangle.
+  - Root cause: image prompts contained machine-readable scaffold headings and
+    key/value API labels. The API values should be JSON fields only, not visual
+    prompt text.
+  - Removed `USER IMAGE REQUEST`, `IMAGE SETTINGS GUIDANCE`, `API controls`,
+    and `API edit preservation` style strings from image prompts.
+  - Reworded quality/content/creativity/preservation prompt fragments as
+    natural art direction rather than field labels.
+  - Added negative prompt coverage for browser chrome, web pages, screenshots,
+    UI/control panels, text labels, blank white rectangles, borders, frames, and
+    matte artifacts.
+  - Cache-busted `chat.html` to:
+    - `styles.css?v=token-chat-image-prompt-clean-20260703`
+    - `chat.js?v=token-chat-image-prompt-clean-20260703`
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - `git diff --check`
+    - local Playwright uploaded-image restyle payload check proving scaffold
+      text is absent and anti-border/UI negative prompts are present
+    - local Playwright edit and generation payload checks
+    - local Playwright masked edit/upscale and desktop/mobile UI checks
 - 2026-07-02 uploaded-image restyle mode:
   - Added `Restyle source image` for converting an uploaded source image into
     a selected style such as pencil drawing, Van Gogh, comic, manga, etc.

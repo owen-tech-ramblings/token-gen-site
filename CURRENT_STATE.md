@@ -103,6 +103,28 @@ Observed status:
 
 ## Recent Site State
 
+- 2026-07-03 update:
+  - Fixed image prompts leaking machine-readable scaffold text into generated
+    images. Jesse provided an output that rendered browser chrome, settings
+    labels, `Quality.max`, `Creativity...0.80`, `API edit preservation`, and a
+    blank bordered white rectangle inside the image.
+  - Root cause: `buildStyledImagePrompt` included headings and key/value API
+    control text such as `USER IMAGE REQUEST`, `IMAGE SETTINGS GUIDANCE`, and
+    `API controls: quality=...`, which the image model could interpret as
+    visual subject matter.
+  - Image prompts are now natural-language art direction only. API controls are
+    still sent as JSON fields, but not described as literal labels inside the
+    prompt text.
+  - Shared negative prompts now explicitly discourage browser chrome, web pages,
+    screenshots, UI/control panels, labels, blank white rectangles, borders,
+    frames, and matte artifacts.
+  - Current chat assets:
+    - `styles.css?v=token-chat-image-prompt-clean-20260703`
+    - `chat.js?v=token-chat-image-prompt-clean-20260703`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    `git diff --check`, local Playwright restyle/edit/generation payload
+    checks proving scaffold text is absent, and existing masked edit/upscale
+    plus UI checks.
 - 2026-07-02 update:
   - Added a dedicated uploaded-image `Restyle source image` mode for workflows
     such as converting an uploaded image to pencil drawing, Van Gogh, comic,
