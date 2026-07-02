@@ -31,6 +31,8 @@ const els = {
   imageEditPreservation: $("#chatImageEditPreservation"),
   imageEditStrength: $("#chatImageEditStrength"),
   imageEditStrengthValue: $("#chatImageEditStrengthValue"),
+  imageSampler: $("#chatImageSampler"),
+  imageScheduler: $("#chatImageScheduler"),
   imageUpscaleScale: $("#chatImageUpscaleScale"),
   imageUpscaleMethod: $("#chatImageUpscaleMethod"),
   documentsButton: $("#chatDocumentsButton"),
@@ -72,6 +74,7 @@ const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", steps: 4, cfg: 1.0, prompt: "Quality: draft preview, prioritize speed over fine detail." },
   standard: { label: "Standard", steps: 9, cfg: 1.0, prompt: "Quality: standard render, balance detail, speed, and prompt adherence." },
   high: { label: "High", steps: 14, cfg: 1.0, prompt: "Quality: high-detail render, prioritize clean detail, texture, and polished output." },
+  max: { label: "Max", steps: 20, cfg: 1.0, prompt: "Quality: maximum render effort, prioritize the cleanest detail and strongest polish even if generation takes longer." },
 };
 const IMAGE_STYLE_PROMPTS = {
   none: "",
@@ -93,48 +96,51 @@ const IMAGE_STYLE_LABELS = {
 };
 const IMAGE_CONTENT_FILTER_PROMPTS = {
   kid: "Content filter: kid friendly, safe for children, no adult themes, no graphic violence.",
-  normal: "Content filter: normal general-audience output, avoid explicit or graphic content.",
-  adult: "Content filter: adult 18+ themes are acceptable when requested, while avoiding illegal, abusive, or non-consensual sexual content.",
+  teen: "Content filter: teen appropriate, allow mild dramatic themes while avoiding explicit or graphic content.",
+  standard: "Content filter: standard general-audience output, avoid explicit or graphic content.",
+  adult_ok: "Content filter: adult 18+ themes are acceptable when requested, while avoiding illegal, abusive, or non-consensual sexual content.",
 };
 const IMAGE_CONTENT_FILTER_LABELS = {
   kid: "Kid friendly",
-  normal: "Normal",
-  adult: "Adult 18+ ok",
+  teen: "Teen",
+  standard: "Standard",
+  adult_ok: "Adult 18+ ok",
 };
 const IMAGE_CREATIVITY_SETTINGS = {
-  low: {
+  "0.25": {
     label: "Conservative",
+    value: 0.25,
     prompt: "Creativity: low. Follow the request conservatively and avoid adding unrequested subjects, outfits, props, scenery, or composition changes.",
   },
-  balanced: {
+  "0.50": {
     label: "Balanced",
+    value: 0.5,
     prompt: "Creativity: balanced. Add reasonable visual polish while staying faithful to the request and avoiding unrelated changes.",
   },
-  high: {
+  "0.80": {
     label: "Exploratory",
+    value: 0.8,
     prompt: "Creativity: high. Allow more imaginative interpretation, but still respect the requested subjects, constraints, and edit preservation rules.",
   },
 };
 const IMAGE_EDIT_PRESERVATION_SETTINGS = {
   strict: {
     label: "Strict",
-    strength: 0.15,
+    value: "strict",
+    strength: 0.2,
     prompt: "Preservation: strict. Make the smallest possible localized change. Keep all unmentioned pixels, people, clothing, pose, hand positions, facial identity, camera angle, crop, lighting, and background details as close to the source image as possible.",
-  },
-  precise: {
-    label: "Precise",
-    strength: 0.25,
-    prompt: "Preservation: precise. Apply only the requested edits. Preserve identity, clothing, pose, hand placement, facial expression, object positions, composition, camera angle, lighting, and unrelated background details.",
   },
   balanced: {
     label: "Balanced",
+    value: "balanced",
     strength: 0.38,
     prompt: "Preservation: balanced. Allow moderate changes needed to satisfy the requested edit, but do not redesign unrelated people, clothing, poses, relationships, objects, or scene composition.",
   },
-  creative: {
-    label: "Creative",
+  flexible: {
+    label: "Flexible",
+    value: "flexible",
     strength: 0.58,
-    prompt: "Preservation: creative. Allow broader variation, but still keep the source image recognizable and do not contradict explicit user instructions.",
+    prompt: "Preservation: flexible. Allow broader variation needed for the requested change, but still keep the source image recognizable and do not contradict explicit user instructions.",
   },
 };
 const IMAGE_ORIENTATION_LABELS = {
@@ -281,7 +287,7 @@ function imageModeInstruction(sourceMode, settings) {
 
 function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, settings = imageSettings()) {
   const style = IMAGE_STYLE_PROMPTS[settings.styleKey] || "";
-  const contentFilter = IMAGE_CONTENT_FILTER_PROMPTS[settings.contentFilterKey] || IMAGE_CONTENT_FILTER_PROMPTS.normal;
+  const contentFilter = IMAGE_CONTENT_FILTER_PROMPTS[settings.contentFilterKey] || IMAGE_CONTENT_FILTER_PROMPTS.standard;
   const styleInstruction = style || "Style preset: none. Follow any visual style named directly in the user request.";
   return [
     "USER IMAGE REQUEST:",
@@ -298,6 +304,8 @@ function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, 
     `Samples: ${settings.samples}. Keep every sample faithful to the same request; vary only natural rendering details.`,
     styleInstruction,
     settings.creativityPrompt,
+    `API controls: quality=${settings.qualityKey}, creativity=${settings.creativity.toFixed(2)}, content_rating=${settings.contentRating}, sampler=${settings.samplerName}, scheduler=${settings.scheduler}.`,
+    sourceMode === "edit" || sourceMode === "style" ? `API edit preservation: ${settings.preservation}.` : "",
     contentFilter,
   ].filter(Boolean).join("\n");
 }
@@ -1005,8 +1013,8 @@ function imageSettings() {
   const dimensions = imageDimensions();
   const samples = Math.round(clampNumber(els.imageSamples.value, 1, 1, 4));
   const quality = IMAGE_QUALITY_SETTINGS[els.imageQuality.value] || IMAGE_QUALITY_SETTINGS.standard;
-  const creativity = IMAGE_CREATIVITY_SETTINGS[els.imageCreativity.value] || IMAGE_CREATIVITY_SETTINGS.balanced;
-  const preservation = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.precise;
+  const creativity = IMAGE_CREATIVITY_SETTINGS[els.imageCreativity.value] || IMAGE_CREATIVITY_SETTINGS["0.50"];
+  const preservation = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.strict;
   const editStrength = clampNumber(els.imageEditStrength.value, preservation.strength, 0.05, 0.8);
   const upscaleScale = Math.round(clampNumber(els.imageUpscaleScale.value, 2, 1, 4));
   return {
@@ -1018,17 +1026,22 @@ function imageSettings() {
     styleKey: els.imageStyle.value,
     styleLabel: IMAGE_STYLE_LABELS[els.imageStyle.value] || "No style",
     creativityKey: els.imageCreativity.value,
+    creativity: creativity.value,
     creativityLabel: creativity.label,
     creativityPrompt: creativity.prompt,
     orientationLabel: IMAGE_ORIENTATION_LABELS[els.imageOrientation.value] || "Square",
     contentFilterKey: els.imageContentFilter.value,
-    contentFilterLabel: IMAGE_CONTENT_FILTER_LABELS[els.imageContentFilter.value] || "Normal",
+    contentRating: els.imageContentFilter.value || "standard",
+    contentFilterLabel: IMAGE_CONTENT_FILTER_LABELS[els.imageContentFilter.value] || "Standard",
     preservationKey: els.imageEditPreservation.value,
+    preservation: preservation.value,
     preservationLabel: preservation.label,
     preservationPrompt: preservation.prompt,
     editStrength,
     upscaleScale,
     upscaleMethod: els.imageUpscaleMethod.value || "lanczos",
+    samplerName: els.imageSampler.value || "euler",
+    scheduler: els.imageScheduler.value || "simple",
     steps: quality.steps,
     cfg: quality.cfg,
   };
@@ -1046,6 +1059,11 @@ function buildImagePayload(prompt, settings, sampleIndex) {
     height: settings.height,
     steps: settings.steps,
     cfg: settings.cfg,
+    quality: settings.qualityKey,
+    creativity: settings.creativity,
+    content_rating: settings.contentRating,
+    sampler_name: settings.samplerName,
+    scheduler: settings.scheduler,
     seed: Date.now() + sampleIndex,
     n: 1,
     filename_prefix: "token_gen_chat",
@@ -1089,6 +1107,12 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
     denoise: settings.editStrength,
     steps: settings.steps,
     cfg: settings.cfg,
+    quality: settings.qualityKey,
+    creativity: settings.creativity,
+    content_rating: settings.contentRating,
+    preservation: settings.preservation,
+    sampler_name: settings.samplerName,
+    scheduler: settings.scheduler,
     seed: Date.now() + sampleIndex,
     filename_prefix: "token_gen_chat_edit",
   };
@@ -1408,7 +1432,7 @@ els.imageSamples.addEventListener("input", () => {
 });
 
 els.imageEditPreservation.addEventListener("change", () => {
-  const preset = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.precise;
+  const preset = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.strict;
   els.imageEditStrength.value = preset.strength.toFixed(2);
   syncImageEditStrengthValue();
 });

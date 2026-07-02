@@ -22,6 +22,31 @@ ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_
 
 ## Last Session Changes
 
+- 2026-07-02 image API controls:
+  - Reviewed live `/api/image/models`; the useful new parameter metadata is in
+    that public endpoint rather than the protected `/docs`/`/openapi.json`
+    routes, which return 401 from this shell.
+  - Added UI/payload support for:
+    - `quality` with the new `max` option
+    - numeric `creativity`
+    - `content_rating` values `kid`, `teen`, `standard`, `adult_ok`
+    - edit `preservation` values `strict`, `balanced`, `flexible`
+    - `sampler_name`
+    - `scheduler`
+  - Image generation and edit requests now send those API fields directly.
+    Upscale remains deterministic and continues to send only the upscale fields.
+  - Cache-busted `chat.html` to:
+    - `styles.css?v=token-chat-image-api-controls-20260702`
+    - `chat.js?v=token-chat-image-api-controls-20260702`
+  - Verification:
+    - `node --check chat.js`
+    - `node tools/site-contract-tests.mjs`
+    - `git diff --check`
+    - local Playwright desktop/mobile UI screenshot check
+    - local Playwright generation payload check for the new fields
+    - local Playwright edit payload check for the new fields
+    - local Playwright masked edit and upscale payload checks
+    - local Playwright upload-button and large JPEG upload checks
 - 2026-07-02 upload button hardening:
   - Jesse reported the page still disappeared when pressing the upload button,
     so the upload activation path was changed rather than only the post-upload

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Token Gen Chat</title>
-    <link rel="stylesheet" href="./styles.css?v=token-chat-upload-button-20260702" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-image-api-controls-20260702" />
   </head>
   <body>
     <main class="chat-app">
@@ -131,6 +131,7 @@
                         <option value="draft">Draft</option>
                         <option value="standard" selected>Standard</option>
                         <option value="high">High</option>
+                        <option value="max">Max</option>
                       </select>
                     </div>
                     <div class="chat-field">
@@ -155,19 +156,20 @@
                   </div>
                   <div class="chat-field-row">
                     <div class="chat-field">
-                      <label class="label" for="chatImageCreativity" title="Controls how strongly the prompt asks for conservative vs imaginative output.">Creativity</label>
+                      <label class="label" for="chatImageCreativity" title="API creativity value. Lower is more literal; higher allows more interpretation.">Creativity</label>
                       <select id="chatImageCreativity">
-                        <option value="low">Conservative</option>
-                        <option value="balanced" selected>Balanced</option>
-                        <option value="high">Exploratory</option>
+                        <option value="0.25">Conservative</option>
+                        <option value="0.50" selected>Balanced</option>
+                        <option value="0.80">Exploratory</option>
                       </select>
                     </div>
                     <div class="chat-field">
-                      <label class="label" for="chatImageContentFilter" title="Adds content safety guidance to image prompts.">Content</label>
+                      <label class="label" for="chatImageContentFilter" title="API content rating sent with image requests.">Content</label>
                       <select id="chatImageContentFilter">
                         <option value="kid">Kid safe</option>
-                        <option value="normal" selected>General</option>
-                        <option value="adult">Adult 18+</option>
+                        <option value="teen">Teen</option>
+                        <option value="standard" selected>Standard</option>
+                        <option value="adult_ok">Adult 18+</option>
                       </select>
                     </div>
                   </div>
@@ -175,20 +177,19 @@
                 <div class="chat-setting-group">
                   <div class="chat-setting-title">Edit control</div>
                   <div class="chat-field">
-                    <label class="label" for="chatImageEditPreservation" title="For image edits, lower change keeps the original closer; higher change allows more variation.">Preservation</label>
+                    <label class="label" for="chatImageEditPreservation" title="API preservation control for image edits. Strict preserves most; flexible allows broader edits.">Preservation</label>
                     <select id="chatImageEditPreservation">
-                      <option value="strict">Strict</option>
-                      <option value="precise" selected>Precise</option>
+                      <option value="strict" selected>Strict</option>
                       <option value="balanced">Balanced</option>
-                      <option value="creative">Creative</option>
+                      <option value="flexible">Flexible</option>
                     </select>
                   </div>
                   <div class="chat-slider-field">
                     <div class="chat-slider-head">
                       <label class="label" for="chatImageEditStrength" title="Image edit strength / denoise. Lower is more precise; higher changes more of the image.">Change amount</label>
-                      <output id="chatImageEditStrengthValue" for="chatImageEditStrength">0.25</output>
+                      <output id="chatImageEditStrengthValue" for="chatImageEditStrength">0.20</output>
                     </div>
-                    <input id="chatImageEditStrength" type="range" min="0.05" max="0.8" step="0.05" value="0.25" />
+                    <input id="chatImageEditStrength" type="range" min="0.05" max="0.8" step="0.05" value="0.20" />
                     <p class="chat-control-help">Lower keeps the source closer. Higher allows more visible variation.</p>
                   </div>
                 </div>
@@ -211,6 +212,23 @@
                         <option value="bilinear">Bilinear</option>
                         <option value="area">Area</option>
                         <option value="nearest-exact">Nearest</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+                <div class="chat-setting-group">
+                  <div class="chat-setting-title">Advanced generation</div>
+                  <div class="chat-field-row">
+                    <div class="chat-field">
+                      <label class="label" for="chatImageSampler" title="API sampler sent to ComfyUI image generation and edit requests.">Sampler</label>
+                      <select id="chatImageSampler">
+                        <option value="euler" selected>Euler</option>
+                      </select>
+                    </div>
+                    <div class="chat-field">
+                      <label class="label" for="chatImageScheduler" title="API scheduler sent to ComfyUI image generation and edit requests.">Scheduler</label>
+                      <select id="chatImageScheduler">
+                        <option value="simple" selected>Simple</option>
                       </select>
                     </div>
                   </div>
@@ -254,6 +272,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-upload-button-20260702"></script>
+    <script type="module" src="./chat.js?v=token-chat-image-api-controls-20260702"></script>
   </body>
 </html>

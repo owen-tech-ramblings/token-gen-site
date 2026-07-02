@@ -104,6 +104,26 @@ Observed status:
 ## Recent Site State
 
 - 2026-07-02 update:
+  - Reviewed the live public image model contract at
+    `https://token-gen-api.owenonthenet.com/api/image/models`.
+  - The chat image UI now supports the newly documented API controls:
+    - `quality` including `max`
+    - numeric `creativity`
+    - `content_rating` values `kid`, `teen`, `standard`, `adult_ok`
+    - edit `preservation` values `strict`, `balanced`, `flexible`
+    - `sampler_name`
+    - `scheduler`
+  - Image generation and edit payloads now send these fields directly to the
+    API instead of relying only on prompt text. Prompt guidance also names the
+    API control values for transparency.
+  - Current chat assets:
+    - `styles.css?v=token-chat-image-api-controls-20260702`
+    - `chat.js?v=token-chat-image-api-controls-20260702`
+  - Verified with `node --check chat.js`, `node tools/site-contract-tests.mjs`,
+    `git diff --check`, local Playwright UI desktop/mobile screenshots,
+    generation payload checks, edit payload checks, masked edit/upscale checks,
+    upload click, and large JPEG upload checks.
+- 2026-07-02 update:
   - Reworked the chat upload triggers to avoid label-wrapped hidden file inputs,
     because Jesse reported the page still disappeared when pressing the upload
     button.
