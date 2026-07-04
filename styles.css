@@ -1773,6 +1773,14 @@ select option { color: var(--color-text-primary); background: #0f1729; }
   height: auto;
 }
 
+.chat-composer .btn.chat-stop-button {
+  border-color: rgba(255, 105, 130, 0.88);
+  background: rgba(255, 105, 130, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 105, 130, 0.24) inset;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
 .chat-typing::after {
   content: "...";
   animation: chatTyping 1s steps(3, end) infinite;

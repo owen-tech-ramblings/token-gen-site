@@ -62,6 +62,7 @@ let availableModels = [];
 let uploadedDocuments = [];
 let activeImageSource = null;
 let activeImageMask = null;
+let activeImageAbortController = null;
 let mammothLoader = null;
 let chatReady = false;
 let chatUserIdPromise = null;
@@ -69,7 +70,6 @@ let chatUserIdPromise = null;
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
-const IMAGE_POLL_ATTEMPTS = 80;
 const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", steps: 4, cfg: 1.0, prompt: "Prioritize a quick preview over fine detail." },
   standard: { label: "Standard", steps: 9, cfg: 1.0, prompt: "Balance detail, speed, and prompt adherence." },
@@ -229,7 +229,30 @@ function canSendCurrentMode() {
   return chatReady;
 }
 
+function isImageGenerationRunning() {
+  return Boolean(activeImageAbortController);
+}
+
+function syncSendButtonState() {
+  if (isImageGenerationRunning()) {
+    els.send.textContent = "\u25a0";
+    els.send.title = "Stop image generation";
+    els.send.setAttribute("aria-label", "Stop image generation");
+    els.send.classList.add("chat-stop-button");
+    return;
+  }
+  els.send.textContent = "Send";
+  els.send.title = "";
+  els.send.setAttribute("aria-label", "Send message");
+  els.send.classList.remove("chat-stop-button");
+}
+
 function updateSendState() {
+  syncSendButtonState();
+  if (isImageGenerationRunning()) {
+    els.send.disabled = false;
+    return;
+  }
   els.send.disabled = !canSendCurrentMode() || documentTokenTotal() > getDocumentBudgetTokens();
 }
 
@@ -1102,11 +1125,13 @@ function buildImagePayload(prompt, settings, sampleIndex) {
   };
 }
 
-async function submitImageGeneration(prompt, settings, sampleIndex) {
+async function submitImageGeneration(prompt, settings, sampleIndex, signal) {
+  throwIfImageStopped(signal);
   const res = await fetch(`${API_BASE}/api/image/generations`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(buildImagePayload(prompt, settings, sampleIndex)),
+    signal,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false || !json.prompt_id) {
@@ -1186,12 +1211,42 @@ async function downloadImage(url, filename) {
   }
 }
 
-async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode) {
+function imageStoppedError() {
+  const error = new Error("Image generation stopped.");
+  error.name = "AbortError";
+  return error;
+}
+
+function throwIfImageStopped(signal) {
+  if (signal?.aborted) throw imageStoppedError();
+}
+
+function waitForImagePoll(signal) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(imageStoppedError());
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timeout);
+      reject(imageStoppedError());
+    };
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, IMAGE_POLL_INTERVAL_MS);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode, signal) {
   const payload = await buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode);
+  throwIfImageStopped(signal);
   const res = await fetch(`${API_BASE}/api/image/edits`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false || !json.prompt_id) {
@@ -1200,12 +1255,14 @@ async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode
   return json.prompt_id;
 }
 
-async function submitImageUpscale(settings, sampleIndex, source) {
+async function submitImageUpscale(settings, sampleIndex, source, signal) {
   const payload = await buildImageUpscalePayload(settings, sampleIndex, source);
+  throwIfImageStopped(signal);
   const res = await fetch(`${API_BASE}/api/image/upscale`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
+    signal,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false || !json.prompt_id) {
@@ -1231,10 +1288,14 @@ function historyExecutionError(json) {
   return "";
 }
 
-async function pollImageGeneration(promptId) {
-  for (let attempt = 0; attempt < IMAGE_POLL_ATTEMPTS; attempt += 1) {
-    await new Promise((resolve) => setTimeout(resolve, IMAGE_POLL_INTERVAL_MS));
-    const res = await fetch(`${API_BASE}/api/image/history/${encodeURIComponent(promptId)}`, { cache: "no-store" });
+async function pollImageGeneration(promptId, signal) {
+  while (true) {
+    await waitForImagePoll(signal);
+    throwIfImageStopped(signal);
+    const res = await fetch(`${API_BASE}/api/image/history/${encodeURIComponent(promptId)}`, {
+      cache: "no-store",
+      signal,
+    });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json.ok === false) {
       throw new Error(json.error || json.message || `Image history failed: HTTP ${res.status}`);
@@ -1246,22 +1307,22 @@ async function pollImageGeneration(promptId) {
       throw new Error("Image generation failed.");
     }
   }
-  throw new Error("Image generation timed out.");
 }
 
-async function generateImageSamplesSequentially(prompt, assistantIndex) {
+async function generateImageSamplesSequentially(prompt, assistantIndex, signal) {
   const settings = imageSettings();
   const outputs = [];
   for (let index = 0; index < settings.samples; index += 1) {
+    throwIfImageStopped(signal);
     const label = `sample ${index + 1} of ${settings.samples}`;
     updateAssistantImageMessage(assistantIndex, {
       imageProgress: `Generating ${label}...`,
       content: outputs.length ? "Still generating the remaining samples." : "",
     });
     setStatus(`Generating image ${index + 1} of ${settings.samples}...`, "busy");
-    const promptId = await submitImageGeneration(prompt, settings, index);
+    const promptId = await submitImageGeneration(prompt, settings, index, signal);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
-    const sampleOutputs = await pollImageGeneration(promptId);
+    const sampleOutputs = await pollImageGeneration(promptId, signal);
     for (const output of sampleOutputs) {
       const imageRef = outputImageReference(output);
       outputs.push({
@@ -1282,20 +1343,21 @@ async function generateImageSamplesSequentially(prompt, assistantIndex) {
   }
 }
 
-async function generateImageEditSamplesSequentially(prompt, assistantIndex, sourceMode) {
+async function generateImageEditSamplesSequentially(prompt, assistantIndex, sourceMode, signal) {
   const settings = imageSettings();
   const source = activeImageSource;
   const outputs = [];
   for (let index = 0; index < settings.samples; index += 1) {
+    throwIfImageStopped(signal);
     const label = `sample ${index + 1} of ${settings.samples}`;
     updateAssistantImageMessage(assistantIndex, {
       imageProgress: `${sourceMode === "style" ? "Using source style for" : sourceMode === "restyle" ? "Restyling" : "Editing"} ${label}...`,
       content: outputs.length ? "Still generating the remaining samples." : "",
     });
     setStatus(`${sourceMode === "style" ? "Generating style reference image" : sourceMode === "restyle" ? "Restyling image" : "Editing image"} ${index + 1} of ${settings.samples}...`, "busy");
-    const promptId = await submitImageEdit(prompt, settings, index, source, sourceMode);
+    const promptId = await submitImageEdit(prompt, settings, index, source, sourceMode, signal);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
-    const sampleOutputs = await pollImageGeneration(promptId);
+    const sampleOutputs = await pollImageGeneration(promptId, signal);
     for (const output of sampleOutputs) {
       const imageRef = outputImageReference(output);
       outputs.push({
@@ -1316,20 +1378,21 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
   }
 }
 
-async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex) {
+async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, signal) {
   const settings = imageSettings();
   const source = activeImageSource;
   const outputs = [];
   for (let index = 0; index < settings.samples; index += 1) {
+    throwIfImageStopped(signal);
     const label = `sample ${index + 1} of ${settings.samples}`;
     updateAssistantImageMessage(assistantIndex, {
       imageProgress: `Enhancing ${label}...`,
       content: outputs.length ? "Still enhancing the remaining samples." : "",
     });
     setStatus(`Enhancing image ${index + 1} of ${settings.samples}...`, "busy");
-    const promptId = await submitImageUpscale(settings, index, source);
+    const promptId = await submitImageUpscale(settings, index, source, signal);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering enhanced ${label}...` });
-    const sampleOutputs = await pollImageGeneration(promptId);
+    const sampleOutputs = await pollImageGeneration(promptId, signal);
     for (const output of sampleOutputs) {
       const imageRef = outputImageReference(output);
       outputs.push({
@@ -1355,6 +1418,9 @@ async function sendImageMessage(content) {
     setStatus("Image generation is unavailable", "bad");
     return;
   }
+  if (activeImageAbortController) return;
+  activeImageAbortController = new AbortController();
+  const signal = activeImageAbortController.signal;
   messages.push({ role: "user", content });
   const assistantIndex = appendAssistantMessage("");
   updateAssistantImageMessage(assistantIndex, {
@@ -1362,7 +1428,7 @@ async function sendImageMessage(content) {
     imageOutputs: [],
     imageProgress: "Preparing image generation...",
   });
-  els.send.disabled = true;
+  updateSendState();
   els.input.disabled = true;
 
   try {
@@ -1374,21 +1440,23 @@ async function sendImageMessage(content) {
           : "Upload an image or choose Iterate on a generated image first.");
       }
       if (sourceMode === "upscale") {
-        await generateImageUpscaleSamplesSequentially(content, assistantIndex);
+        await generateImageUpscaleSamplesSequentially(content, assistantIndex, signal);
       } else {
-        await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode);
+        await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode, signal);
       }
     } else {
-      await generateImageSamplesSequentially(content, assistantIndex);
+      await generateImageSamplesSequentially(content, assistantIndex, signal);
     }
     setStatus(`Image generation complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
+    const stopped = error.name === "AbortError" || signal.aborted;
     updateAssistantImageMessage(assistantIndex, {
-      content: `Image request failed: ${error.message}`,
+      content: stopped ? "Image generation stopped." : `Image request failed: ${error.message}`,
       imageProgress: "",
     });
-    setStatus("Image request failed", "bad");
+    setStatus(stopped ? "Image generation stopped" : "Image request failed", stopped ? "good" : "bad");
   } finally {
+    activeImageAbortController = null;
     updateSendState();
     els.input.disabled = false;
     els.input.focus();
@@ -1417,6 +1485,12 @@ function applyRestyleDefaults() {
 
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (activeImageAbortController) {
+    activeImageAbortController.abort();
+    els.send.disabled = true;
+    setStatus("Stopping image generation...", "busy");
+    return;
+  }
   const content = els.input.value.trim();
   if (!content || els.send.disabled) return;
   els.input.value = "";
