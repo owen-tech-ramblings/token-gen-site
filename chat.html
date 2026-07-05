@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Token Gen Chat</title>
-    <link rel="stylesheet" href="./styles.css?v=token-chat-image-no-timeout-20260704" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-image-prompt-clean-20260705" />
   </head>
   <body>
     <main class="chat-app">
@@ -223,7 +223,8 @@
                     <div class="chat-field">
                       <label class="label" for="chatImageSampler" title="API sampler sent to ComfyUI image generation and edit requests.">Sampler</label>
                       <select id="chatImageSampler">
-                        <option value="euler" selected>Euler</option>
+                        <option value="res_multistep" selected>Res multistep</option>
+                        <option value="euler">Euler</option>
                       </select>
                     </div>
                     <div class="chat-field">
@@ -273,6 +274,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-image-no-timeout-20260704"></script>
+    <script type="module" src="./chat.js?v=token-chat-image-prompt-clean-20260705"></script>
   </body>
 </html>

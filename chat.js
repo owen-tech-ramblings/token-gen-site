@@ -71,19 +71,19 @@ const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const IMAGE_QUALITY_SETTINGS = {
-  draft: { label: "Draft", steps: 4, cfg: 1.0, prompt: "Prioritize a quick preview over fine detail." },
-  standard: { label: "Standard", steps: 9, cfg: 1.0, prompt: "Balance detail, speed, and prompt adherence." },
-  high: { label: "High", steps: 14, cfg: 1.0, prompt: "Prioritize clean detail, texture, and polished output." },
-  max: { label: "Max", steps: 20, cfg: 1.0, prompt: "Use the strongest render effort for clean detail and polished output." },
+  draft: { label: "Draft", steps: 8, cfg: 5.0, prompt: "quick clean preview" },
+  standard: { label: "Standard", steps: 20, cfg: 5.0, prompt: "balanced detail and prompt fidelity" },
+  high: { label: "High", steps: 35, cfg: 5.0, prompt: "high detail, clean texture, polished rendering" },
+  max: { label: "Max", steps: 50, cfg: 5.0, prompt: "maximum detail, refined texture, polished final image" },
 };
 const IMAGE_STYLE_PROMPTS = {
   none: "",
-  photorealistic: "Render in a photorealistic style with natural lighting, realistic materials, and believable detail.",
-  pencil: "Render as a pencil drawing with visible graphite linework, sketch texture, and tonal shading.",
-  "van-gogh": "Render in a Van Gogh-inspired post-impressionist style with expressive brushwork, swirling movement, and rich color.",
-  comic: "Render as comic art with bold inking, crisp shapes, dynamic contrast, and graphic color.",
-  manga: "Render as manga art with clean linework, expressive composition, and polished screen-tone style shading.",
-  futuristic: "Render with a futuristic science-fiction aesthetic, advanced materials, sleek lighting, and high-tech visual language.",
+  photorealistic: "photorealistic, natural lighting, realistic materials, believable detail",
+  pencil: "pencil drawing, graphite linework, sketch texture, tonal shading",
+  "van-gogh": "Van Gogh inspired post-impressionist painting, expressive brushwork, swirling movement, rich color",
+  comic: "comic art, bold inking, crisp shapes, dynamic contrast, graphic color",
+  manga: "manga art, clean linework, expressive composition, polished screentone shading",
+  futuristic: "futuristic science-fiction aesthetic, advanced materials, sleek lighting, high-tech visual language",
 };
 const IMAGE_STYLE_LABELS = {
   none: "No style",
@@ -95,10 +95,10 @@ const IMAGE_STYLE_LABELS = {
   futuristic: "Futuristic",
 };
 const IMAGE_CONTENT_FILTER_PROMPTS = {
-  kid: "Keep the result safe for children, with no adult themes or graphic violence.",
-  teen: "Keep the result appropriate for teens; mild dramatic themes are acceptable, but avoid explicit or graphic content.",
-  standard: "Keep the result suitable for a general audience and avoid explicit or graphic content.",
-  adult_ok: "Adult themes are acceptable only when the user clearly requests them; avoid illegal, abusive, or non-consensual sexual content.",
+  kid: "child-safe content, no adult themes, no graphic violence",
+  teen: "teen-appropriate content, no explicit or graphic content",
+  standard: "general audience content, no explicit or graphic content",
+  adult_ok: "adult themes only if clearly requested, no illegal abusive or non-consensual sexual content",
 };
 const IMAGE_CONTENT_FILTER_LABELS = {
   kid: "Kid friendly",
@@ -110,17 +110,17 @@ const IMAGE_CREATIVITY_SETTINGS = {
   "0.25": {
     label: "Conservative",
     value: 0.25,
-    prompt: "Follow the request conservatively and avoid adding unrequested subjects, outfits, props, scenery, or composition changes.",
+    prompt: "literal interpretation, no unrequested subjects, outfits, props, scenery, or composition changes",
   },
   "0.50": {
     label: "Balanced",
     value: 0.5,
-    prompt: "Add reasonable visual polish while staying faithful to the request and avoiding unrelated changes.",
+    prompt: "faithful interpretation with natural visual polish",
   },
   "0.80": {
     label: "Exploratory",
     value: 0.8,
-    prompt: "Allow more imaginative interpretation, while still respecting the requested subjects and constraints.",
+    prompt: "more imaginative interpretation while respecting requested subjects and constraints",
   },
 };
 const IMAGE_EDIT_PRESERVATION_SETTINGS = {
@@ -128,19 +128,19 @@ const IMAGE_EDIT_PRESERVATION_SETTINGS = {
     label: "Strict",
     value: "strict",
     strength: 0.2,
-    prompt: "Make the smallest possible localized change. Keep unmentioned pixels, people, clothing, pose, hand positions, facial identity, camera angle, crop, lighting, and background details as close to the source image as possible.",
+    prompt: "smallest localized change, source identity clothing pose hands face camera crop lighting and background preserved",
   },
   balanced: {
     label: "Balanced",
     value: "balanced",
     strength: 0.38,
-    prompt: "Allow moderate changes needed to satisfy the requested edit, but do not redesign unrelated people, clothing, poses, relationships, objects, or scene composition.",
+    prompt: "moderate requested edit, no unrelated redesign of people clothing poses relationships objects or composition",
   },
   flexible: {
     label: "Flexible",
     value: "flexible",
     strength: 0.58,
-    prompt: "Allow broader variation needed for the requested change, but still keep the source image recognizable and do not contradict explicit user instructions.",
+    prompt: "broader requested variation, recognizable source image, no contradiction of the user request",
   },
 };
 const IMAGE_ORIENTATION_LABELS = {
@@ -282,62 +282,59 @@ function imageDimensions() {
 function imageModeInstruction(sourceMode, settings) {
   if (sourceMode === "edit") {
     return [
-      "Edit the selected source image.",
-      `Use ${settings.preservationLabel.toLowerCase()} preservation with ${settings.editStrength.toFixed(2)} change strength; lower values preserve more of the original and higher values allow more visible change.`,
+      "source image edit",
+      `${settings.preservationLabel.toLowerCase()} preservation, ${settings.editStrength.toFixed(2)} change strength`,
       settings.preservationPrompt,
-      "Preserve every unmentioned part of the image: people, identity, clothing, pose, hand placement, facial expression, object positions, camera angle, crop, lighting, composition, and background.",
-      "When adding or improving something, keep existing relationships and physical interactions intact unless the user explicitly asks to change them.",
-    ].join("\n");
+      "unmentioned people identity clothing pose hands expression objects camera crop lighting composition and background preserved",
+      "existing relationships and physical interactions preserved unless explicitly changed by the user",
+    ].join(", ");
   }
   if (sourceMode === "restyle") {
     return [
-      "Restyle the selected source image.",
-      "Use the source image as the base composition and convert the whole image into the selected visual style.",
-      `Apply the new style strongly at ${settings.editStrength.toFixed(2)} change strength.`,
+      "source image restyle",
+      "source composition preserved, visual medium transformed",
+      `${settings.editStrength.toFixed(2)} style change strength`,
       settings.preservationPrompt,
-      "Preserve the recognizable subject identity, pose, hand placement, relationships between people, object layout, camera angle, crop, and scene composition.",
-      "Do change the visual medium, linework, brushwork, color treatment, texture, and rendering technique to match the requested style.",
-      "Do not add unrelated objects, replace clothing shapes, change facial identity, change who is present, or redesign the scene unless the user explicitly asks.",
-    ].join("\n");
+      "recognizable subject identity pose hands relationships object layout camera crop and composition preserved",
+      "visual medium linework brushwork color texture and rendering technique changed to the selected style",
+      "no unrelated objects, clothing replacement, identity change, character change, or scene redesign",
+    ].join(", ");
   }
   if (sourceMode === "style") {
     return [
-      "Use the selected source image as a style reference.",
-      "Borrow visual qualities only: palette, texture, medium, lighting, and mood.",
-      `Use ${settings.editStrength.toFixed(2)} style-reference strength.`,
-      "Create a new composition that follows the user request. Do not copy identity details or exact composition unless explicitly requested.",
-    ].join("\n");
+      "source image style reference",
+      "borrow palette texture medium lighting and mood only",
+      `${settings.editStrength.toFixed(2)} style reference strength`,
+      "new composition matching the requested subject, no copied identity or exact composition unless requested",
+    ].join(", ");
   }
   if (sourceMode === "upscale") {
     return [
-      "Enhance or upscale the selected source image.",
-      "Use the selected source image as the exact source for resolution or quality improvement.",
-      "Do not creatively redraw, redesign, restyle, replace clothing, change identity, change hand positions, change pose, alter relationships between people, or change the background.",
-      "Preserve composition and content while improving technical clarity according to the selected upscale settings.",
-    ].join("\n");
+      "source image enhancement",
+      "exact source content preserved",
+      "no creative redraw redesign restyle clothing replacement identity change hand change pose change relationship change or background change",
+      "composition preserved, technical clarity improved",
+    ].join(", ");
   }
-  return "Create a new image from the user request.";
+  return "original generated scene";
 }
 
 function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, settings = imageSettings()) {
   const style = IMAGE_STYLE_PROMPTS[settings.styleKey] || "";
   const contentFilter = IMAGE_CONTENT_FILTER_PROMPTS[settings.contentFilterKey] || IMAGE_CONTENT_FILTER_PROMPTS.standard;
-  const styleInstruction = style || "Follow any visual style named directly in the user request.";
   return [
     prompt,
-    "Use the user request as the main task. Treat the following as rendering guidance, not extra subject matter.",
     imageModeInstruction(sourceMode, settings),
-    `Render as a ${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image.`,
+    `${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image`,
     sourceMode === "edit" && activeImageMask
-      ? "An edit mask is provided. Only regenerate white or light masked regions. Preserve black or dark unmasked regions exactly."
+      ? "edit mask provided, white or light masked regions regenerated, black or dark unmasked regions preserved"
       : "",
     settings.qualityPrompt,
-    "Keep every sample faithful to the same request; vary only natural rendering details.",
-    styleInstruction,
+    "consistent subject and composition, natural rendering variation only",
+    style,
     settings.creativityPrompt,
     contentFilter,
-    "Do not render user interface elements, browser chrome, settings panels, text labels, captions, borders, frames, blank white rectangles, or screenshots unless the user explicitly asks for those objects.",
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
 }
 
 function releaseImagePreviewUrl(source) {
@@ -1070,7 +1067,7 @@ function imageSettings() {
     editStrength,
     upscaleScale,
     upscaleMethod: els.imageUpscaleMethod.value || "lanczos",
-    samplerName: els.imageSampler.value || "euler",
+    samplerName: els.imageSampler.value || "res_multistep",
     scheduler: els.imageScheduler.value || "simple",
     steps: quality.steps,
     cfg: quality.cfg,
@@ -1084,9 +1081,22 @@ function imageSummary(settings) {
 function imageNegativePrompt(extra = []) {
   return [
     "text",
+    "letters",
+    "words",
+    "numbers",
+    "typography",
+    "prompt text",
+    "instruction text",
+    "requirement text",
+    "requirements",
+    "rendered prompt",
+    "visible writing",
+    "annotations",
     "watermark",
     "signature",
     "caption",
+    "subtitles",
+    "signage",
     "browser chrome",
     "web page",
     "screenshot",
