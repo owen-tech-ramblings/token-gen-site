@@ -1,15 +1,15 @@
 # Vampire Survival Parked State
 
-Status: parked after Codex iteration 25
+Status: resumed and published through Codex iteration 31
 Live page: `/games/vampire-survival.html`
-Last commit before parking: `71c0ff7 Codex Vampire Survival iteration 25`
-Date parked: 2026-05-28
+Previous parked commit: `71c0ff7 Codex Vampire Survival iteration 25`
+Resumed: 2026-07-10
 
 ## Current State
 
 Vampire Survival is a standalone HTML canvas game. It is intentionally kept live on the Token Gen games page so it can be tested later without re-deploying.
 
-The current build includes:
+The Iteration 31 build includes:
 
 - Large city map with camera and procedural districts.
 - Story objective: break three Sun Reliquaries before dawn.
@@ -24,7 +24,7 @@ The current build includes:
 To continue the experiment later:
 
 1. Open `games/vampire-survival.html`.
-2. Make the next pass as `Codex Iteration 26` or hand it back to Token Gen/Qwen as the current seed.
+2. Make the next pass as `Codex Iteration 32` or hand it back to Token Gen/Qwen as the current seed.
 3. Run the same lightweight validation used during the experiment:
 
 ```bash
@@ -36,14 +36,14 @@ node -e "const fs=require('fs'); const html=fs.readFileSync('games/vampire-survi
 
 ## Suggested Next Iterations
 
-- Add a real pause/settings panel with audio toggle and difficulty selection.
-- Add a short tutorial overlay for the first run.
-- Improve collision with buildings and relic areas.
-- Add boss-specific patterns for Captain Voss.
-- Add more distinct district biomes, such as Cathedral, Docks, Slums, Gardens, and Palace.
-- Add mobile touch controls if the game should be playable on phones.
-- Add persistent achievements alongside high scores.
-- Tune balance from 2-3 minutes of manual playtesting.
+- Extend authored content beyond the current vertical slice.
+- Add more bespoke art, animation, music, and effects.
+- Run broader external playtesting and balance passes.
+- Expand Captain Voss and elite encounter variety.
+- Expand district event variety and objectives.
+- Improve mobile ergonomics after more device testing.
+- Add production analytics and formal accessibility QA.
+- Continue tuning balance from longer manual playtests.
 
 ## Notes
 

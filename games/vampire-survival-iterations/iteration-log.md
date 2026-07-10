@@ -124,10 +124,19 @@ Accepted Qwen pass 20. Light validation passed: standalone HTML, script, canvas/
 
 Bytes: 21355
 
+
+## Iteration 31
+
+Accepted ChatGPT/Codex pass 31 on 2026-07-10. Published as the current live build and archived as `iteration-31-codex.html`.
+
+Validation focus: syntax extraction, headless start/tick harness, browser smoke, responsive canvas resize, and archive link hygiene. Status/report page added as `iteration-26-31-status.html`; screenshots added as `iteration-31-gameplay.png` and `iteration-31-boss.png`.
+
+Bytes: 64189
+
 ## Parked State
 
-The experiment was parked after Codex iteration 25 on 2026-05-28.
+The experiment was resumed and published through Codex iteration 31 on 2026-07-10.
 
 - Current live build: `games/vampire-survival.html`
-- Snapshot: `games/vampire-survival-iterations/iteration-25-codex.html`
-- Resume notes: `games/vampire-survival-parked.html` and `games/vampire-survival-parked.md`
+- Snapshot: `games/vampire-survival-iterations/iteration-31-codex.html`
+- Status notes: `games/vampire-survival-iterations/iteration-26-31-status.html`, `games/vampire-survival-parked.html`, and `games/vampire-survival-parked.md`
