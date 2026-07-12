@@ -18,6 +18,12 @@ assert.doesNotMatch(chatJs, /applyModelFallback/, "Chat must not silently use fa
 assert.doesNotMatch(chatJs, /DEFAULT_CHAT_MODEL\s*=\s*"Qwen-Qwen3\.6-27B-FP8"/, "Chat must not hardcode the short vLLM model id fallback.");
 assert.match(chatJs, /disableChat/, "Chat must disable input when model discovery fails.");
 assert.match(chatJs, /web context service is not configured/i, "Chat must explain unavailable web search as service configuration.");
+assert.doesNotMatch(chatHtml, /You are Token Gen, a local vLLM assistant\. Be concise, practical, and direct\./, "Chat must not regress to the original text-only system prompt.");
+assert.match(chatHtml, /Jesse's self-hosted assistant running through a local vLLM/, "The default system prompt must identify Token Gen's current deployment accurately.");
+assert.match(chatHtml, /user-uploaded documents may be attached/, "The default system prompt must explain document context.");
+assert.match(chatHtml, /Tavily or balanced SearXNG/, "The default system prompt must explain current web context providers.");
+assert.match(chatHtml, /masked edits, deterministic enhancement\/upscaling, and multiple samples/, "The default system prompt must describe current image capabilities.");
+assert.match(chatHtml, /Do not claim access to the live internet, filesystem, server state, external tools, or completed actions/, "The default system prompt must set honest capability boundaries.");
 assert.match(chatHtml, /id="chatWebApiKey"[^>]+type="password"[^>]+autocomplete="off"/, "Chat must provide a non-persistent password input for a user Tavily key.");
 assert.match(chatJs, /tavily_api_key:\s*els\.webApiKey\.value\.trim\(\) \|\| undefined/, "Chat must send the session Tavily key only in the web-search request body.");
 assert.doesNotMatch(chatJs, /localStorage[^\n]+chatWebApiKey|chatWebApiKey[^\n]+localStorage/, "Chat must never persist the user Tavily key in localStorage.");

@@ -2,6 +2,14 @@
 
 Last updated: 2026-07-13 Australia/Sydney
 
+## 2026-07-13 Current Chat System Prompt
+
+The default system prompt in `chat.html` now reflects the full current chat
+surface rather than the original text-only prototype. Keep it synchronized when
+document ingestion, web providers, image modes, privacy behavior, or runtime
+capability boundaries change. `tools/site-contract-tests.mjs` contains the
+regression contract. The prompt is intentionally user-visible and editable.
+
 ## 2026-07-13 Tavily To SearXNG Failover Handoff
 
 The requested behavior is implemented and verified end to end:

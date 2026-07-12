@@ -2,6 +2,18 @@
 
 Last updated: 2026-07-13 Australia/Sydney
 
+## Current Chat System Prompt - 2026-07-13
+
+- Replaced the original two-sentence, text-only default with a capability-aware
+  prompt for the current Token Gen chat.
+- The prompt now covers document context, Tavily/SearXNG web evidence and
+  citations, image generation/edit/restyle/style-reference/mask/upscale flows,
+  reasoning mode, self-hosted inference, request-scoped Tavily keys, prompt
+  injection resistance, honest tool boundaries, and response quality.
+- The prompt remains visible and editable in the chat sidebar.
+- Site contract tests prevent regression to the original prompt and require the
+  main capability and privacy sections.
+
 ## Web Search Failover - 2026-07-13
 
 - The public provider chain is now:
