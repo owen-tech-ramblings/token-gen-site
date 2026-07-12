@@ -1,0 +1,31 @@
+use_default_settings:
+  engines:
+    keep_only:
+      - brave
+      - duckduckgo
+      - mojeek
+      - qwant
+      - wikipedia
+
+general:
+  debug: false
+  instance_name: Token Gen Balanced Search
+
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json
+
+server:
+  bind_address: "0.0.0.0"
+  port: 8080
+  limiter: false
+  image_proxy: true
+  secret_key: "ultrasecretkey"
+
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 12.0
+  retries: 1
+  using_tor_proxy: false

@@ -18,6 +18,11 @@ assert.doesNotMatch(chatJs, /applyModelFallback/, "Chat must not silently use fa
 assert.doesNotMatch(chatJs, /DEFAULT_CHAT_MODEL\s*=\s*"Qwen-Qwen3\.6-27B-FP8"/, "Chat must not hardcode the short vLLM model id fallback.");
 assert.match(chatJs, /disableChat/, "Chat must disable input when model discovery fails.");
 assert.match(chatJs, /web context service is not configured/i, "Chat must explain unavailable web search as service configuration.");
+assert.match(chatHtml, /id="chatWebApiKey"[^>]+type="password"[^>]+autocomplete="off"/, "Chat must provide a non-persistent password input for a user Tavily key.");
+assert.match(chatJs, /tavily_api_key:\s*els\.webApiKey\.value\.trim\(\) \|\| undefined/, "Chat must send the session Tavily key only in the web-search request body.");
+assert.doesNotMatch(chatJs, /localStorage[^\n]+chatWebApiKey|chatWebApiKey[^\n]+localStorage/, "Chat must never persist the user Tavily key in localStorage.");
+assert.match(chatJs, /health\.searxng_available/, "Chat must require a live balanced SearXNG fallback.");
+assert.match(chatJs, /Tavily first, then balanced SearXNG/, "Chat must explain the provider fallback order.");
 assert.match(chatHtml, /id="chatMode"/, "Chat HTML must include a mode selector.");
 assert.match(chatHtml, /id="chatImageSize"/, "Chat HTML must include image size settings.");
 assert.match(chatHtml, /id="chatImageQuality"/, "Chat HTML must include image quality settings.");
@@ -46,8 +51,8 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /chat-image-settings/, "Chat HTML must group image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower keeps the source closer/, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /White\/light mask areas are changed; black\/dark areas are preserved/, "Chat HTML must explain mask light/dark behavior.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-image-prompt-clean-20260703/, "Chat HTML must cache-bust the clean image prompt CSS.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-image-prompt-clean-20260703/, "Chat HTML must cache-bust the clean image prompt script.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-image-prompt-clean-20260705/, "Chat HTML must use the current clean image prompt CSS.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-web-fallback-20260713/, "Chat HTML must cache-bust the web fallback script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -58,7 +63,7 @@ assert.match(chatJs, /generateImageEditSamplesSequentially/, "Chat must generate
 assert.match(chatJs, /generateImageUpscaleSamplesSequentially/, "Chat must generate upscale samples consecutively.");
 assert.match(chatJs, /buildStyledImagePrompt/, "Chat must inject style, orientation, and content-filter settings into image prompts.");
 assert.doesNotMatch(chatJs, /USER IMAGE REQUEST|IMAGE SETTINGS GUIDANCE|API controls|API edit preservation/, "Image prompts must not include machine-readable UI/API scaffold text that can render into images.");
-assert.match(chatJs, /Do not render user interface elements/, "Image prompts must explicitly discourage UI, browser, border, and frame artifacts.");
+assert.match(chatJs, /"user interface"/, "Image negative prompts must explicitly discourage UI artifacts.");
 assert.match(chatJs, /imageNegativePrompt/, "Image requests must use a shared negative prompt helper.");
 assert.match(chatJs, /browser chrome/, "Image negative prompts must discourage browser chrome artifacts.");
 assert.match(chatJs, /blank white rectangle/, "Image negative prompts must discourage blank white rectangle artifacts.");
@@ -68,9 +73,9 @@ assert.match(chatJs, /quality:\s*settings\.qualityKey/, "Image payloads must sen
 assert.match(chatJs, /sampler_name:\s*settings\.samplerName/, "Image payloads must send the API sampler_name parameter.");
 assert.match(chatJs, /scheduler:\s*settings\.scheduler/, "Image payloads must send the API scheduler parameter.");
 assert.match(chatJs, /preservation:\s*settings\.preservation/, "Image edit payloads must send the API preservation parameter.");
-assert.match(chatJs, /Restyle the selected source image/, "Image prompts must include an explicit uploaded-image restyle mode.");
+assert.match(chatJs, /source image restyle/, "Image prompts must include an explicit uploaded-image restyle mode.");
 assert.match(chatJs, /applyRestyleDefaults/, "Chat must apply stronger defaults for uploaded-image restyling.");
-assert.match(chatJs, /Preserve every unmentioned part of the image/, "Image edit prompts must explicitly preserve unrelated source-image details.");
+assert.match(chatJs, /unmentioned people identity clothing pose hands expression objects camera crop lighting composition and background preserved/, "Image edit prompts must explicitly preserve unrelated source-image details.");
 assert.match(chatJs, /IMAGE_EDIT_PRESERVATION_SETTINGS/, "Chat must define image edit preservation presets.");
 assert.match(chatJs, /IMAGE_CREATIVITY_SETTINGS/, "Chat must define image creativity settings.");
 assert.match(chatJs, /image_base64/, "Chat must support uploaded image edits with base64 payloads.");
@@ -87,7 +92,7 @@ assert.match(chatJs, /settings\.height/, "Image edit source resizing must use th
 assert.match(chatJs, /strength:\s*settings\.editStrength/, "Image edits must use the configured edit strength.");
 assert.match(chatJs, /denoise:\s*settings\.editStrength/, "Image edits must use the configured edit strength for denoise.");
 assert.match(chatJs, /mask_base64/, "Image edits must send optional mask_base64 when a mask is selected.");
-assert.match(chatJs, /Only regenerate white or light masked regions/, "Image edit prompts must explain masked edit preservation.");
+assert.match(chatJs, /edit mask provided, white or light masked regions regenerated, black or dark unmasked regions preserved/, "Image edit prompts must explain masked edit preservation.");
 assert.match(chatJs, /buildImageUpscalePayload/, "Chat must build deterministic upscale payloads.");
 assert.match(chatJs, /method:\s*settings\.upscaleMethod/, "Upscale payloads must use the configured upscale method.");
 assert.match(chatJs, /scale:\s*settings\.upscaleScale/, "Upscale payloads must use the configured upscale scale.");

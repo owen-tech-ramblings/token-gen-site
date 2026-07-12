@@ -1,6 +1,25 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-02 Australia/Sydney
+Last updated: 2026-07-13 Australia/Sydney
+
+## 2026-07-13 Tavily To SearXNG Failover Handoff
+
+The requested behavior is implemented and verified end to end:
+
+- Provider priority is user-supplied session Tavily key, site Tavily key, then
+  balanced local SearXNG only after Tavily HTTP 432.
+- User keys are password inputs, sent in the request body, never written to
+  localStorage, returned in responses, or logged by the application.
+- Local SearXNG container `token-gen-searxng` listens only on
+  `127.0.0.1:8888`, restarts unless stopped, and uses
+  `services/token-gen-searxng/settings.yml`.
+- Tailscale Serve exposes that port to the tailnet only at
+  `100.92.126.107:8888` for the active Token Gen server.
+- The active server source `/home/zenfree/server-details-api/server_details_api.py`
+  implements the same provider order and publishes it in `/api/agent.json`.
+- The API process and PC-side services were restarted and are healthy.
+- Public streaming fallback was reproduced successfully with the exhausted
+  site key; no user or site key was printed or returned.
 
 ## 2026-06-21 Alignment Guardrail
 

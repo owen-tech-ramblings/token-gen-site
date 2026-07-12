@@ -1,6 +1,28 @@
 # Token Gen Current State
 
-Last updated: 2026-07-02 Australia/Sydney
+Last updated: 2026-07-13 Australia/Sydney
+
+## Web Search Failover - 2026-07-13
+
+- The public provider chain is now:
+  - session-only user Tavily key
+  - site Tavily key
+  - balanced SearXNG after Tavily HTTP 432
+- The optional Tavily key input is a password field, is never written to
+  localStorage, and is sent only inside the current chat request.
+- Local SearXNG 2026.7.12 runs on `127.0.0.1:8888` and is shared with the Token
+  Gen server only through Tailscale Serve at `100.92.126.107:8888`.
+- The active Token Gen server source and discovery contract now accept the
+  request-scoped key and implement the same fallback order.
+- Verification passes:
+  - 8 Python unit tests
+  - `node --check chat.js`
+  - `node tools/site-contract-tests.mjs`
+  - `node --check` for the PC gateway
+  - 11 Token Gen server unit tests
+  - public health reports `searxng_available: true`
+  - public streaming chat returned a SearXNG `web_context` event with
+    `fallback_reason: tavily_plan_exhausted` followed by model output
 
 ## Alignment Update - 2026-06-21
 

@@ -68,10 +68,12 @@
           <section class="chat-web-panel" aria-label="Web context settings">
             <label class="chat-toggle">
               <input id="chatWebSearch" type="checkbox" />
-              <span>Use Tavily web context</span>
+              <span>Use web context</span>
             </label>
             <p class="chat-web-note" id="chatWebStatus">Checking Token Gen API web-search support...</p>
             <div class="chat-control-grid">
+              <label class="label" for="chatWebApiKey">Tavily key</label>
+              <input id="chatWebApiKey" class="input" type="password" autocomplete="off" spellcheck="false" placeholder="Optional, session only" />
               <label class="label" for="chatWebFetchMode">Fetch mode</label>
               <select id="chatWebFetchMode">
                 <option value="tor">Tor</option>
@@ -83,6 +85,7 @@
               <label class="label" for="chatWebBudget">Context budget</label>
               <input id="chatWebBudget" class="input" type="number" min="500" max="10000" step="500" value="10000" />
             </div>
+            <p class="chat-web-note">A supplied Tavily key stays in this tab and is sent only with your chat request. Token Gen falls back to balanced SearXNG when Tavily reports exhausted credits.</p>
           </section>
           <section class="chat-image-panel" aria-label="Image generation settings">
             <div class="chat-panel-heading">
@@ -274,6 +277,6 @@
       </section>
     </main>
 
-    <script type="module" src="./chat.js?v=token-chat-image-prompt-clean-20260705"></script>
+    <script type="module" src="./chat.js?v=token-chat-web-fallback-20260713"></script>
   </body>
 </html>

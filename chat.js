@@ -16,6 +16,7 @@ const els = {
   docList: $("#chatDocList"),
   docClear: $("#chatDocClear"),
   webSearch: $("#chatWebSearch"),
+  webApiKey: $("#chatWebApiKey"),
   webFetchMode: $("#chatWebFetchMode"),
   webResults: $("#chatWebResults"),
   webBudget: $("#chatWebBudget"),
@@ -763,7 +764,7 @@ function renderWebContext(context) {
     <section class="chat-web-context">
       <div class="chat-web-context-head">
         <span>Web context</span>
-        <span class="chat-web-mode">${escapeHtml(context.fetch_mode || context.fetchMode || "web")}</span>
+        <span class="chat-web-mode">${escapeHtml(`${context.provider || context.search_route?.provider || "web"} · ${context.fetch_mode || context.fetchMode || "direct"}`)}</span>
       </div>
       ${context.query ? `<p class="chat-web-query">Query: ${escapeHtml(context.query)}</p>` : ""}
       ${sources.length ? `
@@ -824,6 +825,7 @@ function buildPayload(userId) {
     enable_thinking: els.reasoning.checked,
     web_search: {
       enabled: Boolean(els.webSearch.checked),
+      tavily_api_key: els.webApiKey.value.trim() || undefined,
       fetch_mode: els.webFetchMode.value,
       max_results: Number(els.webResults.value || 5),
       context_token_budget: Number(els.webBudget.value || 10000),
@@ -919,15 +921,20 @@ async function loadWebSearchCapability() {
     const res = await fetch(`${API_BASE}/api/web-search/health`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
     const health = json.data || json;
-    webSearchSupported = Boolean(res.ok && json.ok !== false && health.tavily_configured);
+    webSearchSupported = Boolean(
+      res.ok
+      && json.ok !== false
+      && health.available !== false
+      && (health.tavily_configured || health.searxng_available),
+    );
     if (webSearchSupported) {
-      els.webStatus.textContent = "Tavily context is available. Tavily receives the query; destination pages use the selected fetch mode.";
+      els.webStatus.textContent = "Web context is available: Tavily first, then balanced SearXNG if Tavily credits are exhausted.";
       els.webStatus.dataset.state = "good";
       els.webSearch.disabled = false;
       return;
     }
-    if (res.ok && health.tavily_configured === false) {
-      els.webStatus.textContent = "Web context service is online, but TAVILY_API_KEY is not configured yet.";
+    if (res.ok && health.tavily_configured === false && health.searxng_available === false) {
+      els.webStatus.textContent = "Web context service is online, but neither Tavily nor SearXNG is configured.";
       els.webStatus.dataset.state = "bad";
       els.webSearch.checked = false;
       els.webSearch.disabled = true;
