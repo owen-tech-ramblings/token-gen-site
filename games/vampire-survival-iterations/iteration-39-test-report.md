@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 39 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate; publication pending
+Status: published; exact production origin and Access gates passed
 
 ## Artifact
 
@@ -75,5 +75,12 @@ Status: release candidate; publication pending
 
 ## Publication Evidence
 
-- Pending release commit, Pages workflow, direct-origin digest, and public
-  Access verification.
+- Release commit `77bb6d57d886dfe8ef8f1209a137f43a5b3c078a` was pushed to
+  both public and private `master` remotes.
+- GitHub Pages workflow `29356836011` completed successfully for that exact
+  commit.
+- Direct GitHub Pages origin returned HTTP 200, 213,850 bytes, and SHA-256
+  `f2402e9ae59168bba543a7924f933b11390917ea48c0891dfc50c388f7a9fb41`.
+- Public HTTPS retained the expected unauthenticated Cloudflare Access 302.
+- Authenticated production opened the Iteration 39 Cloud Save dialog and
+  confirmed the empty account without creating a remote copy.

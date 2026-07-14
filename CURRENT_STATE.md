@@ -4,7 +4,8 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## Vampire Survival Iteration 39 - 2026-07-15
 
-- Iteration 39 is validated as a release candidate; publication is pending.
+- Iteration 39 is published and exact-origin verified at commit `77bb6d5`
+  through Pages workflow `29356836011`.
 - Optional cloud profiles are local-first. Play and local saves never depend
   on the network, empty accounts never auto-upload, and conflicts require a
   deliberate choice.
@@ -20,10 +21,11 @@ Last updated: 2026-07-15 Australia/Sydney
 - Validation: 51/51 tests, deterministic 213,850-byte artifact, exact archive
   contracts, desktop/mobile conflict and gameplay QA, and a 57 ms accepted p95
   versus Iteration 38's 83 ms under the same warmed harness.
-- Candidate SHA-256:
+- Published SHA-256:
   `f2402e9ae59168bba543a7924f933b11390917ea48c0891dfc50c388f7a9fb41`.
-- Next: publish Iteration 39, then complete Iteration 40's final hardening and
-  full regression matrix.
+- Authenticated production confirmed the empty cloud state without creating a
+  remote profile; public HTTPS retained its expected Access 302.
+- Next: complete Iteration 40's final hardening and full regression matrix.
 
 ## Vampire Survival Iteration 38 - 2026-07-15
 

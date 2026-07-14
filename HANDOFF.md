@@ -4,7 +4,8 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## 2026-07-15 Vampire Survival Iteration 39 Handoff
 
-Iteration 39 is a validated release candidate. Its exact archive is
+Iteration 39 is published and exact-origin verified at commit `77bb6d5` through
+Pages workflow `29356836011`. Its exact archive is
 `iteration-39-codex.html` (213,850 bytes; SHA-256
 `f2402e9ae59168bba543a7924f933b11390917ea48c0891dfc50c388f7a9fb41`).
 
@@ -15,7 +16,9 @@ choices, offline replay, export, recovery, and cloud-only deletion are covered
 by automated and browser tests. The dedicated save hostname passed a disposable
 authenticated Hostinger/Access CRUD canary and was cleaned afterward. Fifty-one
 tests, exact contracts, deterministic builds, responsive conflict QA, gameplay
-smoke, and performance evidence pass. Publish this candidate, then continue
+smoke, and performance evidence pass. Both remotes contain the release, direct
+origin matches the archive, public HTTPS retains its Access 302, and production
+confirmed the empty cloud state without creating a remote profile. Continue
 directly through Iteration 40 hardening.
 
 ## 2026-07-15 Vampire Survival Iteration 38 Handoff
