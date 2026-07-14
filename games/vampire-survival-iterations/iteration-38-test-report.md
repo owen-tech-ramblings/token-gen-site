@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 38 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate; local release gates passed
+Status: published; exact production origin and Access gates passed
 
 ## Artifact
 
@@ -60,5 +60,10 @@ Status: release candidate; local release gates passed
 
 ## Publication Evidence
 
-- Pending release commit, Pages workflow, exact-origin digest, and Access
-  verification.
+- Release commit `8c08107e611055d50860e338d61d6138d8cbbe9d` was pushed to
+  both public and private `master` remotes.
+- GitHub Pages workflow `29352718906` completed successfully for that exact
+  commit.
+- Direct Pages origin returned HTTP 200, 194,447 bytes, and the expected
+  SHA-256 `5ccc09d85ac522fd9e0f636672ca5e2d198e77da6a685ba90bce28752ddb38b0`.
+- Public HTTPS retained the expected unauthenticated Cloudflare Access 302.

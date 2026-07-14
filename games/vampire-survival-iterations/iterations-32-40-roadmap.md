@@ -137,7 +137,7 @@ mandatory farming, and meaningful coffin choices.
 
 Purpose: complete Nights 11-15 and deliver a real endpoint.
 
-Status: locally gated release candidate; publication verification pending.
+Status: published and exact-origin verified.
 
 - Add the hardest validated cross routes and mixed encounters.
 - Add the final two nodes per Bloodline branch, reaching seven each.

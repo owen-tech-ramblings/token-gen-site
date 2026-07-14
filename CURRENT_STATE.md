@@ -4,7 +4,9 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## Vampire Survival Iteration 38 - 2026-07-15
 
-- Iteration 38 completed the 15-night Campaign. Nights 11-15 introduce mixed
+- Iteration 38 is published and exact-origin verified at commit `8c08107`
+  through Pages workflow `29352718906`.
+- It completed the 15-night Campaign. Nights 11-15 introduce mixed
   endgame encounters and culminate in Archon Sol's separate post-dawn phase.
 - The first Sol victory commits one finite reward, the ending, and Ascension
   before presentation. Replays cannot duplicate the ending or Blood Pack.
@@ -16,10 +18,10 @@ Last updated: 2026-07-15 Australia/Sydney
 - Validation: 41/41 tests, exact archive contracts, deterministic 194,447-byte
   artifact, responsive Chromium finale/endgame QA, and a 175 ms accepted p95
   versus the archived release's 205 ms under the same warmed harness.
-- Release candidate SHA-256:
+- Published SHA-256:
   `5ccc09d85ac522fd9e0f636672ca5e2d198e77da6a685ba90bce28752ddb38b0`.
-- Next: publish Iteration 38, then verify the API/Access boundary before
-  implementing Iteration 39 cloud identity and saves.
+- Next: verify the API/Access boundary, then implement Iteration 39 cloud
+  identity and saves without making play network-dependent.
 
 ## Vampire Survival Iteration 37 - 2026-07-15
 

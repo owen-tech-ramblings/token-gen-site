@@ -4,7 +4,8 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## 2026-07-15 Vampire Survival Iteration 38 Handoff
 
-Iteration 38 is a locally gated release candidate. Its exact archive is
+Iteration 38 is published and exact-origin verified at commit `8c08107` through
+Pages workflow `29352718906`. Its exact archive is
 `iteration-38-codex.html` (194,447 bytes; SHA-256
 `5ccc09d85ac522fd9e0f636672ca5e2d198e77da6a685ba90bce28752ddb38b0`).
 
@@ -12,8 +13,10 @@ Campaign now spans Nights 1-15 and ends with Archon Sol, a committed ending,
 and Ascension. All Bloodline paths contain seven nodes. Endless Hunt rotates
 three mutators and milestone bosses every five depths. Forty-one tests, 15
 route checks, deterministic builds, exact contracts, responsive browser QA,
-and the accepted performance gate pass. Publish and exact-origin verify this
-candidate before changing the cloud boundary for Iteration 39.
+and the accepted performance gate pass. Both remotes contain the release;
+direct origin matches the archive and public HTTPS retains its Access 302.
+Verify the server identity boundary before changing cloud persistence in
+Iteration 39.
 
 ## 2026-07-15 Vampire Survival Iteration 37 Handoff
 
