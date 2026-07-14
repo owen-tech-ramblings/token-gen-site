@@ -2,6 +2,20 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 37 - 2026-07-15
+
+- Iteration 37 is release-candidate complete in the canonical Pages repo.
+- Campaign now contains Nights 1-10. Nights 6-10 add Bell Keepers, four authored
+  objective nights, and Sister Elowen in a separate Night 10 dawn phase.
+- Elowen uses timing zones, radial peals, charge lanes, and summons; her first
+  defeat atomically unlocks Swarm exactly once.
+- Bloodline now has five nodes per branch (15 total). Deep Hunt includes the
+  Chapter II enemy family while keeping the established fixed timer/quota.
+- Validation: 39/39 tests, ten collision-free routes, exact contracts,
+  responsive Chromium QA, zero console errors, 182,897 bytes, SHA-256
+  `560e9abfa223188547e2a7c3a8bd38be7b3f7592eb4121932a60e78de7460d2e`.
+- Next: publish and verify Iteration 37, then build Iteration 38.
+
 ## Vampire Survival Iteration 36 - 2026-07-15
 
 - Iteration 36 is published and exact-origin verified from the canonical Pages

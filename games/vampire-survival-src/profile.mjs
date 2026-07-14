@@ -24,6 +24,8 @@ export const BLOODLINE_BRANCHES = Object.freeze([
       { id: "crimson-reservoir", name: "Crimson Reservoir", cost: 1, prerequisite: null, stat: "maxBlood", operation: "add", amount: 12, effect: "+12 maximum Blood", flavor: "A deeper thirst survives a longer night." },
       { id: "predator-teeth", name: "Predator's Teeth", cost: 1, prerequisite: "crimson-reservoir", stat: "feedDamage", operation: "add", amount: 4, effect: "+4 Feed damage", flavor: "The first bite teaches the second." },
       { id: "red-harvest", name: "Red Harvest", cost: 2, prerequisite: "predator-teeth", stat: "roseHeal", operation: "add", amount: 4, effect: "+4 Blood from roses", flavor: "Even fallen petals remember the vein." },
+      { id: "blood-feast", name: "Blood Feast", cost: 2, prerequisite: "red-harvest", stat: "feedDamage", operation: "add", amount: 5, effect: "+5 Feed damage", flavor: "A city is only a banquet that learned to build walls." },
+      { id: "undying-thirst", name: "Undying Thirst", cost: 3, prerequisite: "blood-feast", stat: "maxBlood", operation: "add", amount: 16, effect: "+16 maximum Blood", flavor: "Dawn finds the ancient hunger still awake." },
     ],
   }),
   bloodlineBranch({
@@ -34,6 +36,8 @@ export const BLOODLINE_BRANCHES = Object.freeze([
       { id: "fleet-shadow", name: "Fleet Shadow", cost: 1, prerequisite: null, stat: "speed", operation: "multiply", amount: 1.04, effect: "+4% movement speed", flavor: "Moonlight arrives after the shadow has gone." },
       { id: "spectral-step", name: "Spectral Step", cost: 1, prerequisite: "fleet-shadow", stat: "dashCooldown", operation: "add", amount: -0.25, effect: "-0.25s Dash cooldown", flavor: "Stone forgets the foot that never landed." },
       { id: "lingering-mist", name: "Lingering Mist", cost: 2, prerequisite: "spectral-step", stat: "mistDuration", operation: "add", amount: 0.3, effect: "+0.30s Mist duration", flavor: "The fog remains after the hunter looks away." },
+      { id: "veil-runner", name: "Veil Runner", cost: 2, prerequisite: "lingering-mist", stat: "mistBase", operation: "multiply", amount: 0.9, effect: "-10% Mist cooldown", flavor: "Every veil is a road to those without breath." },
+      { id: "moonless-flight", name: "Moonless Flight", cost: 3, prerequisite: "veil-runner", stat: "speed", operation: "multiply", amount: 1.04, effect: "+4% movement speed", flavor: "No moon is needed when shadow remembers the way." },
     ],
   }),
   bloodlineBranch({
@@ -44,6 +48,8 @@ export const BLOODLINE_BRANCHES = Object.freeze([
       { id: "long-fangs", name: "Long Fangs", cost: 1, prerequisite: null, stat: "range", operation: "add", amount: 8, effect: "+8 attack range", flavor: "Distance is only another superstition." },
       { id: "wardbreaker", name: "Wardbreaker", cost: 1, prerequisite: "long-fangs", stat: "relicDamage", operation: "add", amount: 10, effect: "+10 warding-cross damage", flavor: "Faith cracks where patience keeps striking." },
       { id: "midnight-fervor", name: "Midnight Fervor", cost: 2, prerequisite: "wardbreaker", stat: "frenzyGain", operation: "multiply", amount: 1.12, effect: "+12% frenzy gain", flavor: "The darkest hour beats like a second heart." },
+      { id: "thrall-mastery", name: "Thrall Mastery", cost: 2, prerequisite: "midnight-fervor", stat: "thrallLifetime", operation: "add", amount: 6, effect: "+6s Thrall lifetime", flavor: "Obedience outlives the voice that ordered it." },
+      { id: "swarm-crown", name: "Swarm Crown", cost: 3, prerequisite: "thrall-mastery", stat: "swarmDamage", operation: "add", amount: 8, effect: "+8 Swarm damage", flavor: "A thousand wings make one royal shadow." },
     ],
   }),
 ]);
@@ -58,6 +64,8 @@ export const BASE_RUN_STATS = Object.freeze({
   mistDuration: 2.15,
   swarmDamage: 34,
   swarmRadius: 215,
+  thrallLifetime: 28,
+  thrallDamage: 16,
   relicDamage: 48,
   comboWindow: 3.2,
   magnet: 28,

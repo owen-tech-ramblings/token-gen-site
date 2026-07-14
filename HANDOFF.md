@@ -2,6 +2,17 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 37 Handoff
+
+Iteration 37 is validated and ready to publish. The exact archive is
+`iteration-37-codex.html` (182,897 bytes; SHA-256
+`560e9abfa223188547e2a7c3a8bd38be7b3f7592eb4121932a60e78de7460d2e`).
+
+Chapter II adds Nights 6-10, Bell Keepers, Elowen, the atomic Swarm unlock,
+six Bloodline nodes, and deep-Hunt composition. All 39 tests, ten route checks,
+responsive QA, exact archive contracts, and performance evidence pass. Publish
+to both remotes, verify Pages/Access, then continue directly to Iteration 38.
+
 ## 2026-07-15 Vampire Survival Iteration 36 Handoff
 
 Iteration 36 is published and exact-origin verified from canonical commit

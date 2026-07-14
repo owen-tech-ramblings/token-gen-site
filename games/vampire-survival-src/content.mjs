@@ -20,7 +20,9 @@ export const ENEMY_TYPES = Object.freeze({
   hunter: { hp: 54, speed: 132, damage: 11, score: 155, xp: 32, colour: "#b46d32", radius: 12, behaviour: "flank" },
   priest: { hp: 48, speed: 88, damage: 14, score: 190, xp: 38, colour: "#dbc85e", radius: 13, behaviour: "range" },
   captain: { hp: 105, speed: 116, damage: 18, score: 390, xp: 62, colour: "#d43752", radius: 16, behaviour: "hunt" },
+  bellkeeper: { hp: 72, speed: 96, damage: 13, score: 245, xp: 44, colour: "#66b9c9", radius: 14, behaviour: "bell" },
   voss: { hp: 760, speed: 112, damage: 20, score: 3600, xp: 220, colour: "#f04a63", radius: 26, behaviour: "boss" },
+  elowen: { hp: 980, speed: 128, damage: 22, score: 4800, xp: 280, colour: "#8eddeb", radius: 27, behaviour: "boss" },
 });
 
 export const PACTS = Object.freeze([
@@ -44,6 +46,7 @@ export const ACHIEVEMENTS = Object.freeze({
   combo10: "Crimson Chain",
   untouched: "Untouched Night",
   voss: "Marshal Breaker",
+  elowen: "Last Bell Silenced",
   s_rank: "S-Rank Predator",
   daily: "Creature of Habit",
 });

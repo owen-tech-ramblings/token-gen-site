@@ -84,7 +84,7 @@ function resetRun(options={}){
     x:WORLD.w/2,y:WORLD.h/2,radius:15,vx:0,vy:0,blood:bloodlineStats.maxBlood,maxBlood:bloodlineStats.maxBlood,xp:0,nextXp:62,
     level:1,speed:bloodlineStats.speed,range:bloodlineStats.range,feedDamage:bloodlineStats.feedDamage,attackCd:0,dashTime:0,dashCd:0,dashBase:bloodlineStats.dashCooldown,
     mistTime:0,mistCd:0,mistBase:bloodlineStats.mistBase,mistDuration:bloodlineStats.mistDuration,swarmCd:0,swarmDamage:bloodlineStats.swarmDamage,
-    thrallCd:0,thrallBase:8,thrallRange:260,
+    thrallCd:0,thrallBase:8,thrallRange:260,thrallLifetime:bloodlineStats.thrallLifetime,thrallDamage:bloodlineStats.thrallDamage,
     swarmRadius:bloodlineStats.swarmRadius,relicDamage:bloodlineStats.relicDamage,hitFlash:0,combo:0,comboTime:0,comboWindow:bloodlineStats.comboWindow,
     scoreBonus:0,magnet:bloodlineStats.magnet,roseHeal:bloodlineStats.roseHeal,echo:false,feedCount:0,thorns:false,
     frenzyGain:bloodlineStats.frenzyGain,pacts:{},lastDistrict:"",facing:0,
@@ -113,6 +113,7 @@ function resetRun(options={}){
 
 function enemyTypeForTime(){
   const p=state.phase,r=rng(),depthBoost=state.mode==="hunt"?Math.min(3,Math.floor((state.huntDepth-1)/3)):0,encounter=state.contract.encounter;
+  if((encounter==="bellward"||encounter==="tolling-lock"||encounter==="elowen"||encounter==="chapter-two-hunt")&&p>=2&&r<.22)return"bellkeeper";
   if(encounter==="procession"&&p>=2&&r<.3)return"priest";
   if(encounter==="fog"&&p>=2&&r<.38)return"hunter";
   if(encounter==="lockdown"&&p>=3&&r<.2)return"captain";
@@ -155,15 +156,17 @@ function spawnEnemy(type=enemyTypeForTime(),inside=false,elite=false){
 
 function spawnBoss(){
   if(boss!==null)return boss;
-  const point=safePoint(WORLD.w*.5,220,45),base=ENEMY_TYPES.voss,difficultyContract=difficulty();
+  const bossType=state.contract.bossId||"voss",point=safePoint(WORLD.w*.5,220,45),base=ENEMY_TYPES[bossType],difficultyContract=difficulty();
+  invariant(base?.behaviour==="boss",`Unknown boss ${bossType}`);
   boss={
-    id:"captain-voss",type:"voss",behaviour:base.behaviour,x:point.x,y:point.y,radius:base.radius,
+    id:bossType==="voss"?"captain-voss":"sister-elowen",type:bossType,behaviour:base.behaviour,x:point.x,y:point.y,radius:base.radius,
     hp:base.hp*difficultyContract.enemyHp*state.contract.enemyHp,maxHp:base.hp*difficultyContract.enemyHp*state.contract.enemyHp,speed:base.speed,
     damage:base.damage*difficultyContract.enemyDamage*state.contract.enemyDamage,score:base.score,xp:base.xp,state:"boss",
     cooldown:1.6,shotCd:1.1,hit:0,angle:0,phase:1,pattern:"arrival",patternTime:1.4,
     elite:true,dead:false,target:{x:player.x,y:player.y},
   };
   enemies.push(boss);state.bossIntro=BUILD.polish?1.35:0;
-  $("bossWrap").style.display="block";$("bossWrap").classList.add("active");toast("Captain Voss enters the hunt",3);chord(72,61,49);
+  const bossName=bossType==="voss"?"Captain Voss, Dawn Marshal":"Sister Elowen, Warden of Bells";
+  $("bossName").textContent=bossName;$("bossWrap").style.display="block";$("bossWrap").classList.add("active");toast(`${bossName} enters the hunt`,3);chord(72,61,49);
   return boss;
 }

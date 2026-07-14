@@ -81,6 +81,36 @@ export const CAMPAIGN_NIGHTS = Object.freeze({
     startingHunters: 3,
     crossPoints: Object.freeze([[420, 380], [1570, 350], [2780, 470], [1640, 1840]]),
   }),
+  6: Object.freeze({
+    id: "night-6", title: "Bellward Streets", briefing: "Break 4 warding crosses and silence the 2 Bell Keepers before dawn.",
+    crossQuota: 4, lieutenantQuota: 2, lieutenantType: "bellkeeper", lieutenantName: "Bell Keepers", encounter: "bellward",
+    pressure: 1.4, eliteBonus: 0.09, enemyHp: 1.18, enemyDamage: 1.13, startingGuards: 7, startingHunters: 3,
+    crossPoints: Object.freeze([[410, 420], [1510, 350], [2790, 430], [1680, 1800]]),
+  }),
+  7: Object.freeze({
+    id: "night-7", title: "The Hollow Choir", briefing: "Break 5 warding crosses and end the 2 Hollow Cantors before dawn.",
+    crossQuota: 5, lieutenantQuota: 2, lieutenantType: "priest", lieutenantName: "Hollow Cantors", encounter: "hollow-choir",
+    pressure: 1.47, eliteBonus: 0.1, enemyHp: 1.21, enemyDamage: 1.15, startingGuards: 8, startingHunters: 3,
+    crossPoints: Object.freeze([[390, 390], [1540, 340], [2790, 470], [560, 1780], [2640, 1790]]),
+  }),
+  8: Object.freeze({
+    id: "night-8", title: "Silver Chase", briefing: "Break 5 warding crosses and outrun the 3 Silver Pursuers before dawn.",
+    crossQuota: 5, lieutenantQuota: 3, lieutenantType: "hunter", lieutenantName: "Silver Pursuers", encounter: "silver-chase",
+    pressure: 1.55, eliteBonus: 0.115, enemyHp: 1.25, enemyDamage: 1.18, startingGuards: 8, startingHunters: 5,
+    crossPoints: Object.freeze([[500, 350], [2700, 370], [430, 1650], [1580, 1870], [2760, 1650]]),
+  }),
+  9: Object.freeze({
+    id: "night-9", title: "The Tolling Lock", briefing: "Break 5 warding crosses and silence the 3 Iron Bell Keepers before dawn.",
+    crossQuota: 5, lieutenantQuota: 3, lieutenantType: "bellkeeper", lieutenantName: "Iron Bell Keepers", encounter: "tolling-lock",
+    pressure: 1.63, eliteBonus: 0.13, enemyHp: 1.29, enemyDamage: 1.2, startingGuards: 9, startingHunters: 4,
+    crossPoints: Object.freeze([[380, 470], [1640, 330], [2810, 540], [520, 1770], [2600, 1800]]),
+  }),
+  10: Object.freeze({
+    id: "night-10", title: "The Last Bell", briefing: "Break 5 warding crosses and survive until dawn. Sister Elowen waits beyond it.",
+    crossQuota: 5, lieutenantQuota: 0, lieutenantType: null, lieutenantName: "", encounter: "elowen", bossId: "elowen",
+    pressure: 1.72, eliteBonus: 0.145, enemyHp: 1.34, enemyDamage: 1.24, startingGuards: 10, startingHunters: 5,
+    crossPoints: Object.freeze([[400, 390], [1570, 330], [2790, 440], [520, 1770], [2670, 1770]]),
+  }),
 });
 
 const HUNT_CROSS_LAYOUTS = Object.freeze({
@@ -123,7 +153,7 @@ export function createHuntDepth(depth) {
     lieutenantQuota: 0,
     lieutenantType: null,
     lieutenantName: "",
-    encounter: depth >= 8 ? "deep-hunt" : depth >= 4 ? "escalation" : "hunt",
+    encounter: depth >= 8 ? "chapter-two-hunt" : depth >= 4 ? "escalation" : "hunt",
     pressure: Math.min(2.35, 1 + (depth - 1) * 0.095),
     eliteBonus: Math.min(0.24, 0.01 + (depth - 1) * 0.022),
     enemyHp: Math.min(1.72, 1 + (depth - 1) * 0.045),
@@ -188,7 +218,7 @@ export function stableNearestTarget(candidates, origin, maxDistance = Infinity) 
   let best = null;
   let bestDistance = maxDistance;
   for (const candidate of candidates) {
-    if (!candidate || candidate.dead || candidate.converting || candidate.type === "voss" || candidate.objectiveLieutenant) continue;
+    if (!candidate || candidate.dead || candidate.converting || candidate.behaviour === "boss" || candidate.objectiveLieutenant) continue;
     const distance = Math.hypot(candidate.x - origin.x, candidate.y - origin.y);
     if (distance > maxDistance) continue;
     if (!best || distance < bestDistance - 1e-9 || (Math.abs(distance - bestDistance) <= 1e-9 && String(candidate.id).localeCompare(String(best.id)) < 0)) {
@@ -275,14 +305,20 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
         draft.appliedEvents[mistUnlockId] = { appliedAt: nowValue };
         draft.appliedEvents[huntUnlockId] = { appliedAt: nowValue };
       }
+      if (outcome.campaignNight === 10) {
+        const swarmUnlockId = "campaign:night-10:unlock-swarm";
+        draft.campaign.abilityUnlocks.swarm = true;
+        draft.appliedEvents[swarmUnlockId] = { appliedAt: nowValue };
+      }
     }
     coffinOutcome = {
       eventId: runEventId,
       mode: "campaign",
       night: outcome.campaignNight,
-      nextNight: outcome.campaignNight < 5 ? outcome.campaignNight + 1 : null,
+      nextNight: outcome.campaignNight < 10 ? outcome.campaignNight + 1 : null,
       mistUnlocked: firstClear && outcome.campaignNight === 5,
       huntUnlocked: firstClear && outcome.campaignNight === 5,
+      swarmUnlocked: firstClear && outcome.campaignNight === 10,
       firstClear,
       bloodPacks: firstClear ? 1 : 0,
       grade: entry.grade,

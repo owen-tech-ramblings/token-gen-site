@@ -9,7 +9,7 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
-const vampireArchive36 = read("games/vampire-survival-iterations/iteration-36-codex.html");
+const vampireArchive37 = read("games/vampire-survival-iterations/iteration-37-codex.html");
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
@@ -114,8 +114,8 @@ assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain o
 assert.doesNotMatch(monitorJs, /driver_version/, "Monitor must not show private-only GPU driver columns unless public status includes them.");
 assert.doesNotMatch(monitorJs, /uuid/, "Monitor must not show private-only GPU UUID columns unless public status includes them.");
 
-assert.equal(vampireArchive36, vampireGame, "Iteration 36 archive must match the exact deployed game artifact.");
-assert.match(vampireGame, /iteration:\s*36/, "Vampire Survival must expose Iteration 36 to its test contract.");
+assert.equal(vampireArchive37, vampireGame, "Iteration 37 archive must match the exact deployed game artifact.");
+assert.match(vampireGame, /iteration:\s*37/, "Vampire Survival must expose Iteration 37 to its test contract.");
 assert.match(vampireGame, /profileSchema:\s*2/, "Vampire Survival must declare profile schema v2.");
 assert.match(vampireGame, /vampire_survival_profile_v2/, "Vampire Survival must use the v2 profile key.");
 assert.match(vampireGame, /vampire_survival_profile_v31/, "Vampire Survival must retain the v31 migration source key.");
@@ -132,7 +132,7 @@ assert.match(vampireGame, /boss-wrap\.active~\.toast\{top:170px\}/, "Desktop bos
 assert.match(vampireGame, /boss-wrap\.active~\.toast\{top:365px\}/, "Mobile boss messaging must clear Voss's health bar and stacked HUD.");
 assert.match(vampireGame, /mistUnlockId/, "Voss victory must stage the one-time Mist unlock atomically.");
 assert.match(vampireGame, /Crimson Hunger[\s\S]*Moonstride[\s\S]*Nightborn Arts/, "Bloodline v1 must expose all three named branches.");
-assert.match(vampireGame, /maxRank:\s*1[\s\S]*crimson-reservoir[\s\S]*predator-teeth[\s\S]*red-harvest[\s\S]*fleet-shadow[\s\S]*spectral-step[\s\S]*lingering-mist[\s\S]*long-fangs[\s\S]*wardbreaker[\s\S]*midnight-fervor/, "Bloodline v1 must expose the approved nine one-rank nodes.");
+assert.match(vampireGame, /maxRank:\s*1[\s\S]*crimson-reservoir[\s\S]*predator-teeth[\s\S]*red-harvest[\s\S]*blood-feast[\s\S]*undying-thirst[\s\S]*fleet-shadow[\s\S]*spectral-step[\s\S]*lingering-mist[\s\S]*veil-runner[\s\S]*moonless-flight[\s\S]*long-fangs[\s\S]*wardbreaker[\s\S]*midnight-fervor[\s\S]*thrall-mastery[\s\S]*swarm-crown/, "Bloodline v2 must expose the approved fifteen one-rank nodes.");
 assert.match(vampireGame, /function purchaseBloodlineNode/, "Bloodline purchases must use the tested profile transaction helper.");
 assert.match(vampireGame, /amount:\s*-status\.node\.cost/, "Bloodline purchases must debit currency inside the same transaction draft.");
 assert.match(vampireGame, /function undoBloodlinePurchase/, "Bloodline must support one-step purchase undo.");
@@ -149,6 +149,11 @@ assert.match(vampireGame, /retargetCd=\.35/, "Thralls must use bounded retargeti
 assert.match(vampireGame, /function clearThrallState/, "Thrall cleanup must have one centralized run-boundary path.");
 assert.match(vampireGame, /Conversion in progress/, "Ability feedback must expose the active conversion blocker.");
 assert.match(vampireGame, /Not in loadout/, "Ability feedback must expose unequipped techniques explicitly.");
+assert.match(vampireGame, /id:\s*"night-10"[\s\S]*bossId:\s*"elowen"/, "Chapter II must culminate in Elowen after Night 10 dawn.");
+assert.match(vampireGame, /bellkeeper:\s*\{[\s\S]*behaviour:\s*"bell"/, "Chapter II must add the Bell Keeper enemy family.");
+assert.match(vampireGame, /function elowenAttack/, "Elowen must own a distinct movement and timing attack set.");
+assert.match(vampireGame, /campaign:night-10:unlock-swarm/, "Elowen's first clear must stage the Swarm unlock idempotently.");
+assert.match(vampireGame, /chapter-two-hunt/, "Deep Hunt must include Chapter II encounter composition.");
 assert.match(vampireGame, /id="campaignGrid"/, "Chapter I must expose the five-night Campaign map.");
 assert.match(vampireGame, /COFFIN_TRANSITION:\s*"coffin-transition"/, "Vampire Survival must expose a named coffin transition phase.");
 assert.match(vampireGame, /recordProfileRunOutcome\(draft,outcomePayload/, "Vampire Survival must stage one idempotent profile outcome before the coffin flow.");

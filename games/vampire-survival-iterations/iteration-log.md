@@ -1,5 +1,15 @@
 # Vampire Survival Qwen Iterations
 
+## Iteration 37
+
+- Delivered Campaign Nights 6-10, the Bell Keeper family, five distinct
+  Chapter II contracts, and Sister Elowen's separate post-dawn boss phase.
+- Elowen's first victory unlocks Swarm through one immutable profile event.
+- Expanded every Bloodline branch from three to five nodes (15 total).
+- Added Bell Keepers to deep Hunt without changing duration or quota cadence.
+- Passed 39 tests, all ten route checks, exact archive contracts, responsive
+  browser QA, and a 1,072 ms accepted p95 soak.
+
 ## Iteration 36
 
 - Added a two-slot coffin talent loadout with explicit selected, owned, locked,
