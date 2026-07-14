@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 41 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate; local gates passed
+Status: published; exact production origin and authenticated Access gates passed
 
 ## Artifact
 
@@ -63,4 +63,17 @@ Status: release candidate; local gates passed
 
 ## Publication Evidence
 
-- Pending release publication and production verification.
+- Release commit `561f3bd3c6d199069a16bda5c6da8779c13c7c4d` was pushed to
+  both public and private `master` remotes.
+- GitHub Pages workflow `29373432079` completed successfully for that exact
+  commit.
+- Direct GitHub Pages origin returned HTTP 200, 218,810 bytes, and SHA-256
+  `1cfea85374e95166362b7dcc0208a773b875e7ad36bc3cb94560e29ecb67306b`.
+- Public HTTPS retained the expected unauthenticated Cloudflare Access 302.
+- Authenticated production reported Iteration 41, showed an enabled fresh
+  `Begin Hunt · Depth 1` action and its full briefing, then started Hunt Depth
+  1 with Blood Famine and three crosses.
+- The production title hid the background HUD/canvas from assistive
+  technology; starting Hunt restored both and focused the canvas. Cloud Save
+  remained local-only, no remote profile was written, and the cleared
+  production console remained error-free after reload and smoke.

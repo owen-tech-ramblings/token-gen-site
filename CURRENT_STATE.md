@@ -2,6 +2,27 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 41 - 2026-07-15
+
+- Iteration 41 is published and exact-origin verified at commit `561f3bd`
+  through Pages workflow `29373432079`, with a 218,810-byte archive and
+  SHA-256
+  `1cfea85374e95166362b7dcc0208a773b875e7ad36bc3cb94560e29ecb67306b`.
+- Basic Hunt is open from a fresh profile. Create Thrall, Mist, Swarm, and
+  Ascension still come from their Campaign milestones.
+- The Hunt action names and starts the next unbeaten depth. The title explains
+  its mutator, following depth, and ruler milestone before play begins.
+- Player surfaces now use only story, instructions, rewards, and progression
+  language; requirements, validation, and implementation wording is removed.
+- Title/Campaign accessibility no longer exposes the background game HUD or
+  canvas. Starting a night restores both and focuses the game surface.
+- Validation: 58/58 tests, site contracts, source syntax, deterministic exact
+  archive equality, responsive review, rendered-copy audit, Depth 1-to-2
+  coffin progression, and clean local/production consoles.
+- Direct origin matches the archive, public HTTPS retains its expected Access
+  302, and authenticated production passed the fresh Hunt smoke without
+  enabling Cloud Save or writing a remote profile.
+
 ## Vampire Survival Iteration 40 - 2026-07-15
 
 - Iteration 40 is published and exact-origin verified at commit `540c418`

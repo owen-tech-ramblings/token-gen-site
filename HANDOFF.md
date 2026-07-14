@@ -2,6 +2,25 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 41 Handoff
+
+Iteration 41 is published at exact release commit `561f3bd` through successful
+Pages workflow `29373432079`. Its exact archive is
+`iteration-41-codex.html` (218,810 bytes; SHA-256
+`1cfea85374e95166362b7dcc0208a773b875e7ad36bc3cb94560e29ecb67306b`).
+
+Basic Hunt is now playable immediately, enters the next unbeaten depth, and
+explains its mutator and next ruler before start. Campaign continues to own the
+Create Thrall, Mist, Swarm, and Ascension milestones. All player pages have
+been rewritten to remove design/requirements language. Title and Campaign
+screens isolate the background game surface for assistive technology.
+Fifty-eight tests, exact contracts, deterministic builds, responsive/copy/
+accessibility browser QA, and the Depth 1-to-2 coffin loop pass. Both remotes
+contain the release; direct origin matches the archive, public HTTPS retains
+its Access 302, and authenticated production passed the fresh Hunt smoke with
+Cloud Save left local-only and no console errors. Use Iteration 40 commit
+`540c418` and `iteration-40-codex.html` as the rollback point.
+
 ## 2026-07-15 Vampire Survival Iteration 40 Handoff
 
 Iteration 40 is published at exact release commit `540c418` through successful
