@@ -188,7 +188,8 @@ remain planned.
 
 ## Iteration 34
 
-Accepted local Codex release candidate 34 on 2026-07-15. Chapter I now spans
+Accepted and published Codex release 34 on 2026-07-15 at gameplay/QA commit
+`dbf837f`. Chapter I now spans
 Nights 1-5 with authored objectives and compositions. Captain Voss follows the
 Night 5 dawn as a separate boss phase; his first defeat grants Mist, full Hunt,
 and one Blood Pack atomically.
@@ -203,3 +204,7 @@ Snapshot: `iteration-34-codex.html`
 SHA-256: `442cff973527cdbbafecb05e861720448d5b05648eea45199ba078ff76656f45`
 
 Bytes: 137476
+
+GitHub Pages build `1095212527` completed for the exact release commit and the
+direct origin returned the exact archive hash. The public route retained its
+expected Cloudflare Access 302.

@@ -2,9 +2,10 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
-## 2026-07-15 Vampire Survival Iteration 34 Release Candidate
+## 2026-07-15 Vampire Survival Iteration 34 Handoff
 
-Iteration 34 is implemented and locally verified in the canonical Pages repo.
+Iteration 34 is implemented, published, and exact-origin verified in the
+canonical Pages repo at gameplay/QA commit `dbf837f`.
 
 - Chapter I contracts live in `games/vampire-survival-src/progression.mjs`;
   gameplay enforces required crosses and lieutenants before dawn, then Voss as
@@ -21,6 +22,14 @@ Iteration 34 is implemented and locally verified in the canonical Pages repo.
   108-enemy soak.
 - Evidence:
   `games/vampire-survival-iterations/iteration-34-test-report.md`.
+- GitHub Pages build `1095212527` completed for exact commit `dbf837f`. Direct
+  origin returned the exact 137,476-byte archive hash; unauthenticated HTTPS
+  returned the expected Access 302.
+- The Windows-control helper lacked required sandbox context, and Chrome's
+  app-bound cookie encryption prevented a safely scoped headless cookie import
+  while the real browser remained open. No protected profile or Cloudflare
+  state was changed. Repeat the authenticated smoke when that helper is
+  available; the exact-origin and full local browser gates passed.
 
 Next after publication: Iteration 35 Bloodline v1 with three branches, atomic
 purchases, one-step undo, and free respec in the coffin hub.

@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 34 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate; local campaign, boss, Hunt, responsive, and soak gates passed
+Status: published; exact production origin and Access gates passed
 
 ## Artifact
 
@@ -106,5 +106,17 @@ the successful non-lethal soak configuration.
 
 ## Publication Evidence
 
-- Pending release commit, GitHub Pages build, direct-origin hash, Access
-  redirect, and authenticated protected-browser canary.
+- Final Iteration 34 gameplay/QA commit
+  `dbf837f5b15afbeed4ba96ffa0982a5de2c52ffb` was pushed to both public and
+  private `master` remotes.
+- GitHub Pages build `1095212527` completed successfully for that exact commit.
+- A direct Pages-origin request returned HTTP 200, 137,476 bytes, and SHA-256
+  `442cff973527cdbbafecb05e861720448d5b05648eea45199ba078ff76656f45`.
+- Unauthenticated public HTTPS returned the expected Cloudflare Access 302.
+- The authenticated Windows-control helper did not receive its required
+  sandbox context, and Chrome's current app-bound cookie encryption prevented
+  a safely scoped cookie copy into the headless browser while Chrome remained
+  open. No credential, mailbox, Cloudflare, or protected-browser state was
+  changed. The release therefore relies on the exact-origin artifact proof and
+  the complete local generated-artifact browser gate above; a protected-session
+  smoke can be repeated when the Windows helper is available.

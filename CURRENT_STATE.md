@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
-## Vampire Survival Iteration 34 Release Candidate - 2026-07-15
+## Vampire Survival Iteration 34 - 2026-07-15
 
 - Chapter I Nights 1-5 are implemented with distinct objectives,
   lieutenants, composition, map presentation, and fixed selected night length.
@@ -18,8 +18,14 @@ Last updated: 2026-07-15 Australia/Sydney
   deterministic double-build, exact archive equality, browser Night 2 failure,
   Voss milestone/coffin flow, deep Hunt route checks, responsive layouts, and a
   180-second 108-enemy soak.
-- Candidate: 137,476 bytes, SHA-256
+- Published artifact: 137,476 bytes, SHA-256
   `442cff973527cdbbafecb05e861720448d5b05648eea45199ba078ff76656f45`.
+- Gameplay/QA commit `dbf837f` is on both remotes. GitHub Pages build
+  `1095212527` completed for the exact commit; direct origin returned the exact
+  artifact and the public hostname returned the expected Access 302.
+- The authenticated Windows helper was unavailable for the protected-session
+  smoke. App-bound Chrome cookies were not copied or exposed; the release used
+  exact-origin proof plus the full generated-artifact browser gate instead.
 - Detailed evidence:
   `games/vampire-survival-iterations/iteration-34-test-report.md`.
 
