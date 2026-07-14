@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vampire Survival Iteration 33</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; background: #07050a; color: #f5e9ed; font-family: system-ui, sans-serif; line-height: 1.55; }
+      main { width: min(960px, calc(100% - 36px)); margin: 0 auto; padding: 40px 0 64px; }
+      h1 { margin: 0; font-size: clamp(2.4rem, 8vw, 5rem); line-height: .95; letter-spacing: .04em; }
+      h2 { margin-top: 30px; }
+      a { color: #ff7d98; }
+      .eyebrow { color: #ff718b; letter-spacing: .18em; text-transform: uppercase; font-size: .75rem; }
+      .lead { max-width: 780px; color: #d1c0c6; font-size: 1.05rem; }
+      .nav, .grid, .gallery { display: flex; flex-wrap: wrap; gap: 12px; }
+      .nav { margin: 24px 0; }
+      .btn, .card { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); }
+      .btn { padding: 10px 14px; color: inherit; text-decoration: none; }
+      .card { flex: 1 1 240px; padding: 16px; }
+      .card strong { display: block; margin-bottom: 6px; }
+      .gallery img { width: min(100%, 460px); border: 1px solid rgba(255,255,255,.18); }
+      code { background: #151019; padding: 2px 5px; }
+      li { margin: 7px 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">The first connected night</div>
+      <h1>Iteration 33</h1>
+      <p class="lead">Campaign Night 1 now flows from an exact warding-cross objective through dawn, an atomic first-clear, the vampire hopping into his coffin, full restoration, rewards, progression, and the next-night decision. Hunt proves that pressure can rise while the night length stays fixed.</p>
+      <nav class="nav">
+        <a class="btn" href="../vampire-survival.html">Play current build</a>
+        <a class="btn" href="./iteration-33-codex.html">Open exact archive</a>
+        <a class="btn" href="../vampire-survival-parked.html">Development notes</a>
+        <a class="btn" href="../">Back to games</a>
+      </nav>
+
+      <section class="grid">
+        <article class="card"><strong>Campaign Night 1</strong>Break exactly three crosses, survive until dawn, and receive a specific failure if the objective remains incomplete.</article>
+        <article class="card"><strong>Coffin sanctuary</strong>The vampire hops inside, the lid closes, Blood and cooldowns restore, and rewards plus the future Bloodline home appear.</article>
+        <article class="card"><strong>Harder Hunt</strong>Depth 2 keeps the same night duration and quota while raising patrol composition, elites, director pressure, health, and damage.</article>
+      </section>
+
+      <h2>Progress that cannot duplicate</h2>
+      <p>The first clear, one Blood Pack, Night 2 unlock, score, and pending coffin result save together before the animation. Replays grant no second pack, reloads can resume the coffin, and save failures never enter it.</p>
+
+      <h2>Verification</h2>
+      <ul>
+        <li>30 deterministic profile, progression, content, and concurrency tests pass.</li>
+        <li>Live and archived standalone files are byte-identical at 128,305 bytes.</li>
+        <li>Campaign, Hunt, save-failure, reload, normal motion, reduced motion, desktop, and phone flows pass in Chromium.</li>
+        <li>Forty cross-route checks are unique, collision-free, and within the base-speed travel budget.</li>
+        <li>A three-minute Nightmare Depth 2 soak reaches and safely holds the 108-enemy cap.</li>
+      </ul>
+
+      <h2>Visual evidence</h2>
+      <div class="gallery">
+        <img src="./iteration-33-campaign-map.png" alt="Campaign map showing Night 1 and Night 2" />
+        <img src="./iteration-33-coffin-animation.png" alt="Vampire hopping into an open coffin" />
+        <img src="./iteration-33-coffin-hub.png" alt="Coffin restoration and progression hub" />
+        <img src="./iteration-33-gameplay-mobile.png" alt="Mobile gameplay with the cross objective visible" />
+      </div>
+
+      <h2>Next: Iteration 34</h2>
+      <p>Chapter I adds distinct Nights 2-5, Voss as the first milestone boss, the one-time Mist unlock, and full Hunt with fixed-duration nights and the spaced quota cadence <code>3,3,4,4,4,5,5,6,6,6...</code>.</p>
+    </main>
+  </body>
+</html>

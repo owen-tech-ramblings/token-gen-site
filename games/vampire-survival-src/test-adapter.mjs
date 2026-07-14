@@ -1,6 +1,69 @@
 const TESTING=new URLSearchParams(location.search).get("test")==="1";
-function snapshot(){return{iteration:BUILD.iteration,gamePhase:state.gamePhase,runId:state.runId,running:state.running,paused:state.paused,over:state.over,win:state.win,time:state.time,score:state.score,relicsBroken:state.relicsBroken,enemies:enemies.filter(e=>!e.dead).length,buildings:buildings.length,district:activeDistrict().name,player:{x:player.x,y:player.y,blood:player.blood,level:player.level,pacts:{...player.pacts},combo:player.combo},boss:boss?{hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dead:boss.dead}:null,pactOpen:!$("pactModal").classList.contains("hidden"),frenzy:state.frenzy,bloodMoon:state.bloodMoon,achievements:[...profile.achievements],seed:state.seed,citySignature:buildings.slice(0,12).map(b=>[Math.round(b.x),Math.round(b.y),Math.round(b.w),Math.round(b.h)].join(":" )).join("|"),entityCaps:{maxEnemies:BUILD_MAX_ENEMIES,particles:particles.length,bullets:bullets.length}}}
-function objectiveDiagnostics(){const crosses=relics.map((relic,index)=>({id:`cross-${index+1}`,x:relic.x,y:relic.y,hp:relic.hp,maxHp:relic.maxHp,active:relic.active,blocked:blocked(relic.x,relic.y,relic.radius)})),pending=crosses.filter(cross=>cross.active);let x=player.x,y=player.y,routeDistance=0;while(pending.length){pending.sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));const next=pending.shift();routeDistance+=Math.hypot(next.x-x,next.y-y);x=next.x;y=next.y}return{seed:state.seed,required:crosses.length,broken:state.relicsBroken,remaining:crosses.filter(cross=>cross.active).length,unique:new Set(crosses.map(cross=>`${Math.round(cross.x)}:${Math.round(cross.y)}`)).size===crosses.length,collisions:crosses.filter(cross=>cross.blocked).map(cross=>cross.id),greedyRouteDistance:Math.round(routeDistance),maxBaseTravelDistance:Math.round(state.dawn*player.speed),crosses}}
-if(TESTING){window.__VS_TEST__={start(){startRun();return snapshot()},tick(seconds,step=1/60){const count=Math.ceil(seconds/step);for(let i=0;i<count;i++)update(step);draw();return snapshot()},snapshot,forceLevel(){player.xp=player.nextXp;levelCheck();return snapshot()},choosePact(index=0){choosePact(index);return snapshot()},breakRelics(){for(const r of relics)if(r.active)destroyRelic(r);return snapshot()},spawnBoss(){return BUILD.boss?(spawnBoss(),snapshot()):snapshot()},damageBoss(ratio=.4){invariant(boss,"Boss is not active");boss.hp=boss.maxHp*ratio;updateBossPhase();return snapshot()},killBoss(){invariant(boss,"Boss is not active");damageEnemy(boss,boss.hp+1,false);return snapshot()},move(dx,dy,seconds=.5){keys[dx>0?"KeyD":"KeyA"]=dx!==0;keys[dy>0?"KeyS":"KeyW"]=dy!==0;this.tick(seconds);keys={};return snapshot()},setPlayer(x,y){const p=safePoint(x,y,player.radius);player.x=p.x;player.y=p.y;return snapshot()},setPlayerExact(x,y){invariant(!blocked(x,y,player.radius),"Requested test position is blocked");player.x=x;player.y=y;return snapshot()},firstBuilding(){return structuredClone(buildings[0])},setGrace(seconds){state.grace=seconds;return snapshot()},setBlood(value){player.maxBlood=Math.max(player.maxBlood,value);player.blood=value;return snapshot()},triggerBloodMoon(){state.frenzy=1;triggerBloodMoon();return snapshot()},forceLoss(){player.blood=0;update(1/60);return snapshot()},districts(){return DISTRICTS.map(d=>d.name)},profile(){return structuredClone(profile)},profileDiagnostics(){return profileRepository.diagnostics()},clearProfile(){profileRepository.clear({includeLegacy:true});profile=freshProfileV2();saveProfile();return structuredClone(profile)}}}
-if(TESTING)window.__VS_TEST__.objectiveDiagnostics=objectiveDiagnostics;
-resetRun();requestAnimationFrame(frame);
+
+function snapshot(){
+  return{
+    iteration:BUILD.iteration,gamePhase:state.gamePhase,runId:state.runId,running:state.running,
+    paused:state.paused,over:state.over,win:state.win,time:state.time,score:state.score,
+    mode:state.mode,campaignNight:state.campaignNight,huntDepth:state.huntDepth,
+    requiredCrosses:state.requiredCrosses,relicsBroken:state.relicsBroken,
+    failureReason:state.failureReason,clearCommitFailed:state.clearCommitFailed,
+    enemies:enemies.filter(enemy=>!enemy.dead).length,buildings:buildings.length,
+    district:activeDistrict().name,
+    player:{x:player.x,y:player.y,blood:player.blood,maxBlood:player.maxBlood,level:player.level,pacts:{...player.pacts},combo:player.combo,dashCd:player.dashCd,mistCd:player.mistCd,swarmCd:player.swarmCd},
+    abilities:{feed:currentAbilityStatus("feed"),dash:currentAbilityStatus("dash"),mist:currentAbilityStatus("mist"),swarm:currentAbilityStatus("swarm")},
+    boss:boss?{hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,dead:boss.dead}:null,
+    pactOpen:!$("pactModal").classList.contains("hidden"),frenzy:state.frenzy,bloodMoon:state.bloodMoon,
+    achievements:[...profile.achievements],seed:state.seed,
+    coffinOutcome:profile.campaign.pendingCoffinOutcome?structuredClone(profile.campaign.pendingCoffinOutcome):null,
+    bloodPacks:profileBalance(profile),
+    citySignature:buildings.slice(0,12).map(building=>[Math.round(building.x),Math.round(building.y),Math.round(building.w),Math.round(building.h)].join(":" )).join("|"),
+    entityCaps:{maxEnemies:BUILD_MAX_ENEMIES,particles:particles.length,bullets:bullets.length},
+  };
+}
+
+function objectiveDiagnostics(){
+  const crosses=relics.map((relic,index)=>({id:`cross-${index+1}`,x:relic.x,y:relic.y,hp:relic.hp,maxHp:relic.maxHp,active:relic.active,blocked:blocked(relic.x,relic.y,relic.radius)})),pending=crosses.filter(cross=>cross.active);
+  let x=player.x,y=player.y,routeDistance=0;
+  while(pending.length){
+    pending.sort((left,right)=>Math.hypot(left.x-x,left.y-y)-Math.hypot(right.x-x,right.y-y));
+    const next=pending.shift();routeDistance+=Math.hypot(next.x-x,next.y-y);x=next.x;y=next.y;
+  }
+  return{seed:state.seed,mode:state.mode,campaignNight:state.campaignNight,huntDepth:state.huntDepth,required:crosses.length,broken:state.relicsBroken,remaining:crosses.filter(cross=>cross.active).length,unique:new Set(crosses.map(cross=>`${Math.round(cross.x)}:${Math.round(cross.y)}`)).size===crosses.length,collisions:crosses.filter(cross=>cross.blocked).map(cross=>cross.id),greedyRouteDistance:Math.round(routeDistance),maxBaseTravelDistance:Math.round(state.dawn*player.speed),crosses};
+}
+
+if(TESTING){
+  window.__VS_TEST__={
+    start(options={}){if(options.difficulty)$("difficulty").value=options.difficulty;if(options.seedMode)$("runMode").value=options.seedMode;const mode=options.mode||"campaign";$("gameMode").value=mode;startRun({mode,campaignNight:options.campaignNight||1,huntDepth:options.huntDepth||1});return snapshot()},
+    tick(seconds,step=1/60){const count=Math.ceil(seconds/step);for(let index=0;index<count;index++)update(step);draw();return snapshot()},
+    snapshot,
+    forceLevel(){player.xp=player.nextXp;levelCheck();return snapshot()},
+    choosePact(index=0){choosePact(index);return snapshot()},
+    breakRelics(){for(const relic of relics)if(relic.active)destroyRelic(relic);return snapshot()},
+    forceDawn({breakCrosses=false}={}){if(breakCrosses)this.breakRelics();state.time=state.dawn;update(1/60);return snapshot()},
+    finishCoffin(){finishCoffinTransition();return snapshot()},
+    riseFromCoffin(){coffinRise();return snapshot()},
+    leaveCoffin(){coffinLeave();return snapshot()},
+    openCampaign(){openCampaignMap();return snapshot()},
+    spawnBoss(){return BUILD.boss?(spawnBoss(),snapshot()):snapshot()},
+    damageBoss(ratio=.4){invariant(boss,"Boss is not active");boss.hp=boss.maxHp*ratio;updateBossPhase();return snapshot()},
+    killBoss(){invariant(boss,"Boss is not active");damageEnemy(boss,boss.hp+1,false);return snapshot()},
+    move(dx,dy,seconds=.5){keys[dx>0?"KeyD":"KeyA"]=dx!==0;keys[dy>0?"KeyS":"KeyW"]=dy!==0;this.tick(seconds);keys={};return snapshot()},
+    setPlayer(x,y){const point=safePoint(x,y,player.radius);player.x=point.x;player.y=point.y;return snapshot()},
+    setPlayerExact(x,y){invariant(!blocked(x,y,player.radius),"Requested test position is blocked");player.x=x;player.y=y;return snapshot()},
+    firstBuilding(){return structuredClone(buildings[0])},
+    setGrace(seconds){state.grace=seconds;return snapshot()},
+    setBlood(value){player.maxBlood=Math.max(player.maxBlood,value);player.blood=value;return snapshot()},
+    setCooldowns({dash=0,mist=0,swarm=0}={}){player.dashCd=dash;player.mistCd=mist;player.swarmCd=swarm;updateHud();return snapshot()},
+    unlockAbility(id){if(id==="mist"){profile.campaign.abilityUnlocks.mist=true;profile.campaign.clears["night-5"]={test:true}}else if(id==="swarm"){profile.campaign.abilityUnlocks.swarm=true;profile.campaign.clears["night-10"]={test:true}}else throw new Error("Unsupported test unlock");saveProfile();updateHud();return snapshot()},
+    triggerMist(){triggerMist();return snapshot()},triggerSwarm(){triggerSwarm();return snapshot()},triggerDash(){triggerDash();return snapshot()},
+    triggerBloodMoon(){state.frenzy=1;triggerBloodMoon();return snapshot()},
+    forceLoss(){player.blood=0;update(1/60);return snapshot()},
+    districts(){return DISTRICTS.map(district=>district.name)},
+    objectiveDiagnostics,
+    profile(){return structuredClone(profile)},profileDiagnostics(){return profileRepository.diagnostics()},
+    clearProfile(){profileRepository.clear({includeLegacy:true});profile=freshProfileV2();saveProfile();renderMenuProfile();return structuredClone(profile)},
+  };
+}
+
+resetRun({mode:"campaign",campaignNight:1});
+requestAnimationFrame(frame);

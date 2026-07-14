@@ -150,13 +150,37 @@ SHA-256: `0e058d4c0dccf3d63ccaf29371e42846ef8173b5e74ac1cc18d1dea73b36e3dd`
 
 Bytes: 101657
 
+## Iteration 33
+
+Accepted local Codex release candidate 33 on 2026-07-15. Campaign Night 1 now
+uses an exact fixed-duration objective contract, Feed/Dash start unlocked, and
+Mist/Swarm show their Night 5/Night 10 milestone locks. A successful night
+commits the run, one-time reward, next-night unlock, and resumable pending
+outcome atomically before the vampire hops into the coffin and closes its lid.
+
+The coffin restores Blood and cooldowns, shows the reward/progression summary,
+and offers Rise or Leave. The transition is skippable and has a reduced-motion
+path. Hunt Depth 2 keeps Depth 1's duration and three-cross quota while raising
+composition, elites, director pressure, health, and damage.
+
+Thirty automated tests, site contracts, a deterministic double-build, browser
+Campaign/Hunt/save/reload/accessibility flows, phone layouts, 40 route checks,
+and a 180-second 108-enemy soak passed.
+
+Snapshot: `iteration-33-codex.html`
+
+SHA-256: `91dc0920b475119c140c2c89982a5a8b3b358b3ac39b3a3220d3ee044f246486`
+
+Bytes: 128305
+
 ## Active Roadmap
 
-The experiment is active. Iteration 32 is published and Iterations 33-40 are
-planned. The authenticated production gameplay canary passed on 2026-07-14,
-so Iteration 33 is unblocked.
+The experiment is active. Iteration 32 is published, Iteration 33 is locally
+release-verified, and Iterations 34-40 are planned. Publication and the
+authenticated Iteration 33 production canary are the remaining gate before
+Chapter I begins.
 
 - Current live build: `games/vampire-survival.html`
-- Snapshot: `games/vampire-survival-iterations/iteration-32-codex.html`
+- Snapshot: `games/vampire-survival-iterations/iteration-33-codex.html`
 - Roadmap: `games/vampire-survival-iterations/iterations-32-40-roadmap.md`
-- Status notes: `games/vampire-survival-iterations/iteration-32-status.html`, `games/vampire-survival-parked.html`, and `games/vampire-survival-parked.md`
+- Status notes: `games/vampire-survival-iterations/iteration-33-status.html`, `games/vampire-survival-parked.html`, and `games/vampire-survival-parked.md`

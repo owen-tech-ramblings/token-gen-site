@@ -4,6 +4,16 @@ import test from "node:test";
 import { BUILD, createRunSeed, hashText, mulberry32, trimEntityOverflow } from "../games/vampire-survival-src/runtime.mjs";
 import { ACHIEVEMENTS, DIFFICULTIES, DISTRICTS, ENEMY_TYPES, PACTS, WORLD } from "../games/vampire-survival-src/content.mjs";
 import {
+  ABILITY_RULES,
+  CAMPAIGN_NIGHTS,
+  HUNT_PREVIEW_DEPTHS,
+  abilityAvailability,
+  campaignClearEventId,
+  clearPendingCoffinOutcome,
+  createRunContract,
+  recordProfileRunOutcome,
+} from "../games/vampire-survival-src/progression.mjs";
+import {
   LEGACY_PROFILE_STORAGE_KEY,
   MAX_SCORE_HISTORY,
   PROFILE_RECOVERY_STORAGE_KEY,
@@ -57,8 +67,8 @@ function legacyProfile(overrides = {}) {
   };
 }
 
-test("iteration 32 runtime and content contracts remain complete", () => {
-  assert.equal(BUILD.iteration, 32);
+test("iteration 33 runtime and content contracts remain complete", () => {
+  assert.equal(BUILD.iteration, 33);
   assert.equal(BUILD.profileSchema, 2);
   assert.equal(PROFILE_SCHEMA_VERSION, 2);
   assert.equal(Object.keys(DIFFICULTIES).length, 3);
@@ -74,6 +84,94 @@ test("iteration 32 runtime and content contracts remain complete", () => {
   assert.equal(createRunSeed("daily", clock), "daily:2026-07-14");
   assert.equal(createRunSeed("standard", clock), "standard:1234:0.25");
   assert.notEqual(createRunSeed("daily", { now: () => new Date("2026-07-15T00:00:00.000Z") }), createRunSeed("daily", clock));
+});
+
+test("Campaign Night 1 and both Hunt preview depths keep authored fixed-duration contracts", () => {
+  assert.equal(Object.keys(CAMPAIGN_NIGHTS).length, 1);
+  assert.equal(Object.keys(HUNT_PREVIEW_DEPTHS).length, 2);
+  const campaign = createRunContract({ mode: "campaign", campaignNight: 1, difficulty: DIFFICULTIES.night });
+  const depthOne = createRunContract({ mode: "hunt", huntDepth: 1, difficulty: DIFFICULTIES.night });
+  const depthTwo = createRunContract({ mode: "hunt", huntDepth: 2, difficulty: DIFFICULTIES.night });
+  assert.equal(campaign.crossQuota, 3);
+  assert.equal(campaign.crossPoints.length, campaign.crossQuota);
+  assert.equal(new Set(campaign.crossPoints.map((point) => point.join(":"))).size, campaign.crossQuota);
+  assert.equal(depthOne.dawn, depthTwo.dawn);
+  assert.equal(depthOne.crossQuota, depthTwo.crossQuota);
+  assert.ok(depthTwo.pressure > depthOne.pressure);
+  assert.ok(depthTwo.enemyHp > depthOne.enemyHp);
+  assert.ok(depthTwo.eliteBonus > depthOne.eliteBonus);
+  assert.throws(() => createRunContract({ mode: "campaign", campaignNight: 2, difficulty: DIFFICULTIES.night }), /not playable/);
+  assert.throws(() => createRunContract({ mode: "hunt", huntDepth: 3, difficulty: DIFFICULTIES.night }), /outside the preview/);
+});
+
+test("ability states prioritize milestone locks, cooldowns, Blood costs, then readiness", () => {
+  assert.equal(ABILITY_RULES.mist.cost, 10);
+  assert.deepEqual(abilityAvailability("mist", { unlocked: false, cooldown: 4, blood: 0 }), {
+    state: "locked", label: "Defeat the Night 5 boss", ready: false, cost: 10,
+  });
+  assert.deepEqual(abilityAvailability("mist", { unlocked: true, cooldown: 4.25, blood: 100 }), {
+    state: "cooldown", label: "4.3s", ready: false, cost: 10,
+  });
+  assert.deepEqual(abilityAvailability("swarm", { unlocked: true, cooldown: 0, blood: 15 }), {
+    state: "insufficient", label: "Need 16 Blood", ready: false, cost: 16,
+  });
+  assert.deepEqual(abilityAvailability("dash", { unlocked: true, cooldown: 0, blood: 0 }), {
+    state: "ready", label: "Ready", ready: true, cost: 0,
+  });
+  assert.deepEqual(abilityAvailability("feed", { unlocked: true, cooldown: 0.18, blood: 0 }), {
+    state: "cooldown", label: "0.2s", ready: false, cost: 0,
+  });
+});
+
+test("Campaign clear outcome grants one finite reward and creates a resumable coffin outcome", () => {
+  const profile = freshProfileV2({ profileId: fixedId() });
+  const firstOutcome = {
+    runId: "run:first", mode: "campaign", campaignNight: 1, huntDepth: null,
+    score: 2500, time: 225, grade: "A", win: true, difficulty: "night",
+  };
+  const first = recordProfileRunOutcome(profile, firstOutcome, fixedNow());
+  assert.equal(first.recorded, true);
+  assert.equal(first.firstClear, true);
+  assert.equal(profile.totalRuns, 1);
+  assert.equal(profile.totalWins, 1);
+  assert.equal(profile.campaign.unlockedNight, 2);
+  assert.equal(profileBalance(profile), 1);
+  assert.equal(profile.campaign.pendingCoffinOutcome.bloodPacks, 1);
+  assert.ok(profile.appliedEvents[campaignClearEventId(1)]);
+
+  const duplicate = recordProfileRunOutcome(profile, firstOutcome, fixedNow());
+  assert.equal(duplicate.recorded, false);
+  assert.equal(profile.totalRuns, 1);
+  assert.equal(profileBalance(profile), 1);
+
+  const replay = recordProfileRunOutcome(profile, { ...firstOutcome, runId: "run:replay", score: 3000 }, fixedNow());
+  assert.equal(replay.recorded, true);
+  assert.equal(replay.firstClear, false);
+  assert.equal(profile.totalRuns, 2);
+  assert.equal(profileBalance(profile), 1);
+  assert.equal(profile.campaign.pendingCoffinOutcome.bloodPacks, 0);
+  assert.equal(clearPendingCoffinOutcome(profile, replay.runEventId), true);
+  assert.equal(profile.campaign.pendingCoffinOutcome, null);
+  assert.equal(clearPendingCoffinOutcome(profile, replay.runEventId), false);
+});
+
+test("Hunt outcomes advance only the cleared preview depth and never award Campaign currency", () => {
+  const profile = freshProfileV2({ profileId: fixedId() });
+  const first = recordProfileRunOutcome(profile, {
+    runId: "run:hunt-1", mode: "hunt", campaignNight: null, huntDepth: 1,
+    score: 1900, time: 225, grade: "B", win: true, difficulty: "night",
+  }, fixedNow());
+  assert.equal(first.coffinOutcome.nextDepth, 2);
+  assert.equal(profile.hunt.bestDepth, 1);
+  assert.equal(profileBalance(profile), 0);
+  const second = recordProfileRunOutcome(profile, {
+    runId: "run:hunt-2", mode: "hunt", campaignNight: null, huntDepth: 2,
+    score: 2800, time: 225, grade: "A", win: true, difficulty: "night",
+  }, fixedNow());
+  assert.equal(second.coffinOutcome.nextDepth, null);
+  assert.equal(profile.hunt.bestDepth, 2);
+  assert.equal(profile.hunt.scores["depth-2"].score, 2800);
+  assert.equal(profileBalance(profile), 0);
 });
 
 test("enemy overflow trimming removes only the farthest live excess and preserves the boss", () => {
@@ -95,13 +193,14 @@ test("enemy overflow trimming removes only the farthest live excess and preserve
   assert.equal(alreadyDead.dead, true);
 });
 
-test("fresh profile exposes v2 scaffolding while preserving current Hunt behavior", () => {
+test("fresh profile starts Campaign with milestone abilities locked", () => {
   const profile = freshProfileV2({ profileId: fixedId() });
   assert.equal(profile.schemaVersion, 2);
   assert.equal(profile.profileId, fixedId());
   assert.equal(profile.campaign.unlockedNight, 1);
-  assert.equal(profile.campaign.abilityUnlocks.mist, true);
-  assert.equal(profile.campaign.abilityUnlocks.swarm, true);
+  assert.equal(profile.campaign.abilityUnlocks.mist, false);
+  assert.equal(profile.campaign.abilityUnlocks.swarm, false);
+  assert.deepEqual(profile.bloodline.loadout, []);
   assert.equal(profile.hunt.unlocked, true);
   assert.equal(profile.revision, 0);
   assert.equal(profileBalance(profile), 0);

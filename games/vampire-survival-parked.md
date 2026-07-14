@@ -1,9 +1,9 @@
 # Vampire Survival Development State
 
-Status: active; Iteration 32 locally complete and awaiting publication
+Status: active; Iteration 33 locally verified and entering publication
 Live page: `/games/vampire-survival.html`
-Previous published build: Iteration 31, 2026-07-10
-Current archive candidate: `games/vampire-survival-iterations/iteration-32-codex.html`
+Previous published build: Iteration 32, 2026-07-14
+Current archive candidate: `games/vampire-survival-iterations/iteration-33-codex.html`
 
 ## Current State
 
@@ -11,25 +11,30 @@ Vampire Survival remains a self-contained HTML canvas game, but its editable
 source now lives in `games/vampire-survival-src/`. The deterministic build
 inlines that source into the live HTML and the matching iteration archive.
 
-Iteration 32 preserves the current vertical slice:
+Iteration 33 turns the vertical slice into the first connected progression
+loop:
 
 - A large procedural city with five districts, camera, minimap, and compass.
-- Three warding crosses followed by the three-phase Captain Voss encounter.
+- Campaign Night 1 with an exact three-cross objective and specific failure if
+  dawn arrives before every cross is broken.
+- Hunt Depths 1 and 2 with the same night length and quota, but a materially
+  harder second depth through patrol composition, elites, pressure, health, and
+  damage.
 - Villagers, guards, hunters, priests, captains, and elite variants.
-- Feed, Dash, Mist, Bat Swarm, Blood Pacts, Blood Moon, pickups, combos,
-  difficulty modes, and Daily Hunt.
+- Feed and Dash at the start, with Mist and Swarm shown as milestone-locked.
+- A vampire hop into the coffin, closing lid, full restoration, reward summary,
+  progression entry point, Rise, and Leave choices.
 - Desktop keyboard/mouse, touch controls, gamepad gameplay polling, reduced
   motion, high contrast, settings, local scores, and achievements.
 
-It also adds the extension foundation:
+The profile and objective contract enforce:
 
-- Modular source for runtime, content, profile, state, world/objectives,
-  gameplay, rendering, input, and the `?test=1` adapter.
-- Profile schema v2 for future Campaign, Bloodline, loadout, Hunt, and cloud
-  synchronization.
-- One-time v31 migration, revision checks, idempotent events, balance
-  invariants, corrupt-save preservation, export/import, and local deletion.
-- Regression tests and exact generated/archive equality checks.
+- One atomic commit for the run result, first-clear reward, Night 2 unlock, and
+  resumable pending coffin outcome.
+- Exactly one finite first-clear Blood Pack and no replay farming.
+- No coffin bypass after a save failure.
+- A pending coffin result that resumes after reload.
+- A skippable four-second transition and a short reduced-motion alternative.
 
 ## Development Workflow
 
@@ -57,16 +62,14 @@ It also adds the extension foundation:
 
 ## Next Iteration
 
-Iteration 33 adds Campaign Night 1 and the connective loop:
+Iteration 34 delivers Chapter I:
 
-- Feed and Dash available; Mist and Swarm visibly locked.
-- Fixed night duration with a validated, clearly briefed cross quota.
-- Atomic clear commit before rewards or progression can be shown.
-- Vampire hop into the coffin, lid close, full restoration, reward summary,
-  and preparation hub.
-- Skippable repeat animation and a restrained reduced-motion transition.
-- Two-depth Hunt preview proving difficulty can rise while night length stays
-  fixed.
+- Distinct Nights 2-5 encounters and objectives.
+- Lieutenant finishes followed by the Night 5 Captain Voss milestone.
+- Mist unlocked exactly once after Voss.
+- Full escalating Hunt with fixed-duration nights, coffin intermissions, score
+  pressure, personal-best depth, bosses, and the initial cross cadence
+  `3,3,4,4,4,5,5,6,6,6...`.
 
 The full Iterations 32-40 sequence is recorded in
 `games/vampire-survival-iterations/iterations-32-40-roadmap.md`.
@@ -74,5 +77,5 @@ The full Iterations 32-40 sequence is recorded in
 ## Known Scope Boundary
 
 Gamepad movement/action polling is preserved. Full controller focus navigation
-for the title menu, pause, future coffin, Bloodline, loadout, and modal surfaces
-is scoped into the next UI work and is not claimed complete in Iteration 32.
+for the title menu, pause, coffin, future Bloodline/loadout, and modal surfaces
+is not yet claimed complete.

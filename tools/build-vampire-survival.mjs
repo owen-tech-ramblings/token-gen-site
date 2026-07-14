@@ -13,6 +13,7 @@ const moduleFiles = [
   ["/*__RUNTIME_MODULE__*/", "runtime.mjs"],
   ["/*__CONTENT_MODULE__*/", "content.mjs"],
   ["/*__PROFILE_MODULE__*/", "profile.mjs"],
+  ["/*__PROGRESSION_MODULE__*/", "progression.mjs"],
   ["/*__STATE_MODULE__*/", "state.mjs"],
   ["/*__WORLD_MODULE__*/", "world.mjs"],
   ["/*__GAMEPLAY_MODULE__*/", "gameplay.mjs"],

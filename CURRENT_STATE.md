@@ -1,6 +1,38 @@
 # Token Gen Current State
 
-Last updated: 2026-07-14 Australia/Sydney
+Last updated: 2026-07-15 Australia/Sydney
+
+## Vampire Survival Iteration 33 - 2026-07-15
+
+- Iteration 33 is a locally verified release candidate. It adds Campaign
+  Night 1, a two-depth Hunt preview, and the full survived-night coffin loop.
+- Campaign Night 1 starts with Feed and Dash. Mist is visibly locked behind
+  the Night 5 boss and Swarm behind the Night 10 boss.
+- Every run now uses an authored objective contract. Night length remains fixed
+  for the selected difficulty while Hunt Depth 2 raises patrol count, director
+  pressure, elites, enemy health, and damage. The broader Hunt quota cadence
+  begins in Iteration 34.
+- Dawn with crosses remaining produces a specific failure. A successful clear
+  is committed atomically before the coffin appears; the first Campaign clear
+  awards exactly one Blood Pack and replays cannot duplicate it.
+- The vampire hops into an open coffin, the lid closes, Blood and cooldowns
+  restore, and a compact coffin hub shows rewards, progression, and the next
+  choice. The transition is skippable and has a short reduced-motion path.
+- The coffin now owns the permanent-progression location. Iteration 33 shows
+  the Bloodline entry point; the purchasable three-branch tree remains
+  deliberately scheduled for Iteration 35 after Chapter I.
+- A pending coffin result survives reload and can be resumed from the title
+  screen. A failed clear save shows `Progress Not Saved` and never
+  bypasses into the coffin.
+- Verification: 30/30 Node tests, shared site contracts, syntax and
+  deterministic build checks, exact live/archive equality, browser Campaign
+  and Hunt flows, save-failure and reload recovery, reduced motion, desktop and
+  mobile layouts, 40 cross-route generations, and a three-minute 108-enemy
+  soak.
+- Exact local artifact: 128,305 bytes; SHA-256
+  `91dc0920b475119c140c2c89982a5a8b3b358b3ac39b3a3220d3ee044f246486`.
+- Detailed evidence:
+  `games/vampire-survival-iterations/iteration-33-test-report.md`.
 
 ## Vampire Survival Iteration 32 - 2026-07-14
 

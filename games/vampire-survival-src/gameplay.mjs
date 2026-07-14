@@ -11,11 +11,14 @@ function levelCheck(){while(player.xp>=player.nextXp){player.xp-=player.nextXp;p
 function pactOptions(){const eligible=PACTS.filter(p=>(player.pacts[p.id]||0)<p.max);invariant(eligible.length>=3,"Not enough eligible Blood Pacts");const copy=[...eligible];for(let i=copy.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[copy[i],copy[j]]=[copy[j],copy[i]]}return copy.slice(0,3)}
 function openPact(){if(!BUILD.upgrades||state.pactPending<1||state.over)return;state.paused=true;currentPacts=pactOptions();const host=$("pactChoices");host.replaceChildren(...currentPacts.map((p,i)=>{const b=document.createElement("button");b.className="choice";b.dataset.index=String(i);b.innerHTML=`<em>${i+1} · Rank ${(player.pacts[p.id]||0)+1}/${p.max}</em><strong>${p.name}</strong><small>${p.desc}</small>`;b.addEventListener("click",()=>choosePact(i));return b}));showDialog("pactModal",".choice")}
 function choosePact(index){if(!profileWriterLease)return;invariant(BUILD.upgrades,"Blood Pacts are not enabled in this build");const pact=currentPacts[index];invariant(pact,"Invalid Blood Pact choice");player.pacts[pact.id]=(player.pacts[pact.id]||0)+1;pact.apply(player);state.pactPending--;hideDialog("pactModal",false);state.paused=false;canvas.focus();toast(pact.name);chord(210,280,420);if(state.pactPending>0)openPact()}
-function triggerDash(){if(!state.running||state.paused||player.dashCd>0)return;player.dashTime=.18;player.dashCd=2.35;emit(player.x,player.y,24,"#8f68ff",.5,240,5);tone(260,.07,"triangle",.02)}
-function triggerMist(){if(!state.running||state.paused||player.mistCd>0||player.blood<10)return;player.blood-=10;player.mistTime=player.mistDuration;player.mistCd=player.mistBase;emit(player.x,player.y,44,"#b6a0ff",1,190,6);tone(188,.14,"sine",.02);toast("Mist form")}
-function triggerSwarm(){if(!state.running||state.paused||player.swarmCd>0||player.blood<16)return;player.blood-=16;player.swarmCd=9.5;emit(player.x,player.y,76,"#1a1027",1.1,350,6);tone(54,.2,"sawtooth",.025);for(const e of [...enemies])if(!e.dead&&Math.hypot(e.x-player.x,e.y-player.y)<player.swarmRadius)damageEnemy(e,player.swarmDamage,false);toast("Bat swarm")}
+function isAbilityUnlocked(id){if(id==="feed"||id==="dash")return true;if(id==="mist")return Boolean(profile.campaign.abilityUnlocks.mist&&profile.campaign.clears["night-5"]);if(id==="swarm")return Boolean(profile.campaign.abilityUnlocks.swarm&&profile.campaign.clears["night-10"]);return false}
+function currentAbilityStatus(id){const cooldown=id==="dash"?player.dashCd:id==="mist"?player.mistCd:id==="swarm"?player.swarmCd:player.attackCd;return abilityAvailability(id,{unlocked:isAbilityUnlocked(id),cooldown,blood:player.blood})}
+function rejectAbility(status){if(state.toast!==status.label||state.toastTime<.25)toast(status.label,1.25)}
+function triggerDash(){if(!state.running||state.paused)return;const status=currentAbilityStatus("dash");if(!status.ready){rejectAbility(status);return}player.dashTime=.18;player.dashCd=2.35;emit(player.x,player.y,24,"#8f68ff",.5,240,5);tone(260,.07,"triangle",.02)}
+function triggerMist(){if(!state.running||state.paused)return;const status=currentAbilityStatus("mist");if(!status.ready){rejectAbility(status);return}player.blood-=status.cost;player.mistTime=player.mistDuration;player.mistCd=player.mistBase;emit(player.x,player.y,44,"#b6a0ff",1,190,6);tone(188,.14,"sine",.02);toast("Mist form")}
+function triggerSwarm(){if(!state.running||state.paused)return;const status=currentAbilityStatus("swarm");if(!status.ready){rejectAbility(status);return}player.blood-=status.cost;player.swarmCd=9.5;emit(player.x,player.y,76,"#1a1027",1.1,350,6);tone(54,.2,"sawtooth",.025);for(const e of [...enemies])if(!e.dead&&Math.hypot(e.x-player.x,e.y-player.y)<player.swarmRadius)damageEnemy(e,player.swarmDamage,false);toast("Bat swarm")}
 function triggerBloodMoon(){if(!BUILD.polish||state.bloodMoon>0||state.frenzy<1)return;state.frenzy=0;state.bloodMoon=9;player.blood=Math.min(player.maxBlood,player.blood+25);toast("Blood Moon",2.4);chord(90,135,220);emit(player.x,player.y,100,"#ff2758",1.5,380,8)}
-function destroyRelic(r){r.active=false;state.relicsBroken++;state.score+=Math.floor(1000*difficulty().score);player.blood=Math.min(player.maxBlood,player.blood+38);for(let i=0;i<7;i++)pickups.push({x:r.x+(rng()-.5)*90,y:r.y+(rng()-.5)*90,radius:8,life:26,pulse:rng()*TAU});emit(r.x,r.y,95,"#f0c86b",1.25,340,9);if(profile.settings.shake)camera.shake=18;award("relic");toast(state.relicsBroken===state.requiredCrosses?"The warding crosses are broken":"Warding cross shattered",2.8);chord(330,220,92);if(state.relicsBroken===state.requiredCrosses){if(BUILD.boss)spawnBoss();else{spawnEnemy("captain",true,true);spawnEnemy("captain",true,true)}}}
+function destroyRelic(r){r.active=false;state.relicsBroken++;state.score+=Math.floor(1000*difficulty().score);player.blood=Math.min(player.maxBlood,player.blood+38);for(let i=0;i<7;i++)pickups.push({x:r.x+(rng()-.5)*90,y:r.y+(rng()-.5)*90,radius:8,life:26,pulse:rng()*TAU});emit(r.x,r.y,95,"#f0c86b",1.25,340,9);if(profile.settings.shake)camera.shake=18;award("relic");toast(state.relicsBroken===state.requiredCrosses?"Crosses broken · survive until dawn":"Warding cross shattered",2.8);chord(330,220,92)}
 function attackRelics(dt){if(!mouse.down)return;for(const r of relics){if(!r.active)continue;const d=Math.hypot(r.x-player.x,r.y-player.y);if(d<player.range+20){const district=BUILD.districts?districtAt(r.x,r.y):null,mult=district&&district.id==="cathedral"?1.2:1;r.hp-=player.relicDamage*mult*dt;player.blood-=1.2*dt;emit(r.x+(rng()-.5)*30,r.y+(rng()-.5)*30,2,"#ffe082",.3,70,4);if(r.hp<=0)destroyRelic(r);break}}}
 function updateBossPhase(){if(!boss||boss.dead)return;const ratio=boss.hp/boss.maxHp,next=ratio<.33?3:ratio<.66?2:1;if(next!==boss.phase){boss.phase=next;boss.patternTime=.8;boss.cooldown=.7;toast("Captain Voss · Phase "+["","I","II","III"][next],2.4);chord(74-next*5,62-next*4,50-next*3)}}
 function bossAttack(){const p=boss.phase,choice=Math.floor(rng()*(p+1));if(choice===0){boss.pattern="volley";boss.patternTime=.9;telegraphs.push({type:"ring",x:boss.x,y:boss.y,radius:160+p*34,time:.9,life:.9,owner:"voss"})}else if(choice===1){boss.pattern="charge";boss.patternTime=.72;const a=Math.atan2(player.y-boss.y,player.x-boss.x);telegraphs.push({type:"lane",x:boss.x,y:boss.y,angle:a,length:560,width:55,time:.72,life:.72,owner:"voss"})}else if(choice===2){boss.pattern="sanctify";boss.patternTime=1.05;for(let i=0;i<2+p;i++)telegraphs.push({type:"circle",x:player.x+(rng()-.5)*330,y:player.y+(rng()-.5)*260,radius:62+p*5,time:1.05,life:1.05,owner:"voss"})}else{boss.pattern="summon";boss.patternTime=.85;for(let i=0;i<p+1;i++)spawnEnemy(i%2?"hunter":"priest",true,p===3&&i===0)}}
@@ -28,15 +31,185 @@ function collectPickups(dt){for(let i=pickups.length-1;i>=0;i--){const p=pickups
 function districtEffects(){if(!BUILD.districts)return;const d=activeDistrict();if(d.id!==player.lastDistrict){player.lastDistrict=d.id;state.district=d.name;$("districtBanner").textContent=d.name;$("districtBanner").style.opacity="1";setTimeout(()=>{$("districtBanner").style.opacity="0"},1600)}if(d.id==="cathedral"&&Math.floor(state.time)%13===0&&hazards.filter(h=>h.kind==="sun").length<2){const p=safePoint(player.x+(rng()-.5)*380,player.y+(rng()-.5)*300,20);hazards.push({x:p.x,y:p.y,radius:55,life:2.8,tick:.7,kind:"sun"})}if(d.id==="gardens"&&Math.floor(state.time)%17===0&&hazards.filter(h=>h.kind==="thorn").length<3){hazards.push({x:player.x+(rng()-.5)*420,y:player.y+(rng()-.5)*360,radius:48,life:4,tick:.8,kind:"thorn"})}}
 function inputVector(){let x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),y=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);if(BUILD.platform){x+=touch.x;y+=touch.y;const pads=navigator.getGamepads?navigator.getGamepads():[];const pad=pads&&pads[0];if(pad){x+=Math.abs(pad.axes[0])>.16?pad.axes[0]:0;y+=Math.abs(pad.axes[1])>.16?pad.axes[1]:0;if(pad.buttons[0].pressed)feedOrStrike();if(pad.buttons[1].pressed)triggerDash();if(pad.buttons[2].pressed)triggerSwarm();if(pad.buttons[3].pressed)triggerMist()}}const len=Math.hypot(x,y);return len>1?{x:x/len,y:y/len}:{x,y}}
 function updatePlayer(dt){const v=inputVector(),district=BUILD.districts?activeDistrict():null,moon=BUILD.polish&&state.bloodMoon>0?1.22:1,dock=district&&district.id==="docks"?1.08:1,speed=player.speed*dock*moon*(player.mistTime>0?1.34:1)*(player.dashTime>0?3.45:1);player.vx=lerp(player.vx,v.x*speed,clamp(dt*14,0,1));player.vy=lerp(player.vy,v.y*speed,clamp(dt*14,0,1));moveEntity(player,player.vx*dt,player.vy*dt,player.radius);player.facing=Math.atan2(mouse.y+camera.y-player.y,mouse.x+camera.x-player.x);player.attackCd=Math.max(0,player.attackCd-dt);player.dashTime=Math.max(0,player.dashTime-dt);player.dashCd=Math.max(0,player.dashCd-dt);player.mistTime=Math.max(0,player.mistTime-dt);player.mistCd=Math.max(0,player.mistCd-dt);player.swarmCd=Math.max(0,player.swarmCd-dt);player.hitFlash=Math.max(0,player.hitFlash-dt);player.comboTime=Math.max(0,player.comboTime-dt);if(player.comboTime<=0)player.combo=0;if(mouse.down)feedOrStrike();player.blood-=dt*(.56+state.phase*.055+state.relicsBroken*.045)*(state.bloodMoon>0?.55:1);if(player.blood<=0)endRun(false)}
-function updateDirector(dt){const d=difficulty();state.phase=clamp(Math.floor(state.time/34)+1,1,7);state.threat=state.phase+state.relicsBroken+(boss?3:0);if(BUILD.polish){const health=player.blood/player.maxBlood,target=.85+state.phase*.16+(health>.72?.22:health<.3?-.18:0);state.director.pressure=lerp(state.director.pressure,target,dt*.25);state.director.budget+=dt*d.spawn*state.director.pressure}else state.director.budget+=dt*d.spawn*(.78+state.phase*.16);while(state.director.budget>=1){state.director.budget-=1;spawnEnemy(enemyTypeForTime(),false,BUILD.upgrades&&rng()<.02+state.phase*.006)}trimEntityOverflow(enemies,BUILD_MAX_ENEMIES,player,boss)}
+function updateDirector(dt){const d=difficulty(),contractPressure=state.contract.pressure;state.phase=clamp(Math.floor(state.time/34)+1,1,7);state.threat=state.phase+state.relicsBroken+(state.mode==="hunt"?state.huntDepth-1:0)+(boss?3:0);if(BUILD.polish){const health=player.blood/player.maxBlood,target=.85+state.phase*.16+(health>.72?.22:health<.3?-.18:0);state.director.pressure=lerp(state.director.pressure,target,dt*.25);state.director.budget+=dt*d.spawn*contractPressure*state.director.pressure}else state.director.budget+=dt*d.spawn*contractPressure*(.78+state.phase*.16);while(state.director.budget>=1){state.director.budget-=1;spawnEnemy(enemyTypeForTime(),false,BUILD.upgrades&&rng()<.02+state.phase*.006+state.contract.eliteBonus)}trimEntityOverflow(enemies,BUILD_MAX_ENEMIES,player,boss)}
 const BUILD_MAX_ENEMIES=BUILD.polish?108:92;
-function update(dt){if(!profileWriterLease||!state.running||state.paused||state.over)return;if(state.hitStop>0){state.hitStop-=dt;return}if(state.bossIntro>0){state.bossIntro-=dt;return}state.time+=dt;state.score+=dt*(4+state.phase*.8+state.relicsBroken*2)*(BUILD.polish&&state.bloodMoon>0?2.2:1);state.toastTime=Math.max(0,state.toastTime-dt);if(state.time>=state.dawn&&state.relicsBroken<state.requiredCrosses){toast("Dawn has broken",1);endRun(false);return}if(BUILD.polish){state.bloodMoon=Math.max(0,state.bloodMoon-dt);if(state.frenzy>=1&&state.bloodMoon<=0)triggerBloodMoon()}updatePlayer(dt);updateDirector(dt);attackRelics(dt);districtEffects();for(const e of enemies)updateEnemy(e,dt);for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0||blocked(b.x,b.y,b.radius)){bullets.splice(i,1);continue}if(Math.hypot(b.x-player.x,b.y-player.y)<b.radius+player.radius){takeDamage(b.damage,b.x,b.y);bullets.splice(i,1)}}updateTelegraphs(dt);updateHazards(dt);collectPickups(dt);for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt}particles=particles.filter(p=>p.life>0);for(const f of floaters){f.y-=28*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);for(const s of stains)s.life-=dt;stains=stains.filter(s=>s.life>0);enemies=enemies.filter(e=>!e.dead);if(!BUILD.boss&&state.relicsBroken===state.requiredCrosses&&enemies.filter(e=>e.type==="captain").length===0)endRun(true);updateHud()}
-function gradeRun(win){if(!win)return state.relicsBroken===state.requiredCrosses?"C":state.relicsBroken===Math.max(0,state.requiredCrosses-1)?"D+":"D";let points=100-(state.time/Math.max(1,state.dawn))*30-Math.min(28,state.damageTaken*.18)+Math.min(20,player.combo*1.5)+(state.difficulty==="nightmare"?12:state.difficulty==="night"?6:0);return points>=105?"S":points>=90?"A":points>=76?"B":"C"}
-function endRun(win){if(state.over)return;state.over=true;state.running=false;state.gamePhase=GAME_PHASES.RESULT;state.win=win;const grade=gradeRun(win);if(win&&state.damageTaken<1)award("untouched");if(win&&grade==="S")award("s_rank");if(BUILD.platform&&$("runMode").value==="daily")award("daily");profile.totalRuns++;profile.totalWins+=win?1:0;profile.totalScore+=Math.floor(state.score);profile.bestScore=Math.max(profile.bestScore,Math.floor(state.score));const gradeRank={D:0,"D+":1,C:2,B:3,A:4,S:5};if(gradeRank[grade]>gradeRank[profile.bestGrade])profile.bestGrade=grade;profile.scores.push({runId:state.runId,score:Math.floor(state.score),time:Math.floor(state.time),grade,win,difficulty:state.difficulty,date:new Date().toISOString().slice(0,10)});profile.scores.sort((a,b)=>b.score-a.score);profile.scores=profile.scores.slice(0,MAX_SCORE_HISTORY);saveProfile();$("resultEyebrow").textContent=win?"The city kneels":"The hunters prevail";$("resultTitle").textContent=win?"Dawn Is Yours":"You Perished";$("resultText").textContent=`${win?"Captain Voss has fallen.":"The bloodline ended before the city broke."} Night grade: ${grade}.${profileSaveError?" Progress could not be saved; keep this tab open and close other game tabs.":""}`;const metrics=[["Grade",grade],["Score",Math.floor(state.score)],["Time",Math.floor(state.time)+"s"],["Kills",state.kills],["Crosses",state.relicsBroken+"/"+state.requiredCrosses],["Dominion",player.level],["Combo",player.combo],["Roses",state.roses]];$("resultMetrics").innerHTML=metrics.map(([k,v])=>`<div class="metric"><b>${v}</b><span>${k}</span></div>`).join("");$("resultAchievements").innerHTML=state.newAchievements.map(id=>`<span class="badge">${ACHIEVEMENTS[id]}</span>`).join("");renderScores();showDialog("resultModal","#againBtn");$("bossWrap").style.display="none";chord(win?220:78,win?330:64,win?440:50)}
-function renderScores(){const lines=profile.scores.slice(0,5).map((s,i)=>`${i+1}. ${s.score} · ${s.grade} · ${s.time}s · ${s.difficulty}`);$("scoreList").textContent=lines.length?"Best nights\n"+lines.join("\n"):"No completed nights recorded."}
-function startRun(){if(!profileWriterLease)return;resetRun();state.gamePhase=GAME_PHASES.NIGHT_ACTIVE;state.running=true;$("menu").classList.add("hidden");hideDialog("resultModal",false);hideDialog("pauseModal",false);ensureAudio();toast("The hunt begins");chord(92,132,188);canvas.focus();lastFrame=performance.now()}
+function update(dt){if(!profileWriterLease||!state.running||state.paused||state.over)return;if(state.hitStop>0){state.hitStop-=dt;return}if(state.bossIntro>0){state.bossIntro-=dt;return}state.time+=dt;state.score+=dt*(4+state.phase*.8+state.relicsBroken*2)*(BUILD.polish&&state.bloodMoon>0?2.2:1);state.toastTime=Math.max(0,state.toastTime-dt);if(state.time>=state.dawn){if(state.relicsBroken<state.requiredCrosses){state.failureReason="dawn-crosses";toast("Dawn sealed the remaining crosses",1);endRun(false,"dawn-crosses")}else endRun(true);return}if(BUILD.polish){state.bloodMoon=Math.max(0,state.bloodMoon-dt);if(state.frenzy>=1&&state.bloodMoon<=0)triggerBloodMoon()}updatePlayer(dt);updateDirector(dt);attackRelics(dt);districtEffects();for(const e of enemies)updateEnemy(e,dt);for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0||blocked(b.x,b.y,b.radius)){bullets.splice(i,1);continue}if(Math.hypot(b.x-player.x,b.y-player.y)<b.radius+player.radius){takeDamage(b.damage,b.x,b.y);bullets.splice(i,1)}}updateTelegraphs(dt);updateHazards(dt);collectPickups(dt);for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt}particles=particles.filter(p=>p.life>0);for(const f of floaters){f.y-=28*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);for(const s of stains)s.life-=dt;stains=stains.filter(s=>s.life>0);enemies=enemies.filter(e=>!e.dead);updateHud()}
+function gradeRun(win){
+  if(!win)return state.relicsBroken===state.requiredCrosses?"C":state.relicsBroken===Math.max(0,state.requiredCrosses-1)?"D+":"D";
+  const points=88-Math.min(28,state.damageTaken*.18)+Math.min(12,state.kills*.18)+Math.min(16,player.combo*1.4)+(state.difficulty==="nightmare"?12:state.difficulty==="night"?6:0);
+  return points>=108?"S":points>=94?"A":points>=80?"B":"C";
+}
+
+function outcomePayload(win,grade){return{runId:state.runId,mode:state.mode,campaignNight:state.campaignNight,huntDepth:state.huntDepth,score:state.score,time:state.time,grade,win,difficulty:state.difficulty}}
+
+function commitRunOutcome(win,grade){
+  try{
+    const draft=normaliseProfileV2(profile),result=recordProfileRunOutcome(draft,outcomePayload(win,grade));
+    persistProfileStrict(draft);
+    return result;
+  }catch(error){
+    state.clearCommitFailed=win;
+    reportProfileSaveError(error);
+    return null;
+  }
+}
+
+function renderResult(grade,reason){
+  const crossesRemaining=Math.max(0,state.requiredCrosses-state.relicsBroken),saveFailed=reason==="save-failed";
+  $("resultEyebrow").textContent=saveFailed?"The chronicle fractured":reason==="dawn-crosses"?"The city seals itself":"The hunters prevail";
+  $("resultTitle").textContent=saveFailed?"Progress Not Saved":reason==="dawn-crosses"?"Dawn Claimed the Crosses":"You Perished";
+  $("resultText").textContent=saveFailed
+    ?"The night ended, but its result could not be committed. Keep this tab open, close other game tabs, and retry the night."
+    :reason==="dawn-crosses"
+      ?`${crossesRemaining} warding ${crossesRemaining===1?"cross remained":"crosses remained"} when dawn arrived. Every cross must fall before the timer reaches zero. Night grade: ${grade}.`
+      :`The bloodline ended before dawn. Night grade: ${grade}.`;
+  const metrics=[["Grade",grade],["Score",Math.floor(state.score)],["Time",Math.floor(state.time)+"s"],["Kills",state.kills],["Crosses",state.relicsBroken+"/"+state.requiredCrosses],["Dominion",player.level],["Combo",player.combo],["Roses",state.roses]];
+  $("resultMetrics").innerHTML=metrics.map(([key,value])=>`<div class="metric"><b>${value}</b><span>${key}</span></div>`).join("");
+  $("resultAchievements").innerHTML=state.newAchievements.map(id=>`<span class="badge">${ACHIEVEMENTS[id]}</span>`).join("");
+  renderScores();showDialog("resultModal","#againBtn");chord(78,64,50);
+}
+
+function endRun(win,reason=null){
+  if(state.over)return;
+  state.over=true;state.running=false;state.gamePhase=GAME_PHASES.RESULT;state.win=win;
+  const grade=gradeRun(win);
+  if(win&&state.damageTaken<1)award("untouched");
+  if(win&&grade==="S")award("s_rank");
+  if(win&&state.mode==="hunt"&&$("runMode").value==="daily")award("daily");
+  const committed=commitRunOutcome(win,grade);
+  $("bossWrap").style.display="none";
+  if(!committed){renderResult(grade,"save-failed");return}
+  if(win){showCoffinTransition(committed.coffinOutcome);chord(220,330,440);return}
+  renderResult(grade,reason||state.failureReason);
+}
+
+function showCoffinTransition(outcome){
+  invariant(outcome,"A committed coffin outcome is required");
+  state.gamePhase=GAME_PHASES.COFFIN_TRANSITION;state.coffinOutcome=outcome;
+  state.restoredFrom=Math.max(0,Math.ceil(player.blood));
+  player.blood=player.maxBlood;player.attackCd=0;player.dashCd=0;player.dashTime=0;player.mistCd=0;player.mistTime=0;player.swarmCd=0;
+  $("coffinTransitionText").textContent=outcome.mode==="campaign"?`Night ${outcome.night} is survived. The vampire returns to his coffin before daylight.`:`Hunt Depth ${outcome.depth} is survived. Daylight closes over the city.`;
+  const transition=$("coffinTransition");transition.classList.remove("coffin-playing");void transition.offsetWidth;transition.classList.add("coffin-playing");
+  showDialog("coffinTransition","#skipCoffinBtn");
+  clearTimeout(coffinTransitionTimer);
+  coffinTransitionTimer=setTimeout(finishCoffinTransition,profile.settings.reducedMotion?650:4000);
+}
+
+function finishCoffinTransition(){
+  if(state.gamePhase!==GAME_PHASES.COFFIN_TRANSITION)return;
+  clearTimeout(coffinTransitionTimer);coffinTransitionTimer=null;
+  hideDialog("coffinTransition",false);state.gamePhase=GAME_PHASES.COFFIN_HUB;
+  renderCoffinHub();showDialog("coffinHub","#coffinRiseBtn");
+}
+
+function renderCoffinHub(){
+  const pending=profile.campaign.pendingCoffinOutcome;
+  if(!pending){returnToTitle();return}
+  const label=pending.mode==="campaign"?`Campaign Night ${pending.night}`:`Hunt Depth ${pending.depth}`;
+  $("coffinTitle").textContent=`${label} Survived`;
+  $("coffinSummary").textContent=pending.firstClear?"First clear secured. The reward was committed before the coffin closed.":"The night is recorded. Repeat clears sharpen mastery without duplicating first-clear rewards.";
+  const rewards=[["Blood",`${player.maxBlood}/${player.maxBlood}`],["Cooldowns","Ready"],["Reward",pending.bloodPacks?`+${pending.bloodPacks} Blood Pack`:"No repeat pack"],["Balance",`${profileBalance(profile)} Blood Pack${profileBalance(profile)===1?"":"s"}`]];
+  $("coffinMetrics").innerHTML=rewards.map(([key,value])=>`<div class="metric"><b>${value}</b><span>${key}</span></div>`).join("");
+  $("coffinRestoreText").textContent=`Blood restored from ${state.restoredFrom??player.maxBlood} to ${player.maxBlood}. Dash is ready. Mist unlocks after the Night 5 boss; Swarm unlocks after the Night 10 boss.`;
+  $("coffinRiseBtn").textContent=pending.mode==="campaign"?"Rise for Night 2":pending.nextDepth?`Descend to Hunt Depth ${pending.nextDepth}`:"Replay Hunt Preview";
+}
+
+function acknowledgeCoffinOutcome(eventId){
+  try{
+    const draft=normaliseProfileV2(profile);
+    if(clearPendingCoffinOutcome(draft,eventId))persistProfileStrict(draft);
+    return true;
+  }catch(error){reportProfileSaveError(error);$("coffinSummary").textContent="The coffin choice could not be saved. Keep this tab open and close other game tabs before trying again.";return false}
+}
+
+function coffinRise(){
+  const pending=profile.campaign.pendingCoffinOutcome;
+  if(!pending||!acknowledgeCoffinOutcome(pending.eventId))return;
+  hideDialog("coffinHub",false);
+  if(pending.mode==="hunt"){startRun({mode:"hunt",huntDepth:pending.nextDepth||1});return}
+  openCampaignMap();
+}
+
+function coffinLeave(){
+  const pending=profile.campaign.pendingCoffinOutcome;
+  if(pending&&!acknowledgeCoffinOutcome(pending.eventId))return;
+  returnToTitle();
+}
+
+function continueCoffinOutcome(){
+  const pending=profile.campaign.pendingCoffinOutcome;
+  if(!pending)return;
+  state.gamePhase=GAME_PHASES.COFFIN_HUB;state.coffinOutcome=pending;state.restoredFrom=player?.maxBlood||112;
+  if(player){player.blood=player.maxBlood;player.dashCd=0;player.mistCd=0;player.swarmCd=0}
+  $("menu").classList.add("hidden");renderCoffinHub();showDialog("coffinHub","#coffinRiseBtn");
+}
+
+function renderCampaignMap(){
+  const cleared=Boolean(profile.campaign.clears["night-1"]),nightTwoUnlocked=profile.campaign.unlockedNight>=2;
+  $("campaignNight1Btn").textContent=cleared?"Replay Night 1":"Enter Night 1";
+  $("campaignNight1Status").textContent=cleared?"Cleared · first reward secured":"Playable · 3 crosses · survive until dawn";
+  $("campaignNight2Status").textContent=nightTwoUnlocked?"Unlocked · arrives with Chapter I":"Survive Night 1 to unlock";
+  $("campaignBalance").textContent=`Blood Packs: ${profileBalance(profile)} · Night length stays fixed as future routes and patrols grow harder.`;
+}
+
+function openCampaignMap(){
+  if(!profileWriterLease)return;
+  state.gamePhase=GAME_PHASES.CAMPAIGN_MAP;state.running=false;state.paused=false;
+  $("menu").classList.add("hidden");renderCampaignMap();showDialog("campaignMap","#campaignNight1Btn");
+}
+
+function currentRunOptions(){return{mode:state.mode,campaignNight:state.campaignNight||1,huntDepth:state.huntDepth||1}}
+
+function startRun(options={}){
+  if(!profileWriterLease)return;
+  resetRun(options);state.gamePhase=GAME_PHASES.NIGHT_ACTIVE;state.running=true;
+  $("menu").classList.add("hidden");
+  for(const id of["campaignMap","resultModal","pauseModal","coffinTransition","coffinHub"])hideDialog(id,false);
+  ensureAudio();toast(state.mode==="campaign"?`Campaign Night ${state.campaignNight} begins`:`Hunt Depth ${state.huntDepth} begins`);chord(92,132,188);canvas.focus();lastFrame=performance.now();
+}
+
 function togglePause(force){if(!state.running||state.over||!$("pactModal").classList.contains("hidden"))return;const next=typeof force==="boolean"?force:!state.paused;if(!next&&!profileWriterLease)return;state.paused=next;if(state.paused)showDialog("pauseModal","#resumeBtn");else{hideDialog("pauseModal",false);canvas.focus()}}
-function returnToTitle(){state.gamePhase=GAME_PHASES.MENU;state.running=false;state.paused=false;state.over=true;hideDialog("pauseModal",false);hideDialog("resultModal",false);$("menu").classList.remove("hidden");renderMenuProfile();$("startBtn").focus()}
-function renderMenuProfile(){if(!BUILD.platform){$("menuAchievements").innerHTML="";return}$("modeField").classList.remove("hidden");$("contrastSettingWrap").classList.remove("hidden");$("motionSettingWrap").classList.remove("hidden");const labels=profile.achievements.map(id=>ACHIEVEMENTS[id]);$("menuAchievements").innerHTML=labels.length?labels.map(x=>`<span class="badge">${x}</span>`).join(""):`<span class="status">Night Legacy: ${profile.totalRuns} runs, ${profile.totalWins} victories.</span>`}
+
+function returnToTitle(){
+  clearTimeout(coffinTransitionTimer);coffinTransitionTimer=null;
+  state.gamePhase=GAME_PHASES.MENU;state.running=false;state.paused=false;state.over=true;
+  for(const id of["pauseModal","resultModal","campaignMap","coffinTransition","coffinHub"])hideDialog(id,false);
+  $("menu").classList.remove("hidden");renderMenuProfile();$("startBtn").focus();
+}
+
+function renderScores(){const lines=profile.scores.slice(0,5).map((score,index)=>`${index+1}. ${score.score} · ${score.grade} · ${score.time}s · ${score.mode||"legacy"}`);$("scoreList").textContent=lines.length?"Best nights\n"+lines.join("\n"):"No completed nights recorded."}
+
+function renderMenuProfile(){
+  if(!BUILD.platform){$("menuAchievements").innerHTML="";return}
+  const campaign=$("gameMode").value==="campaign";
+  $("seedField").classList.toggle("hidden",campaign);
+  $("startBtn").textContent=campaign?"Open Campaign":"Begin Hunt Preview";
+  $("continueCoffinBtn").classList.toggle("hidden",!profile.campaign.pendingCoffinOutcome);
+  $("contrastSettingWrap").classList.remove("hidden");$("motionSettingWrap").classList.remove("hidden");
+  const labels=profile.achievements.map(id=>ACHIEVEMENTS[id]);
+  $("menuAchievements").innerHTML=labels.length?labels.map(label=>`<span class="badge">${label}</span>`).join(""):`<span class="status">Night Legacy: ${profile.totalRuns} runs, ${profile.totalWins} victories · ${profileBalance(profile)} Blood Packs.</span>`;
+}
+
 function applySettings(options={}){profile.settings.audio=$("audioSetting").checked;profile.settings.shake=$("shakeSetting").checked;profile.settings.particles=$("particlesSetting").checked;if(BUILD.platform){profile.settings.contrast=$("contrastSetting").checked;profile.settings.reducedMotion=$("motionSetting").checked;document.body.classList.toggle("high-contrast",profile.settings.contrast);document.body.classList.toggle("reduce-motion",profile.settings.reducedMotion)}if(options.persist!==false)saveProfile()}
-function updateHud(){if(!player||!state)return;$("bloodText").textContent=`${Math.max(0,Math.ceil(player.blood))} / ${player.maxBlood}`;$("bloodFill").style.width=clamp(player.blood/player.maxBlood*100,0,100)+"%";$("xpText").textContent=`${Math.floor(player.xp)} / ${player.nextXp}`;$("xpFill").style.width=clamp(player.xp/player.nextXp*100,0,100)+"%";$("stats").innerHTML=`Score ${Math.floor(state.score)}<br>Time ${Math.floor(state.time)}s · Dawn ${Math.max(0,Math.ceil(state.dawn-state.time))}s<br>Threat ${state.threat} · Crosses ${state.relicsBroken}/${state.requiredCrosses}<br>Combo x${player.combo} · Dominion ${player.level}`;$("toast").textContent=state.toast;$("toast").style.opacity=state.toastTime>0?"1":"0";$("dashAbility").classList.toggle("cooling",player.dashCd>0);$("mistAbility").classList.toggle("cooling",player.mistCd>0);$("swarmAbility").classList.toggle("cooling",player.swarmCd>0);if(BUILD.polish){$("frenzyWrap").classList.remove("hidden");$("frenzyFill").style.width=clamp(state.frenzy*100,0,100)+"%";$("frenzyText").textContent=state.bloodMoon>0?state.bloodMoon.toFixed(1)+"s":Math.floor(state.frenzy*100)+"%"}if(boss&&!boss.dead){$("bossFill").style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";$("bossPhase").textContent="Phase "+["","I","II","III"][boss.phase]}}
+
+function renderAbilityState(id,status,cooldown,maxCooldown){
+  const element=$(id+"Ability"),statusElement=$(id+"Status");
+  for(const stateName of["ready","cooldown","insufficient","locked","cooling"])element.classList.remove(stateName);
+  element.classList.add(status.state);if(status.state==="cooldown")element.classList.add("cooling");
+  statusElement.textContent=status.label;element.title=status.label;element.setAttribute("aria-label",`${id} · ${status.label}`);
+  const fill=element.querySelector(".ability-shade");if(fill)fill.style.height=status.state==="cooldown"?clamp(cooldown/maxCooldown*100,0,100)+"%":"0%";
+  const touchButton=document.querySelector(`#touchControls [data-action="${id}"]`);if(touchButton){touchButton.classList.toggle("locked",status.state==="locked");touchButton.setAttribute("aria-disabled",String(!status.ready));touchButton.title=status.label}
+}
+
+function updateHud(){
+  if(!player||!state)return;
+  $("bloodText").textContent=`${Math.max(0,Math.ceil(player.blood))} / ${player.maxBlood}`;$("bloodFill").style.width=clamp(player.blood/player.maxBlood*100,0,100)+"%";
+  $("xpText").textContent=`${Math.floor(player.xp)} / ${player.nextXp}`;$("xpFill").style.width=clamp(player.xp/player.nextXp*100,0,100)+"%";
+  const remaining=Math.max(0,state.requiredCrosses-state.relicsBroken),dawnRemaining=Math.max(0,Math.ceil(state.dawn-state.time)),modeLabel=state.mode==="campaign"?`Campaign Night ${state.campaignNight}`:`Hunt Depth ${state.huntDepth}`;
+  $("mission").textContent=remaining?`Break ${remaining} of ${state.requiredCrosses} warding crosses, then survive until dawn.`:`All ${state.requiredCrosses} crosses are broken. Survive ${dawnRemaining}s until dawn.`;
+  $("stats").innerHTML=`${modeLabel} · Score ${Math.floor(state.score)}<br>Time ${Math.floor(state.time)}s · Dawn ${dawnRemaining}s<br>Threat ${state.threat} · Crosses ${state.relicsBroken}/${state.requiredCrosses}<br>Combo x${player.combo} · Dominion ${player.level}`;
+  $("toast").textContent=state.toast;$("toast").style.opacity=state.toastTime>0?"1":"0";
+  renderAbilityState("feed",currentAbilityStatus("feed"),player.attackCd,.22);renderAbilityState("dash",currentAbilityStatus("dash"),player.dashCd,2.35);renderAbilityState("mist",currentAbilityStatus("mist"),player.mistCd,player.mistBase);renderAbilityState("swarm",currentAbilityStatus("swarm"),player.swarmCd,9.5);
+  if(BUILD.polish){$("frenzyWrap").classList.remove("hidden");$("frenzyFill").style.width=clamp(state.frenzy*100,0,100)+"%";$("frenzyText").textContent=state.bloodMoon>0?state.bloodMoon.toFixed(1)+"s":Math.floor(state.frenzy*100)+"%"}
+  if(boss&&!boss.dead){$("bossFill").style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";$("bossPhase").textContent="Phase "+["","I","II","III"][boss.phase]}
+}

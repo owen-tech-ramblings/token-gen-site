@@ -9,7 +9,7 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
-const vampireArchive32 = read("games/vampire-survival-iterations/iteration-32-codex.html");
+const vampireArchive33 = read("games/vampire-survival-iterations/iteration-33-codex.html");
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
@@ -114,17 +114,24 @@ assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain o
 assert.doesNotMatch(monitorJs, /driver_version/, "Monitor must not show private-only GPU driver columns unless public status includes them.");
 assert.doesNotMatch(monitorJs, /uuid/, "Monitor must not show private-only GPU UUID columns unless public status includes them.");
 
-assert.equal(vampireArchive32, vampireGame, "Iteration 32 archive must match the exact deployed game artifact.");
-assert.match(vampireGame, /iteration:\s*32/, "Vampire Survival must expose Iteration 32 to its test contract.");
+assert.equal(vampireArchive33, vampireGame, "Iteration 33 archive must match the exact deployed game artifact.");
+assert.match(vampireGame, /iteration:\s*33/, "Vampire Survival must expose Iteration 33 to its test contract.");
 assert.match(vampireGame, /profileSchema:\s*2/, "Vampire Survival must declare profile schema v2.");
 assert.match(vampireGame, /vampire_survival_profile_v2/, "Vampire Survival must use the v2 profile key.");
 assert.match(vampireGame, /vampire_survival_profile_v31/, "Vampire Survival must retain the v31 migration source key.");
-assert.match(vampireGame, /Break the three warding crosses before dawn/, "Vampire Survival must keep a useful player objective.");
+assert.match(vampireGame, /Break 3 warding crosses, then survive until dawn/, "Vampire Survival must keep the exact Night 1 objective contract.");
 assert.match(vampireGame, /Progress is saved on this device/, "Vampire Survival must explain local persistence.");
 assert.match(vampireGame, /objectiveDiagnostics/, "Vampire Survival test mode must expose objective diagnostics.");
 assert.match(vampireGame, /trimEntityOverflow\(enemies,BUILD_MAX_ENEMIES,player,boss\)/, "Vampire Survival must use the behavior-tested enemy-cap guard.");
-assert.match(vampireGame, /state\.requiredCrosses=relicPoints\.length/, "Vampire Survival must derive its active cross quota from run objectives.");
-assert.match(vampireGame, /gamePhase:GAME_PHASES\.MENU/, "Vampire Survival must expose a named game phase for future coffin transitions.");
+assert.match(vampireGame, /requiredCrosses:contract\.crossQuota/, "Vampire Survival must derive its active cross quota from the authored run contract.");
+assert.match(vampireGame, /COFFIN_TRANSITION:\s*"coffin-transition"/, "Vampire Survival must expose a named coffin transition phase.");
+assert.match(vampireGame, /recordProfileRunOutcome\(draft,outcomePayload/, "Vampire Survival must stage one idempotent profile outcome before the coffin flow.");
+assert.match(vampireGame, /persistProfileStrict\(draft\)/, "Vampire Survival must commit the staged outcome before showing the coffin.");
+assert.match(vampireGame, /Defeat the Night 5 boss/, "Vampire Survival must explain the Mist milestone lock.");
+assert.match(vampireGame, /Defeat the Night 10 boss/, "Vampire Survival must explain the Swarm milestone lock.");
+assert.match(vampireGame, /id="feedStatus">Ready/, "Vampire Survival must expose Feed's authoritative availability state.");
+assert.match(vampireGame, /renderAbilityState\("feed",currentAbilityStatus\("feed"\)/, "Vampire Survival must update Feed's cooldown feedback from gameplay state.");
+assert.match(vampireGame, /coffin-playing \.coffin-vampire/, "Vampire Survival must include the skippable coffin animation.");
 assert.match(vampireGame, /runId:state\.runId/, "Vampire Survival score records must retain a stable per-run identity.");
 assert.match(vampireGame, /Profile identity changed:/, "Vampire Survival must reject equal-revision writes from a replaced profile identity.");
 assert.match(vampireGame, /vampire-survival-profile-writer/, "Vampire Survival must serialize public profile writers across supported tabs.");
@@ -136,7 +143,8 @@ assert.match(vampireGame, /Progress could not be saved in this tab/, "Vampire Su
 assert.match(vampireGame, /audioUnavailable=true/, "Vampire Survival must continue silently when Web Audio is unavailable.");
 assert.match(vampireGame, /e\.behaviour==="boss"/, "Vampire Survival enemy behavior must dispatch from the content catalog.");
 assert.match(vampireGame, /applySettings\(\{persist:false\}\)/, "Vampire Survival startup must not create a no-change profile revision.");
-assert.equal([...vampireGame.matchAll(/role="dialog" aria-modal="true"/g)].length, 4, "Vampire Survival overlays must expose accessible modal semantics.");
+assert.equal([...vampireGame.matchAll(/role="dialog" aria-modal="true"/g)].length, 7, "Vampire Survival overlays must expose accessible modal semantics.");
+assert.doesNotMatch(vampireGame, /#mission\{display:none/, "Vampire Survival must keep the cross objective visible on mobile.");
 assert.doesNotMatch(vampireGame, /while\(enemies\.length>BUILD_MAX_ENEMIES/, "Vampire Survival must not mark every removable enemy dead at the cap.");
 assert.doesNotMatch(vampireGame, /Codex Iteration|Build 31|Iteration 31|No network, remote assets/, "Vampire Survival must not expose internal build or requirements copy.");
 assert.doesNotMatch(vampireGame, /chatgptOled|mobileSkybridge|desktopSkybridge/, "Vampire Survival must not include injected Skybridge style overrides.");

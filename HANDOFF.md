@@ -1,6 +1,44 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-14 Australia/Sydney
+Last updated: 2026-07-15 Australia/Sydney
+
+## 2026-07-15 Vampire Survival Iteration 33 Handoff
+
+Iteration 33 is implemented and locally release-verified in the canonical
+source at `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
+
+- Edit modular files in `games/vampire-survival-src/`; regenerate the
+  standalone file and archive with
+  `node tools/build-vampire-survival.mjs --archive`.
+- Campaign Night 1 and Hunt Depths 1-2 are authored in
+  `games/vampire-survival-src/progression.mjs`.
+- All three current contracts use the selected difficulty's fixed dawn timer.
+  Hunt Depth 2 raises composition, pressure, elite frequency, health, and
+  damage while retaining three crosses. Iteration 34 starts the approved
+  spaced quota cadence `3,3,4,4,4,5,5,6,6,6...`.
+- Campaign clear event `campaign:night-01:first-clear` is immutable
+  and awards one Blood Pack once. Run result, first-clear reward, Night 2
+  unlock, and the pending coffin outcome save in one profile commit before the
+  animation.
+- A failed commit remains on the result screen. A committed pending coffin
+  outcome survives reload and must be acknowledged before Rise/Leave clears
+  it.
+- The normal coffin transition is four seconds and skippable; reduced motion
+  uses a 650 ms settled state. The hub restores Blood and cooldowns and is the
+  designated home of the future Bloodline tree.
+- The exact Iteration 33 candidate and archive are 128,305 bytes with SHA-256
+  `91dc0920b475119c140c2c89982a5a8b3b358b3ac39b3a3220d3ee044f246486`.
+- Local evidence passed: 30 Node tests, site contracts, module syntax,
+  deterministic double-build, `git diff --check`,
+  Campaign/Hunt browser flows, atomic-save failure, reload continuation,
+  reduced motion, responsive layouts, 40 route checks, and a 180-second
+  108-enemy soak.
+- Detailed evidence is in
+  `games/vampire-survival-iterations/iteration-33-test-report.md`.
+
+After publication, verify the GitHub Pages commit, direct-origin artifact hash,
+Cloudflare Access redirect, and an authenticated protected gameplay/coffin
+canary before beginning Iteration 34.
 
 ## 2026-07-14 Vampire Survival Iteration 32 Handoff
 

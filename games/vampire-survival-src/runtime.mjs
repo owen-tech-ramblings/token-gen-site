@@ -1,5 +1,5 @@
 export const BUILD = Object.freeze({
-  iteration: 32,
+  iteration: 33,
   upgrades: true,
   boss: true,
   districts: true,
@@ -11,7 +11,10 @@ export const BUILD = Object.freeze({
 export const GAME_PHASES = Object.freeze({
   BOOT: "boot",
   MENU: "menu",
+  CAMPAIGN_MAP: "campaign-map",
   NIGHT_ACTIVE: "night-active",
+  COFFIN_TRANSITION: "coffin-transition",
+  COFFIN_HUB: "coffin-hub",
   RESULT: "result",
 });
 
