@@ -4,8 +4,10 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## 2026-07-15 Vampire Survival Iteration 33 Handoff
 
-Iteration 33 is implemented and locally release-verified in the canonical
-source at `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
+Iteration 33 is implemented, published, and authenticated-production verified
+in the canonical source at
+`/home/jesse/.openclaw/workspace/token-gen-site-pages`. The final
+gameplay commit is `5b1fe99`.
 
 - Edit modular files in `games/vampire-survival-src/`; regenerate the
   standalone file and archive with
@@ -35,10 +37,18 @@ source at `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
   108-enemy soak.
 - Detailed evidence is in
   `games/vampire-survival-iterations/iteration-33-test-report.md`.
+- GitHub Pages build `1095141113` completed for exact commit
+  `5b1fe99`. Direct origin returned 128,322 bytes with the exact
+  archive hash, while unauthenticated HTTPS returned the expected Cloudflare
+  Access 302.
+- The existing authenticated Windows Chrome session loaded the protected final
+  build and passed Campaign map → Night 1 → three-cross test clear → coffin
+  transition → first-clear/restoration hub → Rise → Night 2 unlocked. The
+  protected browser was returned to the title screen.
 
-After publication, verify the GitHub Pages commit, direct-origin artifact hash,
-Cloudflare Access redirect, and an authenticated protected gameplay/coffin
-canary before beginning Iteration 34.
+Next iteration: Chapter I Nights 2-5, Voss as the first milestone boss, the
+one-time Mist unlock, and full escalating Hunt with the approved quota cadence.
+Iteration 34 may begin.
 
 ## 2026-07-14 Vampire Survival Iteration 32 Handoff
 

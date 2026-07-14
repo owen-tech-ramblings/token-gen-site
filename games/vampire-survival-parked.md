@@ -1,9 +1,9 @@
 # Vampire Survival Development State
 
-Status: active; Iteration 33 locally verified and entering publication
+Status: active; Iteration 33 published and production-canary verified
 Live page: `/games/vampire-survival.html`
-Previous published build: Iteration 32, 2026-07-14
-Current archive candidate: `games/vampire-survival-iterations/iteration-33-codex.html`
+Current published build: Iteration 33, 2026-07-15
+Current archive: `games/vampire-survival-iterations/iteration-33-codex.html`
 
 ## Current State
 

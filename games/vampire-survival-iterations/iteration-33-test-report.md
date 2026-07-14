@@ -1,8 +1,8 @@
 # Vampire Survival Iteration 33 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: locally release-verified; publication and authenticated production
-canary pending
+Status: published; exact production artifact and authenticated Campaign/coffin
+canary passed
 
 ## Artifact
 
@@ -123,3 +123,23 @@ the Campaign map and coffin hub remain vertically scrollable.
 - Known-good published baseline: Iteration 32 release commit `abf7cd3`.
 - Static rollback artifact:
   `games/vampire-survival-iterations/iteration-32-codex.html`.
+
+## Publication Evidence
+
+- Final gameplay commit `5b1fe9949fac90e50ea584a9b6dc5055cfa0b02d`
+  was pushed to both public and private `master__ remotes.
+- GitHub Pages build `1095141113` completed successfully for that
+  exact commit.
+- A direct Pages-origin request returned HTTP 200, 128,322 bytes, and SHA-256
+  `bb0fc35cb5a7bf8c9dbd1477abf46677c3dfc54e6da195ff08de7f611f0239db`.
+- Unauthenticated public HTTPS returned the expected Cloudflare Access 302.
+- The existing authenticated Windows Chrome session hard-refreshed to the
+  final Iteration 33 build, opened Campaign, entered Night 1, and showed the
+  live three-cross objective plus Feed/Dash Ready and Mist/Swarm milestone
+  locks.
+- The safe `?test=1` adapter completed all three crosses and dawn.
+  Production showed the normal coffin transition, first-clear reward, restored
+  cooldowns, one Blood Pack, Rise for Night 2, and the map's Night 2
+  Unlocked/arrives-with-Chapter-I state.
+- The protected browser was returned to the title screen. No Cloudflare,
+  mailbox, DNS, Worker, or Access settings were changed.

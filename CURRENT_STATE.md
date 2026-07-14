@@ -4,8 +4,9 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## Vampire Survival Iteration 33 - 2026-07-15
 
-- Iteration 33 is a locally verified release candidate. It adds Campaign
-  Night 1, a two-depth Hunt preview, and the full survived-night coffin loop.
+- Iteration 33 was published from the canonical Pages repo at final gameplay
+  commit `5b1fe99` on 2026-07-15. It adds Campaign Night 1, a
+  two-depth Hunt preview, and the full survived-night coffin loop.
 - Campaign Night 1 starts with Feed and Dash. Mist is visibly locked behind
   the Night 5 boss and Swarm behind the Night 10 boss.
 - Every run now uses an authored objective contract. Night length remains fixed
@@ -29,8 +30,17 @@ Last updated: 2026-07-15 Australia/Sydney
   and Hunt flows, save-failure and reload recovery, reduced motion, desktop and
   mobile layouts, 40 cross-route generations, and a three-minute 108-enemy
   soak.
-- Exact local artifact: 128,322 bytes; SHA-256
+- The direct production origin returned the exact 128,322-byte artifact with
+  SHA-256
   `bb0fc35cb5a7bf8c9dbd1477abf46677c3dfc54e6da195ff08de7f611f0239db`.
+- GitHub Pages build `1095141113` completed successfully for exact
+  commit `5b1fe99`. The unauthenticated HTTPS route returns the
+  expected Cloudflare Access 302.
+- The authenticated production canary passed through the Campaign map, live
+  Night 1 HUD, three-cross objective, locked Mist/Swarm states, safe
+  `?test=1` clear, coffin transition, first-clear reward, restoration
+  hub, Rise action, and Night 2 unlocked/coming-soon map state. The browser was
+  returned to the title screen. Iteration 34 is unblocked.
 - Detailed evidence:
   `games/vampire-survival-iterations/iteration-33-test-report.md`.
 

@@ -152,7 +152,8 @@ Bytes: 101657
 
 ## Iteration 33
 
-Accepted local Codex release candidate 33 on 2026-07-15. Campaign Night 1 now
+Accepted and published Codex release 33 on 2026-07-15 at final gameplay commit
+`5b1fe99`. Campaign Night 1 now
 uses an exact fixed-duration objective contract, Feed/Dash start unlocked, and
 Mist/Swarm show their Night 5/Night 10 milestone locks. A successful night
 commits the run, one-time reward, next-night unlock, and resumable pending
@@ -175,10 +176,9 @@ Bytes: 128322
 
 ## Active Roadmap
 
-The experiment is active. Iteration 32 is published, Iteration 33 is locally
-release-verified, and Iterations 34-40 are planned. Publication and the
-authenticated Iteration 33 production canary are the remaining gate before
-Chapter I begins.
+The experiment is active. Iterations 32 and 33 are published, the authenticated
+Iteration 33 Campaign/coffin production canary passed, and Iterations 34-40 are
+planned. Chapter I may begin.
 
 - Current live build: `games/vampire-survival.html`
 - Snapshot: `games/vampire-survival-iterations/iteration-33-codex.html`

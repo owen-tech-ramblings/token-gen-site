@@ -56,7 +56,7 @@ Status: published and authenticated production gameplay canary passed.
 
 Purpose: prove the new connective loop before producing a full chapter.
 
-Status: implemented and locally release-verified; publication gate in progress.
+Status: published; authenticated production Campaign/coffin canary passed.
 
 - Add a Campaign map with only Night 1 playable.
 - Start with Feed and Dash. Show Mist and Swarm locked with milestone text.
