@@ -4,7 +4,8 @@ Last updated: 2026-07-14 Australia/Sydney
 
 ## Vampire Survival Iteration 32 - 2026-07-14
 
-- Iteration 32 is locally complete and awaiting the publish gate.
+- Iteration 32 was published from the canonical Pages repo at commit `abf7cd3`
+  on 2026-07-14. GitHub Pages reported that exact commit built successfully.
 - The standalone game is now generated from modular vanilla-JS source in
   `games/vampire-survival-src/`; the exact generated artifact is archived as
   `games/vampire-survival-iterations/iteration-32-codex.html`.
@@ -29,6 +30,12 @@ Last updated: 2026-07-14 Australia/Sydney
 - Roadmap: `games/vampire-survival-iterations/iterations-32-40-roadmap.md`.
 - Detailed evidence:
   `games/vampire-survival-iterations/iteration-32-test-report.md`.
+- Post-deploy origin verification returned the exact 101,657-byte release file
+  and SHA-256 `0e058d4c0dccf3d63ccaf29371e42846ef8173b5e74ac1cc18d1dea73b36e3dd`.
+  Cloudflare Access returns the expected protected-login redirect. The final
+  authenticated 200/gameplay canary is still pending because the Windows
+  browser-control bridge was unavailable; do not start Iteration 33 until that
+  authenticated check passes.
 
 ## Current Chat System Prompt - 2026-07-13
 

@@ -135,8 +135,8 @@ Bytes: 64189
 
 ## Iteration 32
 
-Accepted Codex foundation pass 32 on 2026-07-14 for publication after the
-release gate. The standalone artifact is generated from modular source, uses
+Accepted and published Codex foundation pass 32 on 2026-07-14 at release
+commit `abf7cd3`. The standalone artifact is generated from modular source, uses
 profile schema v2 with one-time v31 migration and corrupt-save recovery, and
 retains the Iteration 31 gameplay path.
 
@@ -152,8 +152,8 @@ Bytes: 101657
 
 ## Active Roadmap
 
-The experiment is active. Iteration 32 is ready for publication and Iterations
-33-40 are planned.
+The experiment is active. Iteration 32 is published and Iterations 33-40 are
+planned. Iteration 33 remains gated on the authenticated production canary.
 
 - Current live build: `games/vampire-survival.html`
 - Snapshot: `games/vampire-survival-iterations/iteration-32-codex.html`

@@ -4,8 +4,9 @@ Last updated: 2026-07-14 Australia/Sydney
 
 ## 2026-07-14 Vampire Survival Iteration 32 Handoff
 
-Iteration 32 is implemented and locally verified but not yet published. The
-canonical source is `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
+Iteration 32 is implemented, locally verified, and published at commit
+`abf7cd3`. The canonical source is
+`/home/jesse/.openclaw/workspace/token-gen-site-pages`.
 
 - Edit files in `games/vampire-survival-src/`, not the generated live HTML.
 - Build and archive with:
@@ -16,7 +17,7 @@ canonical source is `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
   `node --test tools/vampire-survival-profile.test.mjs`.
 - Run the shared contract suite with:
   `node tools/site-contract-tests.mjs`.
-- Iteration 32 archive SHA-256 before publication:
+- Iteration 32 archive SHA-256:
   `0e058d4c0dccf3d63ccaf29371e42846ef8173b5e74ac1cc18d1dea73b36e3dd`.
 - The v2 local profile key is `vampire_survival_profile_v2`; retain
   `vampire_survival_profile_v31` for migration and
@@ -31,6 +32,11 @@ canonical source is `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
   coffin/Bloodline/loadout surfaces is deliberately not claimed yet.
 - Do not begin Iteration 33 until Iteration 32 is pushed and the authenticated
   public route passes its live canary.
+- GitHub Pages reported commit `abf7cd3` built. A direct origin request returned
+  101,657 bytes with the exact archive hash, and the public hostname returned
+  the expected Cloudflare Access login redirect. The authenticated 200/gameplay
+  canary remains pending because the Windows browser-control bridge was
+  unavailable during deployment verification.
 
 Next iteration: Campaign Night 1, the atomic clear state, fixed-duration cross
 contract, the skippable/reduced-motion coffin transition, coffin restoration

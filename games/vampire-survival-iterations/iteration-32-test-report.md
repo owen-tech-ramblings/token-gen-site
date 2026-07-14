@@ -1,8 +1,8 @@
 # Vampire Survival Iteration 32 Test Report
 
 Date: 2026-07-14 Australia/Sydney
-Status: local release candidate passed; authenticated production canary pending
-publication
+Status: published; exact production origin artifact passed; authenticated
+Cloudflare Access gameplay canary pending
 
 ## Artifact
 
@@ -186,3 +186,17 @@ surface contains Codex/build/requirements wording.
   `8375ed8` (game feature commit `93e55c8`).
 - Static rollback artifact:
   `games/vampire-survival-iterations/iteration-31-codex.html`.
+
+## Publication Evidence
+
+- Release commit: `abf7cd3b6f9d64074ec4e6948bd0d87cb9ada087`.
+- Public and private `master` remotes both advanced to the release commit.
+- GitHub Pages build `1095000280` completed successfully for that exact commit.
+- A direct GitHub Pages origin request for the production hostname returned
+  HTTP 200, 101,657 bytes, and the exact release SHA-256.
+- The public HTTPS route returned the expected Cloudflare Access 302 and
+  protected-resource metadata.
+- The authenticated HTTP 200/gameplay canary is still pending. Windows browser
+  control failed before reaching the desktop because its required sandbox
+  metadata was unavailable, and the isolated browser could not import a Windows
+  Chromium profile. No Access, DNS, Worker, or mailbox settings were changed.
