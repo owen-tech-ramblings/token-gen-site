@@ -111,7 +111,48 @@ export const CAMPAIGN_NIGHTS = Object.freeze({
     pressure: 1.72, eliteBonus: 0.145, enemyHp: 1.34, enemyDamage: 1.24, startingGuards: 10, startingHunters: 5,
     crossPoints: Object.freeze([[400, 390], [1570, 330], [2790, 440], [520, 1770], [2670, 1770]]),
   }),
+  11: Object.freeze({
+    id: "night-11", title: "Ashen Convergence", briefing: "Break 5 warding crosses and end the 3 Convergence Marshals before dawn.",
+    crossQuota: 5, lieutenantQuota: 3, lieutenantType: "captain", lieutenantName: "Convergence Marshals", encounter: "mixed-assault",
+    pressure: 1.8, eliteBonus: 0.16, enemyHp: 1.38, enemyDamage: 1.26, startingGuards: 10, startingHunters: 5,
+    crossPoints: Object.freeze([[370, 360], [1540, 320], [2830, 450], [490, 1810], [2710, 1780]]),
+  }),
+  12: Object.freeze({
+    id: "night-12", title: "Sixfold Ward", briefing: "Break 6 warding crosses and silence the 3 Reliquary Keepers before dawn.",
+    crossQuota: 6, lieutenantQuota: 3, lieutenantType: "bellkeeper", lieutenantName: "Reliquary Keepers", encounter: "sixfold",
+    pressure: 1.88, eliteBonus: 0.175, enemyHp: 1.42, enemyDamage: 1.29, startingGuards: 11, startingHunters: 5,
+    crossPoints: Object.freeze([[370, 350], [1500, 310], [2830, 400], [410, 1730], [1600, 1890], [2790, 1700]]),
+  }),
+  13: Object.freeze({
+    id: "night-13", title: "The Silver Tempest", briefing: "Break 6 warding crosses and defeat the 4 Tempest Riders before dawn.",
+    crossQuota: 6, lieutenantQuota: 4, lieutenantType: "hunter", lieutenantName: "Tempest Riders", encounter: "silver-tempest",
+    pressure: 1.97, eliteBonus: 0.19, enemyHp: 1.47, enemyDamage: 1.32, startingGuards: 11, startingHunters: 7,
+    crossPoints: Object.freeze([[430, 440], [1580, 300], [2800, 510], [360, 1650], [1680, 1870], [2840, 1640]]),
+  }),
+  14: Object.freeze({
+    id: "night-14", title: "Dawn's Gauntlet", briefing: "Break 6 warding crosses and destroy the 4 Dawn Captains before dawn.",
+    crossQuota: 6, lieutenantQuota: 4, lieutenantType: "captain", lieutenantName: "Dawn Captains", encounter: "dawn-gauntlet",
+    pressure: 2.07, eliteBonus: 0.21, enemyHp: 1.52, enemyDamage: 1.36, startingGuards: 12, startingHunters: 7,
+    crossPoints: Object.freeze([[350, 390], [1640, 310], [2860, 430], [390, 1790], [1530, 1900], [2820, 1760]]),
+  }),
+  15: Object.freeze({
+    id: "night-15", title: "The Uncrowned Dawn", briefing: "Break 6 warding crosses and survive until dawn. Archon Sol waits beyond it.",
+    crossQuota: 6, lieutenantQuota: 0, lieutenantType: null, lieutenantName: "", encounter: "sol", bossId: "sol",
+    pressure: 2.18, eliteBonus: 0.23, enemyHp: 1.58, enemyDamage: 1.4, startingGuards: 13, startingHunters: 8,
+    crossPoints: Object.freeze([[360, 340], [1550, 300], [2860, 380], [350, 1760], [1640, 1910], [2860, 1730]]),
+  }),
 });
+
+export const HUNT_MUTATORS = Object.freeze([
+  Object.freeze({ id: "blood-famine", name: "Blood Famine", description: "Roses restore 30% less Blood." }),
+  Object.freeze({ id: "silver-rain", name: "Silver Rain", description: "Sanctified zones fall throughout the night." }),
+  Object.freeze({ id: "swift-hunters", name: "Swift Hunters", description: "Hostile movement is 12% faster." }),
+]);
+
+export function huntMutatorForDepth(depth) {
+  if (!Number.isInteger(depth) || depth < 1) throw new Error("Hunt depth must be positive");
+  return HUNT_MUTATORS[(depth - 1) % HUNT_MUTATORS.length];
+}
 
 const HUNT_CROSS_LAYOUTS = Object.freeze({
   3: Object.freeze([
@@ -145,6 +186,7 @@ export function createHuntDepth(depth) {
   const layouts = HUNT_CROSS_LAYOUTS[crossQuota];
   const crossPoints = layouts[(depth - 1) % layouts.length];
   const tier = Math.floor((depth - 1) / 3);
+  const milestoneBoss = depth % 5 === 0 ? (depth % 15 === 0 ? "sol" : depth % 10 === 0 ? "elowen" : "voss") : null;
   return Object.freeze({
     id: `hunt-depth-${depth}`,
     title: `Hunt Depth ${depth}`,
@@ -154,6 +196,8 @@ export function createHuntDepth(depth) {
     lieutenantType: null,
     lieutenantName: "",
     encounter: depth >= 8 ? "chapter-two-hunt" : depth >= 4 ? "escalation" : "hunt",
+    bossId: milestoneBoss,
+    mutator: huntMutatorForDepth(depth),
     pressure: Math.min(2.35, 1 + (depth - 1) * 0.095),
     eliteBonus: Math.min(0.24, 0.01 + (depth - 1) * 0.022),
     enemyHp: Math.min(1.72, 1 + (depth - 1) * 0.045),
@@ -281,7 +325,7 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
         grade: entry.grade,
         score: entry.score,
       };
-      draft.campaign.unlockedNight = Math.max(draft.campaign.unlockedNight, outcome.campaignNight + 1);
+      draft.campaign.unlockedNight = Math.max(draft.campaign.unlockedNight, Math.min(15, outcome.campaignNight + 1));
       draft.economy.events[clearId] = {
         amount: 1,
         source: "first-clear",
@@ -310,15 +354,24 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
         draft.campaign.abilityUnlocks.swarm = true;
         draft.appliedEvents[swarmUnlockId] = { appliedAt: nowValue };
       }
+      if (outcome.campaignNight === 15) {
+        const endingId = "campaign:night-15:ending";
+        const ascensionId = "campaign:night-15:unlock-ascension";
+        draft.campaign.endingUnlocked = true;
+        draft.hunt.ascensionUnlocked = true;
+        draft.appliedEvents[endingId] = { appliedAt: nowValue };
+        draft.appliedEvents[ascensionId] = { appliedAt: nowValue };
+      }
     }
     coffinOutcome = {
       eventId: runEventId,
       mode: "campaign",
       night: outcome.campaignNight,
-      nextNight: outcome.campaignNight < 10 ? outcome.campaignNight + 1 : null,
+      nextNight: outcome.campaignNight < 15 ? outcome.campaignNight + 1 : null,
       mistUnlocked: firstClear && outcome.campaignNight === 5,
       huntUnlocked: firstClear && outcome.campaignNight === 5,
       swarmUnlocked: firstClear && outcome.campaignNight === 10,
+      endingUnlocked: firstClear && outcome.campaignNight === 15,
       firstClear,
       bloodPacks: firstClear ? 1 : 0,
       grade: entry.grade,

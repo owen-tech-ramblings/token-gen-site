@@ -65,14 +65,16 @@ function resetRun(options={}){
   const campaignNight=options.campaignNight||1;
   const huntDepth=options.huntDepth||1;
   const difficultyId=$("difficulty").value;
-  const contract=createRunContract({mode,difficulty:DIFFICULTIES[difficultyId],campaignNight,huntDepth});
+  const baseContract=createRunContract({mode,difficulty:DIFFICULTIES[difficultyId],campaignNight,huntDepth});
+  const ascension=mode==="hunt"&&profile.hunt.ascensionUnlocked&&Boolean(options.ascension??($("huntRite")?.value==="ascension"));
+  const contract=ascension?{...baseContract,pressure:baseContract.pressure*1.18,enemyHp:baseContract.enemyHp*1.12,enemyDamage:baseContract.enemyDamage*1.12,scoreMultiplier:(baseContract.scoreMultiplier||1)*1.3}:baseContract;
   const bloodlineStats=deriveBloodlineRunStats(profile.bloodline.allocation);
   const seed=runSeed(contract);
   rng=mulberry32(hashText(seed));
   makeCity();
   state={
     gamePhase:GAME_PHASES.MENU,runId:newRunId(),running:false,paused:false,over:false,win:false,
-    mode,campaignNight:contract.campaignNight,huntDepth:contract.huntDepth,contract,
+    mode,campaignNight:contract.campaignNight,huntDepth:contract.huntDepth,contract,ascension,huntMutator:contract.mutator||null,
     time:0,score:0,phase:1,threat:1,difficulty:difficultyId,seed,spawnTimer:0,
     relicsBroken:0,requiredCrosses:contract.crossQuota,dawn:contract.dawn,grace:contract.grace,
     lieutenantsDefeated:0,requiredLieutenants:contract.lieutenantQuota||0,bossActive:false,bossDefeated:false,
@@ -113,6 +115,7 @@ function resetRun(options={}){
 
 function enemyTypeForTime(){
   const p=state.phase,r=rng(),depthBoost=state.mode==="hunt"?Math.min(3,Math.floor((state.huntDepth-1)/3)):0,encounter=state.contract.encounter;
+  if((encounter==="mixed-assault"||encounter==="sixfold"||encounter==="silver-tempest"||encounter==="dawn-gauntlet"||encounter==="sol")&&p>=2&&r<.16)return"bellkeeper";
   if((encounter==="bellward"||encounter==="tolling-lock"||encounter==="elowen"||encounter==="chapter-two-hunt")&&p>=2&&r<.22)return"bellkeeper";
   if(encounter==="procession"&&p>=2&&r<.3)return"priest";
   if(encounter==="fog"&&p>=2&&r<.38)return"hunter";
@@ -143,7 +146,7 @@ function spawnEnemy(type=enemyTypeForTime(),inside=false,elite=false){
   const hp=base.hp*difficultyContract.enemyHp*state.contract.enemyHp*(elite?1.75:1);
   const enemy={
     id:"enemy-"+(++entityCounter),type,behaviour:base.behaviour,x:point.x,y:point.y,
-    radius:base.radius+(elite?2:0),hp,maxHp:hp,speed:base.speed*(elite?1.12:1),
+    radius:base.radius+(elite?2:0),hp,maxHp:hp,speed:base.speed*(elite?1.12:1)*(state.huntMutator?.id==="swift-hunters"?1.12:1),
     damage:base.damage*difficultyContract.enemyDamage*state.contract.enemyDamage*(elite?1.35:1),
     score:base.score*(elite?2.1:1),xp:base.xp*(elite?1.7:1),
     state:base.behaviour==="flee"?"roam":"patrol",target:randomOpenPoint(true),
@@ -158,15 +161,16 @@ function spawnBoss(){
   if(boss!==null)return boss;
   const bossType=state.contract.bossId||"voss",point=safePoint(WORLD.w*.5,220,45),base=ENEMY_TYPES[bossType],difficultyContract=difficulty();
   invariant(base?.behaviour==="boss",`Unknown boss ${bossType}`);
+  const bossIds={voss:"captain-voss",elowen:"sister-elowen",sol:"archon-sol"};
   boss={
-    id:bossType==="voss"?"captain-voss":"sister-elowen",type:bossType,behaviour:base.behaviour,x:point.x,y:point.y,radius:base.radius,
+    id:bossIds[bossType],type:bossType,behaviour:base.behaviour,x:point.x,y:point.y,radius:base.radius,
     hp:base.hp*difficultyContract.enemyHp*state.contract.enemyHp,maxHp:base.hp*difficultyContract.enemyHp*state.contract.enemyHp,speed:base.speed,
     damage:base.damage*difficultyContract.enemyDamage*state.contract.enemyDamage,score:base.score,xp:base.xp,state:"boss",
     cooldown:1.6,shotCd:1.1,hit:0,angle:0,phase:1,pattern:"arrival",patternTime:1.4,
     elite:true,dead:false,target:{x:player.x,y:player.y},
   };
   enemies.push(boss);state.bossIntro=BUILD.polish?1.35:0;
-  const bossName=bossType==="voss"?"Captain Voss, Dawn Marshal":"Sister Elowen, Warden of Bells";
+  const bossName=bossType==="voss"?"Captain Voss, Dawn Marshal":bossType==="elowen"?"Sister Elowen, Warden of Bells":"Archon Sol, the Uncrowned Dawn";
   $("bossName").textContent=bossName;$("bossWrap").style.display="block";$("bossWrap").classList.add("active");toast(`${bossName} enters the hunt`,3);chord(72,61,49);
   return boss;
 }

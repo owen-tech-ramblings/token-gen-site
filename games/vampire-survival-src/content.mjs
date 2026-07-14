@@ -23,6 +23,7 @@ export const ENEMY_TYPES = Object.freeze({
   bellkeeper: { hp: 72, speed: 96, damage: 13, score: 245, xp: 44, colour: "#66b9c9", radius: 14, behaviour: "bell" },
   voss: { hp: 760, speed: 112, damage: 20, score: 3600, xp: 220, colour: "#f04a63", radius: 26, behaviour: "boss" },
   elowen: { hp: 980, speed: 128, damage: 22, score: 4800, xp: 280, colour: "#8eddeb", radius: 27, behaviour: "boss" },
+  sol: { hp: 1380, speed: 142, damage: 25, score: 7200, xp: 360, colour: "#f0c86b", radius: 30, behaviour: "boss" },
 });
 
 export const PACTS = Object.freeze([
@@ -47,6 +48,7 @@ export const ACHIEVEMENTS = Object.freeze({
   untouched: "Untouched Night",
   voss: "Marshal Breaker",
   elowen: "Last Bell Silenced",
+  sol: "Dawn Uncrowned",
   s_rank: "S-Rank Predator",
   daily: "Creature of Habit",
 });

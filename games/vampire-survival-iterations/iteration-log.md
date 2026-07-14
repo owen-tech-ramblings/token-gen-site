@@ -1,5 +1,18 @@
 # Vampire Survival Qwen Iterations
 
+## Iteration 38
+
+- Completed Campaign Nights 11-15, the hardest validated six-cross routes,
+  mixed Chapter III encounters, and Archon Sol's separate final boss phase.
+- Added the committed one-time ending and Ascension Hunt without making local
+  play or completion depend on network access.
+- Expanded all Bloodline paths to seven nodes each (21 total).
+- Hunt now rotates three mutators and returns Voss, Elowen, or Sol every five
+  depths while keeping normal-night duration fixed.
+- Passed 41 tests, all 15 collision-free route checks, exact archive
+  contracts, ending/Ascension browser QA, responsive review, deterministic
+  builds, and the accepted performance comparison.
+
 ## Iteration 37
 
 - Delivered Campaign Nights 6-10, the Bell Keeper family, five distinct

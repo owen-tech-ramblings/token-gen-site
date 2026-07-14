@@ -26,6 +26,8 @@ export const BLOODLINE_BRANCHES = Object.freeze([
       { id: "red-harvest", name: "Red Harvest", cost: 2, prerequisite: "predator-teeth", stat: "roseHeal", operation: "add", amount: 4, effect: "+4 Blood from roses", flavor: "Even fallen petals remember the vein." },
       { id: "blood-feast", name: "Blood Feast", cost: 2, prerequisite: "red-harvest", stat: "feedDamage", operation: "add", amount: 5, effect: "+5 Feed damage", flavor: "A city is only a banquet that learned to build walls." },
       { id: "undying-thirst", name: "Undying Thirst", cost: 3, prerequisite: "blood-feast", stat: "maxBlood", operation: "add", amount: 16, effect: "+16 maximum Blood", flavor: "Dawn finds the ancient hunger still awake." },
+      { id: "crimson-eternity", name: "Crimson Eternity", cost: 3, prerequisite: "undying-thirst", stat: "feedDamage", operation: "add", amount: 6, effect: "+6 Feed damage", flavor: "Centuries refine hunger into an art." },
+      { id: "heart-of-night", name: "Heart of Night", cost: 4, prerequisite: "crimson-eternity", stat: "maxBlood", operation: "add", amount: 20, effect: "+20 maximum Blood", flavor: "Night itself keeps time inside the chest." },
     ],
   }),
   bloodlineBranch({
@@ -38,6 +40,8 @@ export const BLOODLINE_BRANCHES = Object.freeze([
       { id: "lingering-mist", name: "Lingering Mist", cost: 2, prerequisite: "spectral-step", stat: "mistDuration", operation: "add", amount: 0.3, effect: "+0.30s Mist duration", flavor: "The fog remains after the hunter looks away." },
       { id: "veil-runner", name: "Veil Runner", cost: 2, prerequisite: "lingering-mist", stat: "mistBase", operation: "multiply", amount: 0.9, effect: "-10% Mist cooldown", flavor: "Every veil is a road to those without breath." },
       { id: "moonless-flight", name: "Moonless Flight", cost: 3, prerequisite: "veil-runner", stat: "speed", operation: "multiply", amount: 1.04, effect: "+4% movement speed", flavor: "No moon is needed when shadow remembers the way." },
+      { id: "mist-sovereign", name: "Mist Sovereign", cost: 3, prerequisite: "moonless-flight", stat: "mistDuration", operation: "add", amount: 0.3, effect: "+0.30s Mist duration", flavor: "The body becomes a rumour the wind repeats." },
+      { id: "eclipse-step", name: "Eclipse Step", cost: 4, prerequisite: "mist-sovereign", stat: "dashCooldown", operation: "add", amount: -0.3, effect: "-0.30s Dash cooldown", flavor: "Move in the instant when sun and moon disagree." },
     ],
   }),
   bloodlineBranch({
@@ -50,6 +54,8 @@ export const BLOODLINE_BRANCHES = Object.freeze([
       { id: "midnight-fervor", name: "Midnight Fervor", cost: 2, prerequisite: "wardbreaker", stat: "frenzyGain", operation: "multiply", amount: 1.12, effect: "+12% frenzy gain", flavor: "The darkest hour beats like a second heart." },
       { id: "thrall-mastery", name: "Thrall Mastery", cost: 2, prerequisite: "midnight-fervor", stat: "thrallLifetime", operation: "add", amount: 6, effect: "+6s Thrall lifetime", flavor: "Obedience outlives the voice that ordered it." },
       { id: "swarm-crown", name: "Swarm Crown", cost: 3, prerequisite: "thrall-mastery", stat: "swarmDamage", operation: "add", amount: 8, effect: "+8 Swarm damage", flavor: "A thousand wings make one royal shadow." },
+      { id: "legion-command", name: "Legion Command", cost: 3, prerequisite: "swarm-crown", stat: "thrallDamage", operation: "add", amount: 5, effect: "+5 Thrall damage", flavor: "One glance sends the dead to war." },
+      { id: "nightfall-wings", name: "Nightfall Wings", cost: 4, prerequisite: "legion-command", stat: "swarmRadius", operation: "add", amount: 30, effect: "+30 Swarm radius", flavor: "The horizon darkens beneath obedient wings." },
     ],
   }),
 ]);
@@ -354,11 +360,12 @@ export function freshProfileV2(options = {}) {
       clears: {},
       abilityUnlocks: { feed: true, dash: true, mist: false, swarm: false, createThrall: false },
       endingUnlocked: false,
+      endingSeen: false,
       pendingCoffinOutcome: null,
     },
     economy: { events: {} },
     bloodline: { allocation: {}, purchases: {}, loadout: [], loadoutConfigured: false, nextTransaction: 1, lastPurchaseId: null },
-    hunt: { unlocked: false, bestDepth: 0, scores: {} },
+    hunt: { unlocked: false, ascensionUnlocked: false, bestDepth: 0, scores: {} },
     appliedEvents: {},
     migration: { sourceVersion: null, sourceFingerprint: null, sourceSnapshot: null, migratedAt: null },
   };
@@ -407,6 +414,9 @@ export function normaliseProfileV2(candidate) {
     profile.bloodline.loadoutConfigured = true;
   }
   profile.hunt.unlocked = Boolean(profile.campaign.clears["night-5"]);
+  profile.campaign.endingUnlocked = Boolean(profile.campaign.clears["night-15"]);
+  profile.campaign.endingSeen = Boolean(profile.campaign.endingSeen);
+  profile.hunt.ascensionUnlocked = Boolean(profile.campaign.clears["night-15"]);
   validateBloodlineState(profile.bloodline);
   validateTalentLoadout(profile);
   for (const [eventId, event] of Object.entries(profile.economy.events)) {

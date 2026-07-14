@@ -4,7 +4,7 @@ function snapshot(){
   return{
     iteration:BUILD.iteration,gamePhase:state.gamePhase,runId:state.runId,running:state.running,
     paused:state.paused,over:state.over,win:state.win,time:state.time,score:state.score,
-    mode:state.mode,campaignNight:state.campaignNight,huntDepth:state.huntDepth,
+    mode:state.mode,campaignNight:state.campaignNight,huntDepth:state.huntDepth,ascension:state.ascension,huntMutator:state.huntMutator?{...state.huntMutator}:null,
     requiredCrosses:state.requiredCrosses,relicsBroken:state.relicsBroken,
     requiredLieutenants:state.requiredLieutenants,lieutenantsDefeated:state.lieutenantsDefeated,bossActive:state.bossActive,bossDefeated:state.bossDefeated,
     failureReason:state.failureReason,clearCommitFailed:state.clearCommitFailed,
@@ -13,9 +13,10 @@ function snapshot(){
     player:{x:player.x,y:player.y,blood:player.blood,maxBlood:player.maxBlood,level:player.level,pacts:{...player.pacts},combo:player.combo,dashCd:player.dashCd,dashBase:player.dashBase,thrallCd:player.thrallCd,mistCd:player.mistCd,swarmCd:player.swarmCd,speed:player.speed,range:player.range,feedDamage:player.feedDamage,relicDamage:player.relicDamage,roseHeal:player.roseHeal,mistDuration:player.mistDuration,frenzyGain:player.frenzyGain},
     abilities:{feed:currentAbilityStatus("feed"),dash:currentAbilityStatus("dash"),createThrall:currentAbilityStatus("createThrall"),mist:currentAbilityStatus("mist"),swarm:currentAbilityStatus("swarm")},
     boss:boss?{id:boss.id,type:boss.type,hp:boss.hp,maxHp:boss.maxHp,phase:boss.phase,pattern:boss.pattern,dead:boss.dead}:null,telegraphs:telegraphs.length,hazards:hazards.length,
-    pactOpen:!$("pactModal").classList.contains("hidden"),frenzy:state.frenzy,bloodMoon:state.bloodMoon,
+    pactOpen:!$("pactModal").classList.contains("hidden"),endingOpen:!$("endingModal").classList.contains("hidden"),frenzy:state.frenzy,bloodMoon:state.bloodMoon,
     achievements:[...profile.achievements],seed:state.seed,
     coffinOutcome:profile.campaign.pendingCoffinOutcome?structuredClone(profile.campaign.pendingCoffinOutcome):null,
+    finale:{endingUnlocked:profile.campaign.endingUnlocked,endingSeen:profile.campaign.endingSeen,ascensionUnlocked:profile.hunt.ascensionUnlocked},
     bloodPacks:profileBalance(profile),
     bloodline:{allocation:{...profile.bloodline.allocation},loadout:[...profile.bloodline.loadout],lastPurchaseId:profile.bloodline.lastPurchaseId,nextTransaction:profile.bloodline.nextTransaction,activeRunNodes:[...(state.bloodlineStats?.activeNodes||[])]},
     thralls:{active:thralls.map(thrall=>({id:thrall.id,sourceId:thrall.sourceId,targetId:thrall.targetId,life:thrall.life})),conversion:state.thrallConversion?{...state.thrallConversion}:null},
@@ -36,7 +37,7 @@ function objectiveDiagnostics(){
 
 if(TESTING){
   window.__VS_TEST__={
-    start(options={}){if(options.difficulty)$("difficulty").value=options.difficulty;if(options.seedMode)$("runMode").value=options.seedMode;const mode=options.mode||"campaign";$("gameMode").value=mode;startRun({mode,campaignNight:options.campaignNight||1,huntDepth:options.huntDepth||1});return snapshot()},
+    start(options={}){if(options.difficulty)$("difficulty").value=options.difficulty;if(options.seedMode)$("runMode").value=options.seedMode;const mode=options.mode||"campaign";$("gameMode").value=mode;startRun({mode,campaignNight:options.campaignNight||1,huntDepth:options.huntDepth||1,ascension:Boolean(options.ascension)});return snapshot()},
     tick(seconds,step=1/60){const count=Math.ceil(seconds/step);for(let index=0;index<count;index++)update(step);draw();return snapshot()},
     snapshot,
     forceLevel(){player.xp=player.nextXp;levelCheck();return snapshot()},
@@ -45,6 +46,7 @@ if(TESTING){
     defeatLieutenants(){for(const enemy of enemies)if(enemy.objectiveLieutenant&&!enemy.dead)damageEnemy(enemy,enemy.hp+1,false);return snapshot()},
     forceDawn({breakCrosses=false,defeatLieutenants=false}={}){if(breakCrosses)this.breakRelics();if(defeatLieutenants)this.defeatLieutenants();state.pactPending=0;state.paused=false;hideDialog("pactModal",false);state.hitStop=0;state.bossIntro=0;state.time=state.dawn;update(1/60);return snapshot()},
     finishCoffin(){finishCoffinTransition();return snapshot()},
+    completeEnding(){completeEnding();return snapshot()},
     openBloodline(){openBloodline();return snapshot()},
     buyBloodline(nodeId){buyBloodlineNode(nodeId);return snapshot()},
     undoBloodline(){undoBloodline();return snapshot()},

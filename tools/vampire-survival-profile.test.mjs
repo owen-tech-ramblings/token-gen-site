@@ -6,12 +6,14 @@ import { ACHIEVEMENTS, DIFFICULTIES, DISTRICTS, ENEMY_TYPES, PACTS, WORLD } from
 import {
   ABILITY_RULES,
   CAMPAIGN_NIGHTS,
+  HUNT_MUTATORS,
   abilityAvailability,
   campaignClearEventId,
   clearPendingCoffinOutcome,
   createHuntDepth,
   createRunContract,
   huntCrossQuota,
+  huntMutatorForDepth,
   recordProfileRunOutcome,
   stableNearestTarget,
 } from "../games/vampire-survival-src/progression.mjs";
@@ -79,15 +81,15 @@ function legacyProfile(overrides = {}) {
   };
 }
 
-test("iteration 37 runtime and content contracts remain complete", () => {
-  assert.equal(BUILD.iteration, 37);
+test("iteration 38 runtime and content contracts remain complete", () => {
+  assert.equal(BUILD.iteration, 38);
   assert.equal(BUILD.profileSchema, 2);
   assert.equal(PROFILE_SCHEMA_VERSION, 2);
   assert.equal(Object.keys(DIFFICULTIES).length, 3);
   assert.equal(DISTRICTS.length, 5);
-  assert.equal(Object.keys(ENEMY_TYPES).length, 8);
+  assert.equal(Object.keys(ENEMY_TYPES).length, 9);
   assert.equal(PACTS.length, 12);
-  assert.equal(Object.keys(ACHIEVEMENTS).length, 8);
+  assert.equal(Object.keys(ACHIEVEMENTS).length, 9);
   assert.deepEqual(WORLD, { w: 3200, h: 2200 });
   const first = mulberry32(hashText("stable-seed"));
   const second = mulberry32(hashText("stable-seed"));
@@ -98,12 +100,12 @@ test("iteration 37 runtime and content contracts remain complete", () => {
   assert.notEqual(createRunSeed("daily", { now: () => new Date("2026-07-15T00:00:00.000Z") }), createRunSeed("daily", clock));
 });
 
-test("Bloodline v2 defines three complete five-node branches", () => {
+test("Bloodline v2 defines three complete seven-node branches", () => {
   assert.equal(BLOODLINE_BRANCHES.length, 3);
   assert.deepEqual(BLOODLINE_BRANCHES.map((branch) => branch.name), ["Crimson Hunger", "Moonstride", "Nightborn Arts"]);
-  assert.ok(BLOODLINE_BRANCHES.every((branch) => branch.nodes.length === 5));
+  assert.ok(BLOODLINE_BRANCHES.every((branch) => branch.nodes.length === 7));
   const nodes = BLOODLINE_BRANCHES.flatMap((branch) => branch.nodes);
-  assert.equal(new Set(nodes.map((node) => node.id)).size, 15);
+  assert.equal(new Set(nodes.map((node) => node.id)).size, 21);
   assert.ok(nodes.every((node) => node.cost > 0 && node.effect && node.flavor));
   assert.ok(BLOODLINE_BRANCHES.every((branch) => branch.nodes[0].prerequisite === null
     && branch.nodes.slice(1).every((node, index) => node.prerequisite === branch.nodes[index].id)));
@@ -171,8 +173,8 @@ test("a failed Bloodline save cannot debit the stored profile", () => {
   assert.equal(profileBalance(JSON.parse(storedBeforeFailure)), 2);
 });
 
-test("Chapters I-II and full Hunt keep fixed-duration contracts while objectives and quotas escalate", () => {
-  assert.equal(Object.keys(CAMPAIGN_NIGHTS).length, 10);
+test("the complete Campaign and Hunt keep fixed-duration contracts while objectives and quotas escalate", () => {
+  assert.equal(Object.keys(CAMPAIGN_NIGHTS).length, 15);
   const campaign = createRunContract({ mode: "campaign", campaignNight: 1, difficulty: DIFFICULTIES.night });
   const nightTwo = createRunContract({ mode: "campaign", campaignNight: 2, difficulty: DIFFICULTIES.night });
   const nightThree = createRunContract({ mode: "campaign", campaignNight: 3, difficulty: DIFFICULTIES.night });
@@ -183,6 +185,11 @@ test("Chapters I-II and full Hunt keep fixed-duration contracts while objectives
   const nightEight = createRunContract({ mode: "campaign", campaignNight: 8, difficulty: DIFFICULTIES.night });
   const nightNine = createRunContract({ mode: "campaign", campaignNight: 9, difficulty: DIFFICULTIES.night });
   const nightTen = createRunContract({ mode: "campaign", campaignNight: 10, difficulty: DIFFICULTIES.night });
+  const nightEleven = createRunContract({ mode: "campaign", campaignNight: 11, difficulty: DIFFICULTIES.night });
+  const nightTwelve = createRunContract({ mode: "campaign", campaignNight: 12, difficulty: DIFFICULTIES.night });
+  const nightThirteen = createRunContract({ mode: "campaign", campaignNight: 13, difficulty: DIFFICULTIES.night });
+  const nightFourteen = createRunContract({ mode: "campaign", campaignNight: 14, difficulty: DIFFICULTIES.night });
+  const nightFifteen = createRunContract({ mode: "campaign", campaignNight: 15, difficulty: DIFFICULTIES.night });
   const depthOne = createRunContract({ mode: "hunt", huntDepth: 1, difficulty: DIFFICULTIES.night });
   const depthTwo = createRunContract({ mode: "hunt", huntDepth: 2, difficulty: DIFFICULTIES.night });
   const depthTen = createRunContract({ mode: "hunt", huntDepth: 10, difficulty: DIFFICULTIES.night });
@@ -199,13 +206,20 @@ test("Chapters I-II and full Hunt keep fixed-duration contracts while objectives
   assert.equal(nightFive.bossId, "voss");
   assert.deepEqual([nightSix.encounter, nightSeven.encounter, nightEight.encounter, nightNine.encounter, nightTen.encounter], ["bellward", "hollow-choir", "silver-chase", "tolling-lock", "elowen"]);
   assert.equal(nightTen.bossId, "elowen");
-  assert.ok([campaign, nightTwo, nightThree, nightFour, nightFive, nightSix, nightSeven, nightEight, nightNine, nightTen, depthOne, depthTen].every((contract) => contract.dawn === DIFFICULTIES.night.dawn));
+  assert.deepEqual([nightEleven.encounter, nightTwelve.encounter, nightThirteen.encounter, nightFourteen.encounter, nightFifteen.encounter], ["mixed-assault", "sixfold", "silver-tempest", "dawn-gauntlet", "sol"]);
+  assert.equal(nightTwelve.crossQuota, 6);
+  assert.equal(nightFifteen.bossId, "sol");
+  assert.ok([campaign, nightTwo, nightThree, nightFour, nightFive, nightSix, nightSeven, nightEight, nightNine, nightTen, nightEleven, nightTwelve, nightThirteen, nightFourteen, nightFifteen, depthOne, depthTen].every((contract) => contract.dawn === DIFFICULTIES.night.dawn));
   assert.deepEqual(Array.from({ length: 10 }, (_, index) => huntCrossQuota(index + 1)), [3, 3, 4, 4, 4, 5, 5, 6, 6, 6]);
   assert.equal(depthTen.crossQuota, 6);
   assert.equal(createHuntDepth(31).crossQuota, 6);
   assert.ok(createHuntDepth(31).pressure > depthTen.pressure);
   assert.equal(depthTen.encounter, "chapter-two-hunt");
-  assert.throws(() => createRunContract({ mode: "campaign", campaignNight: 11, difficulty: DIFFICULTIES.night }), /not playable/);
+  assert.deepEqual(HUNT_MUTATORS.map((mutator) => mutator.id), ["blood-famine", "silver-rain", "swift-hunters"]);
+  assert.deepEqual(Array.from({ length: 6 }, (_, index) => huntMutatorForDepth(index + 1).id), ["blood-famine", "silver-rain", "swift-hunters", "blood-famine", "silver-rain", "swift-hunters"]);
+  assert.deepEqual([5, 10, 15, 20].map((depth) => createHuntDepth(depth).bossId), ["voss", "elowen", "sol", "elowen"]);
+  assert.equal(createHuntDepth(14).bossId, null);
+  assert.throws(() => createRunContract({ mode: "campaign", campaignNight: 16, difficulty: DIFFICULTIES.night }), /not playable/);
   assert.throws(() => createRunContract({ mode: "hunt", huntDepth: 0, difficulty: DIFFICULTIES.night }), /positive/);
 });
 
@@ -346,6 +360,30 @@ test("Night 10 victory atomically unlocks Swarm exactly once", () => {
   assert.equal(profileBalance(profile), 1);
 });
 
+test("Night 15 victory atomically unlocks the ending and Ascension exactly once", () => {
+  const profile = freshProfileV2({ profileId: fixedId() });
+  const outcome = {
+    runId: "run:sol-first", mode: "campaign", campaignNight: 15, huntDepth: null,
+    score: 22000, time: 225, grade: "S", win: true, difficulty: "night",
+  };
+  const first = recordProfileRunOutcome(profile, outcome, fixedNow());
+  assert.equal(first.firstClear, true);
+  assert.equal(first.coffinOutcome.endingUnlocked, true);
+  assert.equal(first.coffinOutcome.nextNight, null);
+  assert.equal(profile.campaign.unlockedNight, 15);
+  assert.equal(profile.campaign.endingUnlocked, true);
+  assert.equal(profile.campaign.endingSeen, false);
+  assert.equal(profile.hunt.ascensionUnlocked, true);
+  assert.ok(profile.appliedEvents["campaign:night-15:ending"]);
+  assert.ok(profile.appliedEvents["campaign:night-15:unlock-ascension"]);
+  assert.equal(profileBalance(profile), 1);
+
+  const replay = recordProfileRunOutcome(profile, { ...outcome, runId: "run:sol-replay" }, fixedNow());
+  assert.equal(replay.firstClear, false);
+  assert.equal(replay.coffinOutcome.endingUnlocked, false);
+  assert.equal(profileBalance(profile), 1);
+});
+
 test("Hunt outcomes continue to the next depth and never award Campaign currency", () => {
   const profile = freshProfileV2({ profileId: fixedId() });
   const first = recordProfileRunOutcome(profile, {
@@ -397,6 +435,9 @@ test("fresh profile starts Campaign with milestone abilities locked", () => {
   assert.equal(profile.campaign.abilityUnlocks.swarm, false);
   assert.deepEqual(profile.bloodline.loadout, []);
   assert.equal(profile.hunt.unlocked, false);
+  assert.equal(profile.hunt.ascensionUnlocked, false);
+  assert.equal(profile.campaign.endingUnlocked, false);
+  assert.equal(profile.campaign.endingSeen, false);
   assert.equal(profile.revision, 0);
   assert.equal(profileBalance(profile), 0);
 });
@@ -413,6 +454,22 @@ test("normalisation derives Mist and Hunt access from the Night 5 clear", () => 
   const unlocked = normaliseProfileV2(forged);
   assert.equal(unlocked.campaign.abilityUnlocks.mist, true);
   assert.equal(unlocked.hunt.unlocked, true);
+});
+
+test("normalisation derives the finale and Ascension only from the Night 15 clear", () => {
+  const forged = freshProfileV2({ profileId: fixedId() });
+  forged.campaign.endingUnlocked = true;
+  forged.hunt.ascensionUnlocked = true;
+  let normalised = normaliseProfileV2(forged);
+  assert.equal(normalised.campaign.endingUnlocked, false);
+  assert.equal(normalised.hunt.ascensionUnlocked, false);
+
+  forged.campaign.clears["night-15"] = { eventId: campaignClearEventId(15), clearedAt: fixedNow(), grade: "S", score: 22000 };
+  forged.campaign.endingSeen = true;
+  normalised = normaliseProfileV2(forged);
+  assert.equal(normalised.campaign.endingUnlocked, true);
+  assert.equal(normalised.campaign.endingSeen, true);
+  assert.equal(normalised.hunt.ascensionUnlocked, true);
 });
 
 test("v31 migration preserves scores, achievements, totals and settings", () => {
