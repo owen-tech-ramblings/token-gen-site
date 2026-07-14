@@ -1,50 +1,78 @@
-# Vampire Survival Parked State
+# Vampire Survival Development State
 
-Status: resumed and published through Codex iteration 31
+Status: active; Iteration 32 locally complete and awaiting publication
 Live page: `/games/vampire-survival.html`
-Previous parked commit: `71c0ff7 Codex Vampire Survival iteration 25`
-Resumed: 2026-07-10
+Previous published build: Iteration 31, 2026-07-10
+Current archive candidate: `games/vampire-survival-iterations/iteration-32-codex.html`
 
 ## Current State
 
-Vampire Survival is a standalone HTML canvas game. It is intentionally kept live on the Token Gen games page so it can be tested later without re-deploying.
+Vampire Survival remains a self-contained HTML canvas game, but its editable
+source now lives in `games/vampire-survival-src/`. The deterministic build
+inlines that source into the live HTML and the matching iteration archive.
 
-The Iteration 31 build includes:
+Iteration 32 preserves the current vertical slice:
 
-- Large city map with camera and procedural districts.
-- Story objective: break three Sun Reliquaries before dawn.
-- Enemy roles: villagers, guards, hunters, priests, and captains.
-- Player abilities: feed, dash, mist form, and Bat Swarm.
-- Minimap and objective compass.
-- High scores in `localStorage`.
-- Dawn timer, blood rose pickups, combo scoring, procedural audio cues, particles, screen shake, relic events, and escalating threat.
+- A large procedural city with five districts, camera, minimap, and compass.
+- Three warding crosses followed by the three-phase Captain Voss encounter.
+- Villagers, guards, hunters, priests, captains, and elite variants.
+- Feed, Dash, Mist, Bat Swarm, Blood Pacts, Blood Moon, pickups, combos,
+  difficulty modes, and Daily Hunt.
+- Desktop keyboard/mouse, touch controls, gamepad gameplay polling, reduced
+  motion, high contrast, settings, local scores, and achievements.
 
-## Resume Workflow
+It also adds the extension foundation:
 
-To continue the experiment later:
+- Modular source for runtime, content, profile, state, world/objectives,
+  gameplay, rendering, input, and the `?test=1` adapter.
+- Profile schema v2 for future Campaign, Bloodline, loadout, Hunt, and cloud
+  synchronization.
+- One-time v31 migration, revision checks, idempotent events, balance
+  invariants, corrupt-save preservation, export/import, and local deletion.
+- Regression tests and exact generated/archive equality checks.
 
-1. Open `games/vampire-survival.html`.
-2. Make the next pass as `Codex Iteration 32` or hand it back to Token Gen/Qwen as the current seed.
-3. Run the same lightweight validation used during the experiment:
+## Development Workflow
 
-```bash
-node -e "const fs=require('fs'); const html=fs.readFileSync('games/vampire-survival.html','utf8'); const js=[...html.matchAll(/<script[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(m=>m[1]).join('\\n'); new Function(js); console.log('syntax ok', html.length)"
-```
+1. Edit `games/vampire-survival-src/`.
+2. Build and archive the current iteration:
 
-4. Run a simulated start/runtime check or browser check.
-5. Commit and push each accepted iteration.
+   ```bash
+   node tools/build-vampire-survival.mjs --archive
+   ```
 
-## Suggested Next Iterations
+3. Run the local release suite:
 
-- Extend authored content beyond the current vertical slice.
-- Add more bespoke art, animation, music, and effects.
-- Run broader external playtesting and balance passes.
-- Expand Captain Voss and elite encounter variety.
-- Expand district event variety and objectives.
-- Improve mobile ergonomics after more device testing.
-- Add production analytics and formal accessibility QA.
-- Continue tuning balance from longer manual playtests.
+   ```bash
+   node --test tools/vampire-survival-profile.test.mjs
+   node tools/site-contract-tests.mjs
+   node tools/build-vampire-survival.mjs --check
+   git diff --check
+   ```
 
-## Notes
+4. Exercise the `?test=1` browser adapter and responsive views.
+5. Update the iteration archive, report, log, `CURRENT_STATE.md`, and
+   `HANDOFF.md`.
+6. Publish only from the canonical WSL repository and verify the authenticated
+   public route before starting the next iteration.
 
-The current page is self-contained and uses no remote assets or external libraries. That keeps it easy to archive, fork, or feed into a local VLLM model for future iteration.
+## Next Iteration
+
+Iteration 33 adds Campaign Night 1 and the connective loop:
+
+- Feed and Dash available; Mist and Swarm visibly locked.
+- Fixed night duration with a validated, clearly briefed cross quota.
+- Atomic clear commit before rewards or progression can be shown.
+- Vampire hop into the coffin, lid close, full restoration, reward summary,
+  and preparation hub.
+- Skippable repeat animation and a restrained reduced-motion transition.
+- Two-depth Hunt preview proving difficulty can rise while night length stays
+  fixed.
+
+The full Iterations 32-40 sequence is recorded in
+`games/vampire-survival-iterations/iterations-32-40-roadmap.md`.
+
+## Known Scope Boundary
+
+Gamepad movement/action polling is preserved. Full controller focus navigation
+for the title menu, pause, future coffin, Bloodline, loadout, and modal surfaces
+is scoped into the next UI work and is not claimed complete in Iteration 32.

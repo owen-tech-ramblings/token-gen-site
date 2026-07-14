@@ -1,6 +1,41 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-13 Australia/Sydney
+Last updated: 2026-07-14 Australia/Sydney
+
+## 2026-07-14 Vampire Survival Iteration 32 Handoff
+
+Iteration 32 is implemented and locally verified but not yet published. The
+canonical source is `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
+
+- Edit files in `games/vampire-survival-src/`, not the generated live HTML.
+- Build and archive with:
+  `node tools/build-vampire-survival.mjs --archive`.
+- Verify generated output with:
+  `node tools/build-vampire-survival.mjs --check`.
+- Run profile/content tests with:
+  `node --test tools/vampire-survival-profile.test.mjs`.
+- Run the shared contract suite with:
+  `node tools/site-contract-tests.mjs`.
+- Iteration 32 archive SHA-256 before publication:
+  `0e058d4c0dccf3d63ccaf29371e42846ef8173b5e74ac1cc18d1dea73b36e3dd`.
+- The v2 local profile key is `vampire_survival_profile_v2`; retain
+  `vampire_survival_profile_v31` for migration and
+  `vampire_survival_profile_v2_recovery` for corrupt-save recovery.
+- Supported browsers acquire an exclusive profile writer lease before any
+  mutating load or save. Browsers without Web Locks show a single-tab-only
+  warning; do not claim cross-tab serialization for that fallback.
+- Losing the lease pauses/freezes an active run and disables resume until a
+  fresh lease is held. Any profile load diagnosed as volatile blocks play.
+- Full gamepad gameplay polling remains and keyboard dialog focus is now
+  contained/restored. Full gamepad focus navigation for the menu and future
+  coffin/Bloodline/loadout surfaces is deliberately not claimed yet.
+- Do not begin Iteration 33 until Iteration 32 is pushed and the authenticated
+  public route passes its live canary.
+
+Next iteration: Campaign Night 1, the atomic clear state, fixed-duration cross
+contract, the skippable/reduced-motion coffin transition, coffin restoration
+hub, and a two-depth Hunt preview. See
+`games/vampire-survival-iterations/iterations-32-40-roadmap.md`.
 
 ## 2026-07-13 Current Chat System Prompt
 

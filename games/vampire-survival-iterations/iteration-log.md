@@ -133,10 +133,29 @@ Validation focus: syntax extraction, headless start/tick harness, browser smoke,
 
 Bytes: 64189
 
-## Parked State
+## Iteration 32
 
-The experiment was resumed and published through Codex iteration 31 on 2026-07-10.
+Accepted Codex foundation pass 32 on 2026-07-14 for publication after the
+release gate. The standalone artifact is generated from modular source, uses
+profile schema v2 with one-time v31 migration and corrupt-save recovery, and
+retains the Iteration 31 gameplay path.
+
+Review also fixed the enemy-cap overflow loop. Automated profile/content tests,
+site contracts, deterministic build checks, a real-browser victory path,
+responsive checks, persistence migration, and an entity-cap soak passed.
+
+Snapshot: `iteration-32-codex.html`
+
+SHA-256: `0e058d4c0dccf3d63ccaf29371e42846ef8173b5e74ac1cc18d1dea73b36e3dd`
+
+Bytes: 101657
+
+## Active Roadmap
+
+The experiment is active. Iteration 32 is ready for publication and Iterations
+33-40 are planned.
 
 - Current live build: `games/vampire-survival.html`
-- Snapshot: `games/vampire-survival-iterations/iteration-31-codex.html`
-- Status notes: `games/vampire-survival-iterations/iteration-26-31-status.html`, `games/vampire-survival-parked.html`, and `games/vampire-survival-parked.md`
+- Snapshot: `games/vampire-survival-iterations/iteration-32-codex.html`
+- Roadmap: `games/vampire-survival-iterations/iterations-32-40-roadmap.md`
+- Status notes: `games/vampire-survival-iterations/iteration-32-status.html`, `games/vampire-survival-parked.html`, and `games/vampire-survival-parked.md`

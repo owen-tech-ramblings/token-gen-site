@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vampire Survival Parked Notes</title>
+    <title>Vampire Survival Development Notes</title>
     <style>
       body {
         margin: 0;
@@ -56,41 +56,42 @@
   <body>
     <main>
       <h1>Vampire Survival</h1>
-      <p>Resumed and published through Codex iteration 31 on 2026-07-10.</p>
+      <p>Active roadmap. Iteration 32 is locally complete and awaiting its publication gate.</p>
       <nav class="nav">
         <a class="btn" href="./vampire-survival.html">Play Current Build</a>
-        <a class="btn" href="./vampire-survival-iterations/iteration-31-codex.html">Open Iteration 31 Snapshot</a>
-        <a class="btn" href="./vampire-survival-iterations/iteration-26-31-status.html">Iteration 31 Status</a>
+        <a class="btn" href="./vampire-survival-iterations/iteration-32-codex.html">Open Iteration 32 Snapshot</a>
+        <a class="btn" href="./vampire-survival-iterations/iteration-32-status.html">Iteration 32 Status</a>
         <a class="btn" href="./">Back to Games</a>
       </nav>
 
       <section class="panel">
         <h2>Current State</h2>
-        <p>The current build is a standalone HTML canvas game with a large city map, camera, Sun Reliquary objective, enemy roles, feed/dash/mist/Bat Swarm abilities, minimap, compass, high scores, dawn timer, blood rose pickups, combo scoring, particles, screen shake, and procedural audio cues.</p>
+        <p>The current build is a standalone HTML canvas game with a large city map, camera, three warding crosses, Captain Voss, enemy roles, feed/dash/mist/Bat Swarm abilities, minimap, compass, high scores, dawn timer, blood rose pickups, combo scoring, particles, screen shake, and procedural audio cues.</p>
+        <p>Iteration 32 adds modular editable source, a deterministic self-contained build, profile schema v2, one-time v31 migration, corrupt-save recovery, revision checks, idempotent progression events, and automated regression contracts.</p>
       </section>
 
       <section class="panel">
-        <h2>Resume Workflow</h2>
+        <h2>Development Workflow</h2>
         <ol>
-          <li>Open <code>games/vampire-survival.html</code>.</li>
-          <li>Continue as <code>Codex Iteration 32</code>, or use the current file as the seed for Token Gen/Qwen.</li>
-          <li>Run syntax and start/runtime checks before each deploy.</li>
-          <li>Commit and push each accepted iteration.</li>
+          <li>Edit files under <code>games/vampire-survival-src/</code>.</li>
+          <li>Generate the live file and exact archive with <code>node tools/build-vampire-survival.mjs --archive</code>.</li>
+          <li>Run profile, site contract, deterministic build, browser, and responsive checks.</li>
+          <li>Publish each accepted iteration and verify it live before beginning the next.</li>
         </ol>
-        <pre><code>node -e "const fs=require('fs'); const html=fs.readFileSync('games/vampire-survival.html','utf8'); const js=[...html.matchAll(/&lt;script[^&gt;]*&gt;([\\s\\S]*?)&lt;\\/script&gt;/gi)].map(m=&gt;m[1]).join('\\n'); new Function(js); console.log('syntax ok', html.length)"</code></pre>
+        <pre><code>node --test tools/vampire-survival-profile.test.mjs
+node tools/site-contract-tests.mjs
+node tools/build-vampire-survival.mjs --check
+git diff --check</code></pre>
       </section>
 
       <section class="panel">
-        <h2>Next Backlog</h2>
+        <h2>Iterations 33-40</h2>
         <ul>
-          <li>Extend authored content beyond the current vertical slice.</li>
-          <li>Add more bespoke art, animation, music, and effects.</li>
-          <li>Run broader external playtesting and balance passes.</li>
-          <li>Expand Captain Voss and elite encounter variety.</li>
-          <li>Expand district event variety and objectives.</li>
-          <li>Improve mobile ergonomics after more device testing.</li>
-          <li>Add production analytics and formal accessibility QA.</li>
-          <li>Continue tuning balance from longer manual playtests.</li>
+          <li>Night 1, fixed-duration objective contract, coffin transition/hub, and Hunt preview.</li>
+          <li>Nights 2-5, Voss milestone, Mist unlock, and full escalating Hunt.</li>
+          <li>Three-branch Bloodline tree, loadouts, cooldown clarity, and Create Thrall.</li>
+          <li>Nights 6-10 and 11-15, Swarm unlock, new bosses, ending, and endgame.</li>
+          <li>Cloudflare Access identity/profile sync followed by release hardening.</li>
         </ul>
       </section>
     </main>

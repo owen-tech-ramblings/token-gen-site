@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vampire Survival Iteration 32</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; background: #07050a; color: #f5e9ed; font-family: system-ui, sans-serif; line-height: 1.55; }
+      main { width: min(960px, calc(100% - 36px)); margin: 0 auto; padding: 40px 0 64px; }
+      h1 { margin: 0; font-size: clamp(2.4rem, 8vw, 5rem); line-height: .95; letter-spacing: .04em; }
+      h2 { margin-top: 30px; }
+      a { color: #ff7d98; }
+      .eyebrow { color: #ff718b; letter-spacing: .18em; text-transform: uppercase; font-size: .75rem; }
+      .lead { max-width: 760px; color: #d1c0c6; font-size: 1.05rem; }
+      .nav, .grid { display: flex; flex-wrap: wrap; gap: 12px; }
+      .nav { margin: 24px 0; }
+      .btn, .card { border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.05); }
+      .btn { padding: 10px 14px; color: inherit; text-decoration: none; }
+      .card { flex: 1 1 240px; padding: 16px; }
+      .card strong { display: block; margin-bottom: 6px; }
+      code { background: #151019; padding: 2px 5px; }
+      li { margin: 7px 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="eyebrow">Foundation release</div>
+      <h1>Iteration 32</h1>
+      <p class="lead">The existing hunt now has modular source, a deterministic standalone build, profile schema v2, safe v31 migration, recovery and revision guards, and a tested path into the fifteen-night Campaign and escalating Hunt roadmap.</p>
+      <nav class="nav">
+        <a class="btn" href="../vampire-survival.html">Play current build</a>
+        <a class="btn" href="./iteration-32-codex.html">Open exact archive</a>
+        <a class="btn" href="../vampire-survival-parked.html">Development notes</a>
+        <a class="btn" href="../">Back to games</a>
+      </nav>
+
+      <section class="grid">
+        <article class="card"><strong>Safe progress</strong>Existing v31 scores, achievements, totals, and settings migrate once. Corrupt data is preserved for recovery.</article>
+        <article class="card"><strong>Extension-ready</strong>Runtime, content, profile, state, world/objectives, gameplay, rendering, input, and test code now have clear source boundaries.</article>
+        <article class="card"><strong>Same core hunt</strong>Standard/Daily modes, warding crosses, Blood Pacts, Blood Moon, districts, and all three Voss phases remain intact.</article>
+      </section>
+
+      <h2>Verification</h2>
+      <ul>
+        <li>26 deterministic profile/content tests and the shared site contract suite pass.</li>
+        <li>The generated live file and archive are byte-identical.</li>
+        <li>Desktop, phone, and tablet layouts were checked in Chromium.</li>
+        <li>The start, movement, pact, Blood Moon, crosses, Voss phases, victory, migration, pause, settings, and Daily seed paths pass without console errors.</li>
+        <li>A director soak reaches and holds the 108-enemy cap without the inherited population-collapse bug.</li>
+      </ul>
+
+      <h2>Next: Iteration 33</h2>
+      <p>Campaign Night 1 will introduce the fixed-duration cross contract, locked Mist and Swarm progression, an atomic clear, the vampire's coffin-closing dawn animation, full restoration and progression inside the coffin, plus a two-depth Hunt preview that gets harder without making the night longer.</p>
+    </main>
+  </body>
+</html>

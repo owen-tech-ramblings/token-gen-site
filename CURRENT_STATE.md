@@ -1,6 +1,34 @@
 # Token Gen Current State
 
-Last updated: 2026-07-13 Australia/Sydney
+Last updated: 2026-07-14 Australia/Sydney
+
+## Vampire Survival Iteration 32 - 2026-07-14
+
+- Iteration 32 is locally complete and awaiting the publish gate.
+- The standalone game is now generated from modular vanilla-JS source in
+  `games/vampire-survival-src/`; the exact generated artifact is archived as
+  `games/vampire-survival-iterations/iteration-32-codex.html`.
+- Profile schema v2 adds revision-checked local transactions, Campaign,
+  Bloodline, Hunt, unlock, settings, achievement, score, and idempotent economy
+  scaffolding while preserving the current Iteration 31 play path.
+- v31 saves migrate once, with fingerprint/snapshot reconciliation if progress
+  is later earned during an Iteration 31 rollback. Malformed v2 values are
+  copied exactly to recovery before a safe active fallback is installed.
+- Player-facing build/development language and the injected Skybridge font
+  override were removed. The objective is consistently described as warding
+  crosses.
+- Review fixed rollback/corrupt-save/cross-tab loss paths, serialized supported
+  browser tabs behind an exclusive writer lease, and made pre-lease loading
+  read-only. It also fixed the inherited enemy-cap loop, mobile action ordering,
+  keyboard shortcut ownership, dialog focus, score retention, and cross-quota
+  coupling.
+- Verification: 26 Node profile/content tests, site contracts, deterministic
+  build/archive hash, `git diff --check`, and real-browser gameplay,
+  migration, responsive, settings, pause, writer-lease lifecycle, audio/save
+  failure recovery, performance, and 108-entity soak checks.
+- Roadmap: `games/vampire-survival-iterations/iterations-32-40-roadmap.md`.
+- Detailed evidence:
+  `games/vampire-survival-iterations/iteration-32-test-report.md`.
 
 ## Current Chat System Prompt - 2026-07-13
 
