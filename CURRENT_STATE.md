@@ -29,8 +29,8 @@ Last updated: 2026-07-15 Australia/Sydney
   and Hunt flows, save-failure and reload recovery, reduced motion, desktop and
   mobile layouts, 40 cross-route generations, and a three-minute 108-enemy
   soak.
-- Exact local artifact: 128,305 bytes; SHA-256
-  `91dc0920b475119c140c2c89982a5a8b3b358b3ac39b3a3220d3ee044f246486`.
+- Exact local artifact: 128,322 bytes; SHA-256
+  `bb0fc35cb5a7bf8c9dbd1477abf46677c3dfc54e6da195ff08de7f611f0239db`.
 - Detailed evidence:
   `games/vampire-survival-iterations/iteration-33-test-report.md`.
 

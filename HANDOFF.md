@@ -26,8 +26,8 @@ source at `/home/jesse/.openclaw/workspace/token-gen-site-pages`.
 - The normal coffin transition is four seconds and skippable; reduced motion
   uses a 650 ms settled state. The hub restores Blood and cooldowns and is the
   designated home of the future Bloodline tree.
-- The exact Iteration 33 candidate and archive are 128,305 bytes with SHA-256
-  `91dc0920b475119c140c2c89982a5a8b3b358b3ac39b3a3220d3ee044f246486`.
+- The exact Iteration 33 candidate and archive are 128,322 bytes with SHA-256
+  `bb0fc35cb5a7bf8c9dbd1477abf46677c3dfc54e6da195ff08de7f611f0239db`.
 - Local evidence passed: 30 Node tests, site contracts, module syntax,
   deterministic double-build, `git diff --check`,
   Campaign/Hunt browser flows, atomic-save failure, reload continuation,

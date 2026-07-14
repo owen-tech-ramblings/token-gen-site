@@ -811,7 +811,7 @@ function abilityAvailability(abilityId, { unlocked, cooldown = 0, blood = 0 } = 
   if (!rule) throw new Error(`Unknown ability ${abilityId}`);
   if (!unlocked) return { state: "locked", label: rule.milestone, ready: false, cost: rule.cost };
   if (cooldown > 0) return { state: "cooldown", label: `${cooldown.toFixed(1)}s`, ready: false, cost: rule.cost };
-  if (blood < rule.cost) return { state: "insufficient", label: `Need ${rule.cost} Blood`, ready: false, cost: rule.cost };
+  if (rule.cost > 0 && blood < rule.cost) return { state: "insufficient", label: `Need ${rule.cost} Blood`, ready: false, cost: rule.cost };
   return { state: "ready", label: "Ready", ready: true, cost: rule.cost };
 }
 

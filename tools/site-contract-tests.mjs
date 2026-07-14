@@ -129,6 +129,7 @@ assert.match(vampireGame, /recordProfileRunOutcome\(draft,outcomePayload/, "Vamp
 assert.match(vampireGame, /persistProfileStrict\(draft\)/, "Vampire Survival must commit the staged outcome before showing the coffin.");
 assert.match(vampireGame, /Defeat the Night 5 boss/, "Vampire Survival must explain the Mist milestone lock.");
 assert.match(vampireGame, /Defeat the Night 10 boss/, "Vampire Survival must explain the Swarm milestone lock.");
+assert.match(vampireGame, /rule\.cost\s*>\s*0\s*&&\s*blood\s*<\s*rule\.cost/, "Zero-cost abilities must never report an insufficient-Blood state.");
 assert.match(vampireGame, /id="feedStatus">Ready/, "Vampire Survival must expose Feed's authoritative availability state.");
 assert.match(vampireGame, /renderAbilityState\("feed",currentAbilityStatus\("feed"\)/, "Vampire Survival must update Feed's cooldown feedback from gameplay state.");
 assert.match(vampireGame, /coffin-playing \.coffin-vampire/, "Vampire Survival must include the skippable coffin animation.");

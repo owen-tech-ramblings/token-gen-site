@@ -8,9 +8,9 @@ canary pending
 
 - Generated live file: `games/vampire-survival.html`
 - Exact archive: `games/vampire-survival-iterations/iteration-33-codex.html`
-- Bytes: 128,305
+- Bytes: 128,322
 - SHA-256:
-  `91dc0920b475119c140c2c89982a5a8b3b358b3ac39b3a3220d3ee044f246486`
+  `bb0fc35cb5a7bf8c9dbd1477abf46677c3dfc54e6da195ff08de7f611f0239db`
 - Two consecutive archive builds produced byte-identical live and archive
   files.
 
@@ -76,6 +76,8 @@ Harness: persistent Chromium using the generated standalone artifact with
 - Ability priority passed: milestone lock first, then cooldown, insufficient
   Blood, and Ready. Mist showed `Need 10 Blood`, then Ready, then an
   8.5-second cooldown after use; Swarm remained Night 10 locked.
+- Zero-cost Feed and Dash never report an insufficient-Blood state, including
+  the depleted-Blood result edge case found during the protected canary.
 - Forty generated route checks across both Hunt depths produced unique,
   collision-free layouts within the base-speed route budget.
 

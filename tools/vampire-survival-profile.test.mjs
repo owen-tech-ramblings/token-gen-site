@@ -121,6 +121,9 @@ test("ability states prioritize milestone locks, cooldowns, Blood costs, then re
   assert.deepEqual(abilityAvailability("feed", { unlocked: true, cooldown: 0.18, blood: 0 }), {
     state: "cooldown", label: "0.2s", ready: false, cost: 0,
   });
+  assert.deepEqual(abilityAvailability("dash", { unlocked: true, cooldown: 0, blood: -1 }), {
+    state: "ready", label: "Ready", ready: true, cost: 0,
+  });
 });
 
 test("Campaign clear outcome grants one finite reward and creates a resumable coffin outcome", () => {
