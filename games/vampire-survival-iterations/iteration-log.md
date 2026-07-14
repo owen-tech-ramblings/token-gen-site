@@ -1,5 +1,18 @@
 # Vampire Survival Qwen Iterations
 
+## Iteration 39
+
+- Added optional local-first cloud profiles behind Cloudflare Access without
+  making gameplay, migration, progression, or local saves network-dependent.
+- Added verified JWT identity, keyed identity storage, atomic ETag/`If-Match`
+  writes, idempotency, explicit conflicts, offline replay, export, recovery,
+  and cloud-only deletion.
+- Isolated the save handler on `vampire-save.owenonthenet.com` after a canary
+  caught the established Token Gen API's different public gateway topology.
+- Passed a disposable authenticated CRUD/conflict/delete canary, 50 automated
+  tests, exact archive contracts, deterministic builds, responsive browser QA,
+  gameplay smoke, and the accepted performance comparison.
+
 ## Iteration 38
 
 - Completed Campaign Nights 11-15, the hardest validated six-cross routes,

@@ -4,6 +4,7 @@ function resize(){DPR=Math.min(devicePixelRatio,2);W=innerWidth;H=innerHeight;ca
 const profileRepository=createProfileRepository(localStorage);
 let profile=profileRepository.load({readOnly:true});
 let profileSaveError=null;
+let cloudProfileSync=null;
 function reportProfileSaveError(error){profileSaveError=String(error?.message||error);console.error("Vampire Survival progress was not saved:",error);const status=$("menuStatus");if(status){status.textContent="Progress could not be saved in this tab. Keep it open, close other game tabs, and try changing a setting again.";status.classList.add("error")}if(state){state.toast="Progress not saved · keep this tab open";state.toastTime=6}}
 function clearProfileSaveError(){if(!profileSaveError)return;profileSaveError=null;updateWriterLeaseUi()}
 function persistProfileStrict(candidate=profile){
@@ -13,6 +14,7 @@ function persistProfileStrict(candidate=profile){
     profile=profileRepository.saveMerged(candidate);
   }
   clearProfileSaveError();
+  if(cloudProfileSync){try{cloudProfileSync.noteLocalProfile(profile)}catch(error){console.warn("Cloud backup queue is unavailable; local progress remains saved.",error)}}
   return profile;
 }
 function saveProfile(){try{return persistProfileStrict(profile)}catch(error){reportProfileSaveError(error);return profile}}

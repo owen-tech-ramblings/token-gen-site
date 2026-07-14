@@ -2,6 +2,29 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 39 - 2026-07-15
+
+- Iteration 39 is validated as a release candidate; publication is pending.
+- Optional cloud profiles are local-first. Play and local saves never depend
+  on the network, empty accounts never auto-upload, and conflicts require a
+  deliberate choice.
+- Identity is derived only from a verified Cloudflare Access JWT. The server
+  persists a keyed identity hash, not the mailbox address, and enforces ETag,
+  `If-Match`, idempotency, atomic writes, a 512 KiB limit, and explicit 409/412
+  conflicts.
+- Cloud saves use the isolated Access-protected hostname
+  `vampire-save.owenonthenet.com`; the established Token Gen API route was not
+  replaced.
+- An authenticated disposable canary passed create, replay, stale conflict,
+  strong-ETag read-back, delete, and final absence, leaving no profile behind.
+- Validation: 51/51 tests, deterministic 213,850-byte artifact, exact archive
+  contracts, desktop/mobile conflict and gameplay QA, and a 57 ms accepted p95
+  versus Iteration 38's 83 ms under the same warmed harness.
+- Candidate SHA-256:
+  `f2402e9ae59168bba543a7924f933b11390917ea48c0891dfc50c388f7a9fb41`.
+- Next: publish Iteration 39, then complete Iteration 40's final hardening and
+  full regression matrix.
+
 ## Vampire Survival Iteration 38 - 2026-07-15
 
 - Iteration 38 is published and exact-origin verified at commit `8c08107`

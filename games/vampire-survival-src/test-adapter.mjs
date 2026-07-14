@@ -17,7 +17,7 @@ function snapshot(){
     achievements:[...profile.achievements],seed:state.seed,
     coffinOutcome:profile.campaign.pendingCoffinOutcome?structuredClone(profile.campaign.pendingCoffinOutcome):null,
     finale:{endingUnlocked:profile.campaign.endingUnlocked,endingSeen:profile.campaign.endingSeen,ascensionUnlocked:profile.hunt.ascensionUnlocked},
-    bloodPacks:profileBalance(profile),
+    bloodPacks:profileBalance(profile),cloud:cloudProfileSync?.snapshot()||null,
     bloodline:{allocation:{...profile.bloodline.allocation},loadout:[...profile.bloodline.loadout],lastPurchaseId:profile.bloodline.lastPurchaseId,nextTransaction:profile.bloodline.nextTransaction,activeRunNodes:[...(state.bloodlineStats?.activeNodes||[])]},
     thralls:{active:thralls.map(thrall=>({id:thrall.id,sourceId:thrall.sourceId,targetId:thrall.targetId,life:thrall.life})),conversion:state.thrallConversion?{...state.thrallConversion}:null},
     citySignature:buildings.slice(0,12).map(building=>[Math.round(building.x),Math.round(building.y),Math.round(building.w),Math.round(building.h)].join(":" )).join("|"),
@@ -76,6 +76,7 @@ if(TESTING){
     objectiveDiagnostics,
     profile(){return structuredClone(profile)},profileDiagnostics(){return profileRepository.diagnostics()},
     clearProfile(){profileRepository.clear({includeLegacy:true});profile=freshProfileV2();saveProfile();renderMenuProfile();return structuredClone(profile)},
+    openCloud(){showDialog("cloudSaveModal","#cloudConnectBtn");renderCloudSaveUi();return snapshot()},cloudState(){return cloudProfileSync.snapshot()},
   };
 }
 
