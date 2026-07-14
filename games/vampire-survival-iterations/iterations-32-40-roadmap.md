@@ -50,7 +50,7 @@ Purpose: make the successful vertical slice safe to extend.
 - Establish deterministic unit, contract, browser, persistence, responsive,
   performance, and entity-cap evidence.
 
-Status: locally complete; publication pending.
+Status: published and authenticated production gameplay canary passed.
 
 ## Iteration 33 - Night 1, Coffin Loop, and Objective Contract
 

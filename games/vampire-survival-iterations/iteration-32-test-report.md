@@ -177,8 +177,8 @@ surface contains Codex/build/requirements wording.
 - Gamepad gameplay polling remains in source. Full focus navigation for menus,
   modals, the future coffin, Bloodline, and loadout is explicitly deferred to
   the next UI iteration and is not claimed complete.
-- The authenticated public route and production `?test=1` canary must pass
-  after publication before Iteration 33 starts.
+- The authenticated public route and production gameplay canary passed after
+  publication. Iteration 33 may start.
 
 ## Rollback
 
@@ -196,7 +196,9 @@ surface contains Codex/build/requirements wording.
   HTTP 200, 101,657 bytes, and the exact release SHA-256.
 - The public HTTPS route returned the expected Cloudflare Access 302 and
   protected-resource metadata.
-- The authenticated HTTP 200/gameplay canary is still pending. Windows browser
-  control failed before reaching the desktop because its required sandbox
-  metadata was unavailable, and the isolated browser could not import a Windows
-  Chromium profile. No Access, DNS, Worker, or mailbox settings were changed.
+- Cloudflare authentication logs confirmed a successful login for an allowed
+  Hostinger identity on 2026-07-14. The existing authenticated Windows Chrome
+  session then loaded the protected production game, invoked `Begin Hunt`, and
+  showed a live Night run at 19 seconds with enemies active, `100/112` Blood,
+  and `Crosses 0/3`. The browser was returned to the title screen. No Access,
+  DNS, Worker, or mailbox settings were changed.

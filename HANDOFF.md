@@ -30,13 +30,14 @@ Iteration 32 is implemented, locally verified, and published at commit
 - Full gamepad gameplay polling remains and keyboard dialog focus is now
   contained/restored. Full gamepad focus navigation for the menu and future
   coffin/Bloodline/loadout surfaces is deliberately not claimed yet.
-- Do not begin Iteration 33 until Iteration 32 is pushed and the authenticated
-  public route passes its live canary.
+- Iteration 32 is pushed and its authenticated public gameplay canary passed;
+  Iteration 33 may begin.
 - GitHub Pages reported commit `abf7cd3` built. A direct origin request returned
   101,657 bytes with the exact archive hash, and the public hostname returned
-  the expected Cloudflare Access login redirect. The authenticated 200/gameplay
-  canary remains pending because the Windows browser-control bridge was
-  unavailable during deployment verification.
+  the expected Cloudflare Access login redirect. An allowed Hostinger identity
+  then loaded the protected game in Windows Chrome, began a live Night run,
+  advanced the HUD to 19 seconds with enemies active and `Crosses 0/3`, and
+  returned to the title screen.
 
 Next iteration: Campaign Night 1, the atomic clear state, fixed-duration cross
 contract, the skippable/reduced-motion coffin transition, coffin restoration

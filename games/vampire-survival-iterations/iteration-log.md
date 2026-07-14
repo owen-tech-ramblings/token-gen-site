@@ -153,7 +153,8 @@ Bytes: 101657
 ## Active Roadmap
 
 The experiment is active. Iteration 32 is published and Iterations 33-40 are
-planned. Iteration 33 remains gated on the authenticated production canary.
+planned. The authenticated production gameplay canary passed on 2026-07-14,
+so Iteration 33 is unblocked.
 
 - Current live build: `games/vampire-survival.html`
 - Snapshot: `games/vampire-survival-iterations/iteration-32-codex.html`

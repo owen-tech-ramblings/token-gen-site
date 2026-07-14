@@ -33,9 +33,10 @@ Last updated: 2026-07-14 Australia/Sydney
 - Post-deploy origin verification returned the exact 101,657-byte release file
   and SHA-256 `0e058d4c0dccf3d63ccaf29371e42846ef8173b5e74ac1cc18d1dea73b36e3dd`.
   Cloudflare Access returns the expected protected-login redirect. The final
-  authenticated 200/gameplay canary is still pending because the Windows
-  browser-control bridge was unavailable; do not start Iteration 33 until that
-  authenticated check passes.
+  authenticated gameplay canary passed on 2026-07-14: an allowed Hostinger
+  identity loaded the protected production page, began a Night run, advanced
+  the live HUD to 19 seconds with active enemies and a `0/3` cross objective,
+  and returned to the title screen. Iteration 33 is unblocked.
 
 ## Current Chat System Prompt - 2026-07-13
 
