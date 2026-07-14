@@ -2,6 +2,20 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 36 Handoff
+
+Iteration 36 is validated in the canonical Pages repo and ready to publish.
+Its exact archive is `games/vampire-survival-iterations/iteration-36-codex.html`
+(175,359 bytes; SHA-256
+`b460366aacc7d1e63b1774943081ff57c862787255a8954bd20a4c026075d09e`).
+
+The release adds the two-slot coffin loadout and Create Thrall. Unlock authority
+comes from immutable Campaign clears, target ties use stable IDs, conversion and
+active counts are bounded, and every exit uses centralized cleanup. Thirty-eight
+tests, exact archive contracts, responsive browser QA, and the performance gate
+pass. Publish to both remotes, verify Pages and the Access 302, then continue
+directly to Iteration 37 Chapter II and Swarm.
+
 ## 2026-07-15 Vampire Survival Iteration 35 Handoff
 
 Iteration 35 is implemented, published, and exact-origin verified in the

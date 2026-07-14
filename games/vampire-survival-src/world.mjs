@@ -78,17 +78,18 @@ function resetRun(options={}){
     lieutenantsDefeated:0,requiredLieutenants:contract.lieutenantQuota||0,bossActive:false,bossDefeated:false,
     toast:"",toastTime:0,district:"",pactPending:0,hitStop:0,kills:0,damageTaken:0,
     roses:0,bossIntro:0,frenzy:0,bloodMoon:0,director:{pressure:1,budget:0},
-    newAchievements:[],failureReason:null,clearCommitFailed:false,bloodlineStats,
+    newAchievements:[],failureReason:null,clearCommitFailed:false,bloodlineStats,thrallConversion:null,
   };
   player={
     x:WORLD.w/2,y:WORLD.h/2,radius:15,vx:0,vy:0,blood:bloodlineStats.maxBlood,maxBlood:bloodlineStats.maxBlood,xp:0,nextXp:62,
     level:1,speed:bloodlineStats.speed,range:bloodlineStats.range,feedDamage:bloodlineStats.feedDamage,attackCd:0,dashTime:0,dashCd:0,dashBase:bloodlineStats.dashCooldown,
     mistTime:0,mistCd:0,mistBase:bloodlineStats.mistBase,mistDuration:bloodlineStats.mistDuration,swarmCd:0,swarmDamage:bloodlineStats.swarmDamage,
+    thrallCd:0,thrallBase:8,thrallRange:260,
     swarmRadius:bloodlineStats.swarmRadius,relicDamage:bloodlineStats.relicDamage,hitFlash:0,combo:0,comboTime:0,comboWindow:bloodlineStats.comboWindow,
     scoreBonus:0,magnet:bloodlineStats.magnet,roseHeal:bloodlineStats.roseHeal,echo:false,feedCount:0,thorns:false,
     frenzyGain:bloodlineStats.frenzyGain,pacts:{},lastDistrict:"",facing:0,
   };
-  enemies=[];relics=[];particles=[];stains=[];bullets=[];pickups=[];hazards=[];
+  enemies=[];thralls=[];relics=[];particles=[];stains=[];bullets=[];pickups=[];hazards=[];
   telegraphs=[];floaters=[];currentPacts=[];boss=null;entityCounter=0;
   const spawn=safePoint(WORLD.w/2,WORLD.h/2);
   player.x=spawn.x;player.y=spawn.y;

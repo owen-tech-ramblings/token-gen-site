@@ -1,5 +1,18 @@
 # Vampire Survival Qwen Iterations
 
+## Iteration 36
+
+- Added a two-slot coffin talent loadout with explicit selected, owned, locked,
+  and prerequisite states. Feed and Dash remain core abilities.
+- Added authoritative ability-state priority across milestone, loadout,
+  conversion, cap, cooldown, Blood, target, and ready blockers.
+- Added Create Thrall with deterministic stable-ID targeting, one conversion at
+  a time, three active allies, bounded retargeting, expiry, and centralized
+  run-boundary cleanup.
+- Passed 38 deterministic tests, exact archive/site contracts, desktop/mobile
+  browser QA, no-console-error checks, and a +3.8% accepted p95 performance
+  comparison against the archived Iteration 35 build.
+
 Model: /home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8
 
 Seed: /mnt/c/Users/User/Documents/vampire_game.html

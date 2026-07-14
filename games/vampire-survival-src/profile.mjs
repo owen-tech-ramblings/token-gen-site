@@ -65,6 +65,49 @@ export const BASE_RUN_STATS = Object.freeze({
   frenzyGain: 1,
 });
 
+export const TALENT_TECHNIQUES = Object.freeze([
+  Object.freeze({ id: "createThrall", name: "Create Thrall", key: "Q", prerequisite: "Survive Campaign Night 1", description: "Convert the nearest marked mortal into a temporary ally." }),
+  Object.freeze({ id: "mist", name: "Mist Form", key: "F", prerequisite: "Defeat Captain Voss on Night 5", description: "Become untouchable and surge through the hunters." }),
+  Object.freeze({ id: "swarm", name: "Bat Swarm", key: "E", prerequisite: "Defeat the Night 10 boss", description: "Unleash a damaging swarm around the vampire." }),
+]);
+export const MAX_TALENT_SLOTS = 2;
+const TALENT_TECHNIQUE_IDS = new Set(TALENT_TECHNIQUES.map((technique) => technique.id));
+
+export function isTechniqueUnlocked(profile, techniqueId) {
+  if (!TALENT_TECHNIQUE_IDS.has(techniqueId)) return false;
+  if (techniqueId === "createThrall") return Boolean(profile.campaign.clears["night-1"]);
+  if (techniqueId === "mist") return Boolean(profile.campaign.clears["night-5"]);
+  if (techniqueId === "swarm") return Boolean(profile.campaign.clears["night-10"]);
+  return false;
+}
+
+export function validateTalentLoadout(profile) {
+  const loadout = profile?.bloodline?.loadout;
+  if (!Array.isArray(loadout) || loadout.length > MAX_TALENT_SLOTS) throw new Error(`Talent loadout supports ${MAX_TALENT_SLOTS} slots`);
+  if (new Set(loadout).size !== loadout.length) throw new Error("Talent loadout cannot contain duplicates");
+  for (const techniqueId of loadout) {
+    if (!TALENT_TECHNIQUE_IDS.has(techniqueId)) throw new Error(`Unknown talent technique ${techniqueId}`);
+    if (!isTechniqueUnlocked(profile, techniqueId)) throw new Error(`${techniqueId} is not unlocked`);
+  }
+  return true;
+}
+
+export function toggleTalentTechnique(profile, techniqueId) {
+  if (!TALENT_TECHNIQUE_IDS.has(techniqueId)) throw new Error(`Unknown talent technique ${techniqueId}`);
+  if (!isTechniqueUnlocked(profile, techniqueId)) throw new Error(`${techniqueId} is still locked`);
+  const current = [...profile.bloodline.loadout];
+  const index = current.indexOf(techniqueId);
+  if (index >= 0) current.splice(index, 1);
+  else {
+    if (current.length >= MAX_TALENT_SLOTS) throw new Error(`Both talent slots are occupied`);
+    current.push(techniqueId);
+  }
+  profile.bloodline.loadout = current;
+  profile.bloodline.loadoutConfigured = true;
+  validateTalentLoadout(profile);
+  return { selected: index < 0, loadout: [...current] };
+}
+
 const BLOODLINE_NODES = Object.freeze(BLOODLINE_BRANCHES.flatMap((branch) => branch.nodes));
 const BLOODLINE_NODE_MAP = new Map(BLOODLINE_NODES.map((node) => [node.id, node]));
 
@@ -306,7 +349,7 @@ export function freshProfileV2(options = {}) {
       pendingCoffinOutcome: null,
     },
     economy: { events: {} },
-    bloodline: { allocation: {}, purchases: {}, loadout: [], nextTransaction: 1, lastPurchaseId: null },
+    bloodline: { allocation: {}, purchases: {}, loadout: [], loadoutConfigured: false, nextTransaction: 1, lastPurchaseId: null },
     hunt: { unlocked: false, bestDepth: 0, scores: {} },
     appliedEvents: {},
     migration: { sourceVersion: null, sourceFingerprint: null, sourceSnapshot: null, migratedAt: null },
@@ -336,7 +379,7 @@ export function normaliseProfileV2(candidate) {
     settings: { ...DEFAULT_SETTINGS, ...(candidate.settings || {}) },
     campaign: { ...base.campaign, ...(candidate.campaign || {}), abilityUnlocks: { ...base.campaign.abilityUnlocks, ...(candidate.campaign?.abilityUnlocks || {}) }, clears: { ...(candidate.campaign?.clears || {}) } },
     economy: { events: { ...(candidate.economy?.events || {}) } },
-    bloodline: { ...base.bloodline, ...(candidate.bloodline || {}), allocation: { ...(candidate.bloodline?.allocation || {}) }, purchases: { ...(candidate.bloodline?.purchases || {}) }, loadout: Array.isArray(candidate.bloodline?.loadout) ? [...candidate.bloodline.loadout] : [...base.bloodline.loadout], nextTransaction: Number.isInteger(candidate.bloodline?.nextTransaction) ? candidate.bloodline.nextTransaction : base.bloodline.nextTransaction, lastPurchaseId: typeof candidate.bloodline?.lastPurchaseId === "string" ? candidate.bloodline.lastPurchaseId : null },
+    bloodline: { ...base.bloodline, ...(candidate.bloodline || {}), allocation: { ...(candidate.bloodline?.allocation || {}) }, purchases: { ...(candidate.bloodline?.purchases || {}) }, loadout: Array.isArray(candidate.bloodline?.loadout) ? [...candidate.bloodline.loadout] : [...base.bloodline.loadout], loadoutConfigured: Boolean(candidate.bloodline?.loadoutConfigured), nextTransaction: Number.isInteger(candidate.bloodline?.nextTransaction) ? candidate.bloodline.nextTransaction : base.bloodline.nextTransaction, lastPurchaseId: typeof candidate.bloodline?.lastPurchaseId === "string" ? candidate.bloodline.lastPurchaseId : null },
     hunt: { ...base.hunt, ...(candidate.hunt || {}), scores: { ...(candidate.hunt?.scores || {}) } },
     appliedEvents: { ...(candidate.appliedEvents || {}) },
     migration: { ...base.migration, ...(candidate.migration || {}) },
@@ -350,8 +393,14 @@ export function normaliseProfileV2(candidate) {
   }
   profile.campaign.abilityUnlocks.mist = Boolean(profile.campaign.clears["night-5"]);
   profile.campaign.abilityUnlocks.swarm = Boolean(profile.campaign.clears["night-10"]);
+  profile.campaign.abilityUnlocks.createThrall = Boolean(profile.campaign.clears["night-1"]);
+  if (!profile.bloodline.loadoutConfigured && profile.campaign.abilityUnlocks.createThrall) {
+    profile.bloodline.loadout = ["createThrall", ...(profile.campaign.abilityUnlocks.mist ? ["mist"] : [])].slice(0, MAX_TALENT_SLOTS);
+    profile.bloodline.loadoutConfigured = true;
+  }
   profile.hunt.unlocked = Boolean(profile.campaign.clears["night-5"]);
   validateBloodlineState(profile.bloodline);
+  validateTalentLoadout(profile);
   for (const [eventId, event] of Object.entries(profile.economy.events)) {
     if (!event || !Number.isFinite(event.amount)) throw new Error(`Invalid economy event ${eventId}`);
   }

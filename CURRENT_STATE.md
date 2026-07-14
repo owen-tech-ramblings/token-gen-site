@@ -2,6 +2,23 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 36 - 2026-07-15
+
+- Iteration 36 is release-candidate complete in the canonical Pages repo.
+- The coffin now owns a two-slot talent loadout. Create Thrall unlocks from the
+  authoritative Night 1 clear; Mist and Swarm retain Nights 5 and 10 authority.
+- Create Thrall is deterministic and bounded: one conversion, three active
+  thralls, stable-ID ties, 0.35-second retarget cadence, 28-second lifetime, and
+  centralized cleanup/refund at run boundaries.
+- All ability tiles and touch actions expose the highest-priority blocker and
+  synchronize numeric cooldown/fill state with gameplay.
+- Validation: 38/38 tests, site contracts, desktop/mobile Chromium QA, zero
+  console errors, deterministic 175,359-byte artifact, SHA-256
+  `b460366aacc7d1e63b1774943081ff57c862787255a8954bd20a4c026075d09e`.
+- Performance accepted p95 increased 3.8% versus the archived Iteration 35
+  baseline, below the 10% blocker.
+- Next: publish and exact-origin verify Iteration 36, then begin Iteration 37.
+
 ## Vampire Survival Iteration 35 - 2026-07-15
 
 - Bloodline v1 now lives in the coffin with Crimson Hunger, Moonstride, and

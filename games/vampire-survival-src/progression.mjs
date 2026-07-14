@@ -138,6 +138,7 @@ export function createHuntDepth(depth) {
 export const ABILITY_RULES = Object.freeze({
   feed: Object.freeze({ cost: 0, milestone: "Always available" }),
   dash: Object.freeze({ cost: 0, milestone: "Always available" }),
+  createThrall: Object.freeze({ cost: 18, milestone: "Survive Campaign Night 1" }),
   mist: Object.freeze({ cost: 10, milestone: "Defeat the Night 5 boss" }),
   swarm: Object.freeze({ cost: 16, milestone: "Defeat the Night 10 boss" }),
 });
@@ -170,13 +171,32 @@ export function campaignClearEventId(night) {
   return `campaign:night-${String(night).padStart(2, "0")}:first-clear`;
 }
 
-export function abilityAvailability(abilityId, { unlocked, cooldown = 0, blood = 0 } = {}) {
+export function abilityAvailability(abilityId, { unlocked, equipped = true, busy = false, capacity = true, cooldown = 0, blood = 0, targetAvailable = true } = {}) {
   const rule = ABILITY_RULES[abilityId];
   if (!rule) throw new Error(`Unknown ability ${abilityId}`);
   if (!unlocked) return { state: "locked", label: rule.milestone, ready: false, cost: rule.cost };
+  if (!equipped) return { state: "unequipped", label: "Not in loadout", ready: false, cost: rule.cost };
+  if (busy) return { state: "casting", label: "Conversion in progress", ready: false, cost: rule.cost };
+  if (!capacity) return { state: "capacity", label: "Thrall cap 3/3", ready: false, cost: rule.cost };
   if (cooldown > 0) return { state: "cooldown", label: `${cooldown.toFixed(1)}s`, ready: false, cost: rule.cost };
   if (rule.cost > 0 && blood < rule.cost) return { state: "insufficient", label: `Need ${rule.cost} Blood`, ready: false, cost: rule.cost };
+  if (!targetAvailable) return { state: "no-target", label: "No mortal in range", ready: false, cost: rule.cost };
   return { state: "ready", label: "Ready", ready: true, cost: rule.cost };
+}
+
+export function stableNearestTarget(candidates, origin, maxDistance = Infinity) {
+  let best = null;
+  let bestDistance = maxDistance;
+  for (const candidate of candidates) {
+    if (!candidate || candidate.dead || candidate.converting || candidate.type === "voss" || candidate.objectiveLieutenant) continue;
+    const distance = Math.hypot(candidate.x - origin.x, candidate.y - origin.y);
+    if (distance > maxDistance) continue;
+    if (!best || distance < bestDistance - 1e-9 || (Math.abs(distance - bestDistance) <= 1e-9 && String(candidate.id).localeCompare(String(best.id)) < 0)) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
 function gradeRank(grade) {
@@ -238,6 +258,15 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
         grantedAt: nowValue,
       };
       draft.appliedEvents[clearId] = { appliedAt: nowValue };
+      if (outcome.campaignNight === 1) {
+        const thrallUnlockId = "campaign:night-01:unlock-create-thrall";
+        draft.campaign.abilityUnlocks.createThrall = true;
+        draft.appliedEvents[thrallUnlockId] = { appliedAt: nowValue };
+        if (!draft.bloodline.loadoutConfigured) {
+          draft.bloodline.loadout = ["createThrall"];
+          draft.bloodline.loadoutConfigured = true;
+        }
+      }
       if (outcome.campaignNight === 5) {
         const mistUnlockId = "campaign:night-05:unlock-mist";
         const huntUnlockId = "campaign:night-05:unlock-hunt";

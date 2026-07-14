@@ -13,11 +13,13 @@ import {
   createRunContract,
   huntCrossQuota,
   recordProfileRunOutcome,
+  stableNearestTarget,
 } from "../games/vampire-survival-src/progression.mjs";
 import {
   BASE_RUN_STATS,
   BLOODLINE_BRANCHES,
   LEGACY_PROFILE_STORAGE_KEY,
+  MAX_TALENT_SLOTS,
   MAX_SCORE_HISTORY,
   PROFILE_RECOVERY_STORAGE_KEY,
   PROFILE_SCHEMA_VERSION,
@@ -34,6 +36,8 @@ import {
   respecBloodline,
   undoBloodlinePurchase,
   validateBloodlineState,
+  validateTalentLoadout,
+  toggleTalentTechnique,
 } from "../games/vampire-survival-src/profile.mjs";
 
 class MemoryStorage {
@@ -75,8 +79,8 @@ function legacyProfile(overrides = {}) {
   };
 }
 
-test("iteration 35 runtime and content contracts remain complete", () => {
-  assert.equal(BUILD.iteration, 35);
+test("iteration 36 runtime and content contracts remain complete", () => {
+  assert.equal(BUILD.iteration, 36);
   assert.equal(BUILD.profileSchema, 2);
   assert.equal(PROFILE_SCHEMA_VERSION, 2);
   assert.equal(Object.keys(DIFFICULTIES).length, 3);
@@ -198,7 +202,7 @@ test("Chapter I and full Hunt keep fixed-duration contracts while objectives and
   assert.throws(() => createRunContract({ mode: "hunt", huntDepth: 0, difficulty: DIFFICULTIES.night }), /positive/);
 });
 
-test("ability states prioritize milestone locks, cooldowns, Blood costs, then readiness", () => {
+test("ability states expose exactly one highest-priority blocking reason", () => {
   assert.equal(ABILITY_RULES.mist.cost, 10);
   assert.deepEqual(abilityAvailability("mist", { unlocked: false, cooldown: 4, blood: 0 }), {
     state: "locked", label: "Defeat the Night 5 boss", ready: false, cost: 10,
@@ -218,6 +222,48 @@ test("ability states prioritize milestone locks, cooldowns, Blood costs, then re
   assert.deepEqual(abilityAvailability("dash", { unlocked: true, cooldown: 0, blood: -1 }), {
     state: "ready", label: "Ready", ready: true, cost: 0,
   });
+  assert.deepEqual(abilityAvailability("createThrall", { unlocked: false, equipped: false, busy: true, capacity: false, cooldown: 8, blood: 0, targetAvailable: false }), {
+    state: "locked", label: "Survive Campaign Night 1", ready: false, cost: 18,
+  });
+  assert.equal(abilityAvailability("createThrall", { unlocked: true, equipped: false, busy: true }).state, "unequipped");
+  assert.equal(abilityAvailability("createThrall", { unlocked: true, equipped: true, busy: true, capacity: false }).state, "casting");
+  assert.equal(abilityAvailability("createThrall", { unlocked: true, equipped: true, capacity: false, cooldown: 8 }).state, "capacity");
+  assert.equal(abilityAvailability("createThrall", { unlocked: true, equipped: true, cooldown: 8, blood: 0, targetAvailable: false }).state, "cooldown");
+  assert.equal(abilityAvailability("createThrall", { unlocked: true, equipped: true, blood: 0, targetAvailable: false }).state, "insufficient");
+  assert.equal(abilityAvailability("createThrall", { unlocked: true, equipped: true, blood: 18, targetAvailable: false }).state, "no-target");
+});
+
+test("talent loadout enforces unlock authority, unique choices, and two slots", () => {
+  const profile = freshProfileV2({ profileId: fixedId() });
+  assert.equal(MAX_TALENT_SLOTS, 2);
+  assert.throws(() => toggleTalentTechnique(profile, "createThrall"), /locked/);
+  profile.campaign.clears["night-1"] = { test: true };
+  profile.campaign.clears["night-5"] = { test: true };
+  profile.campaign.clears["night-10"] = { test: true };
+  toggleTalentTechnique(profile, "createThrall");
+  toggleTalentTechnique(profile, "mist");
+  assert.deepEqual(profile.bloodline.loadout, ["createThrall", "mist"]);
+  assert.throws(() => toggleTalentTechnique(profile, "swarm"), /occupied/);
+  toggleTalentTechnique(profile, "createThrall");
+  toggleTalentTechnique(profile, "swarm");
+  assert.deepEqual(profile.bloodline.loadout, ["mist", "swarm"]);
+  assert.equal(validateTalentLoadout(profile), true);
+  profile.bloodline.loadout.push("swarm");
+  assert.throws(() => validateTalentLoadout(profile), /slots|duplicates/);
+});
+
+test("Create Thrall targeting is deterministic, range-bounded, and excludes protected enemies", () => {
+  const origin = { x: 0, y: 0 };
+  const candidates = [
+    { id: "enemy-z", x: 10, y: 0 },
+    { id: "enemy-a", x: -10, y: 0 },
+    { id: "enemy-boss", x: 1, y: 0, type: "voss" },
+    { id: "enemy-lieutenant", x: 2, y: 0, objectiveLieutenant: true },
+    { id: "enemy-converting", x: 3, y: 0, converting: true },
+  ];
+  assert.equal(stableNearestTarget(candidates, origin, 20).id, "enemy-a");
+  assert.equal(stableNearestTarget(candidates, origin, 9), null);
+  assert.equal(stableNearestTarget([...candidates].reverse(), origin, 20).id, "enemy-a");
 });
 
 test("Campaign clear outcome grants one finite reward and creates a resumable coffin outcome", () => {

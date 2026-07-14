@@ -9,7 +9,7 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
-const vampireArchive35 = read("games/vampire-survival-iterations/iteration-35-codex.html");
+const vampireArchive36 = read("games/vampire-survival-iterations/iteration-36-codex.html");
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
@@ -114,15 +114,15 @@ assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain o
 assert.doesNotMatch(monitorJs, /driver_version/, "Monitor must not show private-only GPU driver columns unless public status includes them.");
 assert.doesNotMatch(monitorJs, /uuid/, "Monitor must not show private-only GPU UUID columns unless public status includes them.");
 
-assert.equal(vampireArchive35, vampireGame, "Iteration 35 archive must match the exact deployed game artifact.");
-assert.match(vampireGame, /iteration:\s*35/, "Vampire Survival must expose Iteration 35 to its test contract.");
+assert.equal(vampireArchive36, vampireGame, "Iteration 36 archive must match the exact deployed game artifact.");
+assert.match(vampireGame, /iteration:\s*36/, "Vampire Survival must expose Iteration 36 to its test contract.");
 assert.match(vampireGame, /profileSchema:\s*2/, "Vampire Survival must declare profile schema v2.");
 assert.match(vampireGame, /vampire_survival_profile_v2/, "Vampire Survival must use the v2 profile key.");
 assert.match(vampireGame, /vampire_survival_profile_v31/, "Vampire Survival must retain the v31 migration source key.");
 assert.match(vampireGame, /Break 3 warding crosses, then survive until dawn/, "Vampire Survival must keep the exact Night 1 objective contract.");
 assert.match(vampireGame, /Progress is saved on this device/, "Vampire Survival must explain local persistence.");
 assert.match(vampireGame, /objectiveDiagnostics/, "Vampire Survival test mode must expose objective diagnostics.");
-assert.match(vampireGame, /trimEntityOverflow\(enemies,BUILD_MAX_ENEMIES,player,\[boss,\.\.\.enemies\.filter/, "Vampire Survival must protect bosses and objective lieutenants from the enemy-cap guard.");
+assert.match(vampireGame, /trimEntityOverflow\(enemies,BUILD_MAX_ENEMIES,player,\[boss,converting,\.\.\.enemies\.filter/, "Vampire Survival must protect bosses, conversion targets, and objective lieutenants from the enemy-cap guard.");
 assert.match(vampireGame, /requiredCrosses:contract\.crossQuota/, "Vampire Survival must derive its active cross quota from the authored run contract.");
 assert.match(vampireGame, /if \(depth <= 2\) return 3;[\s\S]*if \(depth <= 5\) return 4;[\s\S]*if \(depth <= 7\) return 5;/, "Iteration 34 must implement the approved Hunt cross cadence.");
 assert.match(vampireGame, /BOSS_ACTIVE:\s*"boss-active"/, "Night 5 must expose a separate post-dawn boss phase.");
@@ -141,6 +141,14 @@ assert.match(vampireGame, /deriveBloodlineRunStats\(profile\.bloodline\.allocati
 assert.match(vampireGame, /const stats\s*=\s*\{\s*\.\.\.baseStats\s*\}/, "Bloodline derivation must copy rather than mutate base stat definitions.");
 assert.match(vampireGame, /id="bloodlineModal"/, "The coffin hub must expose the Bloodline progression dialog.");
 assert.match(vampireGame, /data-bloodline-tab="hunger"/, "Narrow layouts must expose Bloodline branch tabs.");
+assert.match(vampireGame, /id="loadoutModal"/, "The coffin must expose an accessible talent loadout dialog.");
+assert.match(vampireGame, /MAX_TALENT_SLOTS\s*=\s*2/, "Talent loadouts must remain bounded to two signature slots.");
+assert.match(vampireGame, /stableNearestTarget/, "Create Thrall must use the deterministic target selector.");
+assert.match(vampireGame, /thralls\.length<3/, "Create Thrall must enforce the three-active-thrall cap.");
+assert.match(vampireGame, /retargetCd=\.35/, "Thralls must use bounded retargeting rather than rescanning without a cadence.");
+assert.match(vampireGame, /function clearThrallState/, "Thrall cleanup must have one centralized run-boundary path.");
+assert.match(vampireGame, /Conversion in progress/, "Ability feedback must expose the active conversion blocker.");
+assert.match(vampireGame, /Not in loadout/, "Ability feedback must expose unequipped techniques explicitly.");
 assert.match(vampireGame, /id="campaignGrid"/, "Chapter I must expose the five-night Campaign map.");
 assert.match(vampireGame, /COFFIN_TRANSITION:\s*"coffin-transition"/, "Vampire Survival must expose a named coffin transition phase.");
 assert.match(vampireGame, /recordProfileRunOutcome\(draft,outcomePayload/, "Vampire Survival must stage one idempotent profile outcome before the coffin flow.");
@@ -162,7 +170,7 @@ assert.match(vampireGame, /Progress could not be saved in this tab/, "Vampire Su
 assert.match(vampireGame, /audioUnavailable=true/, "Vampire Survival must continue silently when Web Audio is unavailable.");
 assert.match(vampireGame, /e\.behaviour==="boss"/, "Vampire Survival enemy behavior must dispatch from the content catalog.");
 assert.match(vampireGame, /applySettings\(\{persist:false\}\)/, "Vampire Survival startup must not create a no-change profile revision.");
-assert.equal([...vampireGame.matchAll(/role="dialog" aria-modal="true"/g)].length, 8, "Vampire Survival overlays must expose accessible modal semantics.");
+assert.equal([...vampireGame.matchAll(/role="dialog" aria-modal="true"/g)].length, 9, "Vampire Survival overlays must expose accessible modal semantics.");
 assert.doesNotMatch(vampireGame, /#mission\{display:none/, "Vampire Survival must keep the cross objective visible on mobile.");
 assert.doesNotMatch(vampireGame, /while\(enemies\.length>BUILD_MAX_ENEMIES/, "Vampire Survival must not mark every removable enemy dead at the cap.");
 assert.doesNotMatch(vampireGame, /Codex Iteration|Build 31|Iteration 31|No network, remote assets/, "Vampire Survival must not expose internal build or requirements copy.");
