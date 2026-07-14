@@ -130,7 +130,7 @@ export function freshProfileV2(options = {}) {
     },
     economy: { events: {} },
     bloodline: { allocation: {}, purchases: {}, loadout: [] },
-    hunt: { unlocked: true, bestDepth: 0, scores: {} },
+    hunt: { unlocked: false, bestDepth: 0, scores: {} },
     appliedEvents: {},
     migration: { sourceVersion: null, sourceFingerprint: null, sourceSnapshot: null, migratedAt: null },
   };
@@ -171,6 +171,9 @@ export function normaliseProfileV2(candidate) {
   if (!Number.isInteger(profile.hunt.bestDepth) || profile.hunt.bestDepth < 0) {
     throw new Error("Hunt depth must be a non-negative integer");
   }
+  profile.campaign.abilityUnlocks.mist = Boolean(profile.campaign.clears["night-5"]);
+  profile.campaign.abilityUnlocks.swarm = Boolean(profile.campaign.clears["night-10"]);
+  profile.hunt.unlocked = Boolean(profile.campaign.clears["night-5"]);
   for (const [nodeId, rank] of Object.entries(profile.bloodline.allocation)) {
     if (!Number.isInteger(rank) || rank < 0) throw new Error(`Invalid Bloodline rank for ${nodeId}`);
   }

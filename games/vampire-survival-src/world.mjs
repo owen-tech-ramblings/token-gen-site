@@ -74,6 +74,7 @@ function resetRun(options={}){
     mode,campaignNight:contract.campaignNight,huntDepth:contract.huntDepth,contract,
     time:0,score:0,phase:1,threat:1,difficulty:difficultyId,seed,spawnTimer:0,
     relicsBroken:0,requiredCrosses:contract.crossQuota,dawn:contract.dawn,grace:contract.grace,
+    lieutenantsDefeated:0,requiredLieutenants:contract.lieutenantQuota||0,bossActive:false,bossDefeated:false,
     toast:"",toastTime:0,district:"",pactPending:0,hitStop:0,kills:0,damageTaken:0,
     roses:0,bossIntro:0,frenzy:0,bloodMoon:0,director:{pressure:1,budget:0},
     newAchievements:[],failureReason:null,clearCommitFailed:false,
@@ -98,12 +99,21 @@ function resetRun(options={}){
   for(let i=0;i<18;i++)spawnEnemy("villager",true);
   for(let i=0;i<contract.startingGuards;i++)spawnEnemy("guard",true);
   for(let i=0;i<contract.startingHunters;i++)spawnEnemy("hunter",true,i===0);
+  for(let i=0;i<(contract.lieutenantQuota||0);i++){
+    const lieutenant=spawnEnemy(contract.lieutenantType,true,true);
+    lieutenant.objectiveLieutenant=true;
+    lieutenant.objectiveName=contract.lieutenantName;
+    lieutenant.hp*=1.35;lieutenant.maxHp=lieutenant.hp;lieutenant.score*=1.35;
+  }
   $("mission").textContent=contract.briefing;
   updateHud();
 }
 
 function enemyTypeForTime(){
-  const p=state.phase,r=rng(),depthBoost=state.mode==="hunt"&&state.huntDepth===2?1:0;
+  const p=state.phase,r=rng(),depthBoost=state.mode==="hunt"?Math.min(3,Math.floor((state.huntDepth-1)/3)):0,encounter=state.contract.encounter;
+  if(encounter==="procession"&&p>=2&&r<.3)return"priest";
+  if(encounter==="fog"&&p>=2&&r<.38)return"hunter";
+  if(encounter==="lockdown"&&p>=3&&r<.2)return"captain";
   if(p+depthBoost>=5&&r<.09)return"captain";
   if(p+depthBoost>=4&&r<.24)return"priest";
   if(p+depthBoost>=3&&r<.48)return"hunter";
@@ -146,8 +156,8 @@ function spawnBoss(){
   const point=safePoint(WORLD.w*.5,220,45),base=ENEMY_TYPES.voss,difficultyContract=difficulty();
   boss={
     id:"captain-voss",type:"voss",behaviour:base.behaviour,x:point.x,y:point.y,radius:base.radius,
-    hp:base.hp*difficultyContract.enemyHp,maxHp:base.hp*difficultyContract.enemyHp,speed:base.speed,
-    damage:base.damage*difficultyContract.enemyDamage,score:base.score,xp:base.xp,state:"boss",
+    hp:base.hp*difficultyContract.enemyHp*state.contract.enemyHp,maxHp:base.hp*difficultyContract.enemyHp*state.contract.enemyHp,speed:base.speed,
+    damage:base.damage*difficultyContract.enemyDamage*state.contract.enemyDamage,score:base.score,xp:base.xp,state:"boss",
     cooldown:1.6,shotCd:1.1,hit:0,angle:0,phase:1,pattern:"arrival",patternTime:1.4,
     elite:true,dead:false,target:{x:player.x,y:player.y},
   };

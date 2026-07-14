@@ -1,5 +1,5 @@
 export const BUILD = Object.freeze({
-  iteration: 33,
+  iteration: 34,
   upgrades: true,
   boss: true,
   districts: true,
@@ -13,6 +13,7 @@ export const GAME_PHASES = Object.freeze({
   MENU: "menu",
   CAMPAIGN_MAP: "campaign-map",
   NIGHT_ACTIVE: "night-active",
+  BOSS_ACTIVE: "boss-active",
   COFFIN_TRANSITION: "coffin-transition",
   COFFIN_HUB: "coffin-hub",
   RESULT: "result",
@@ -61,8 +62,9 @@ export function trimEntityOverflow(entities, cap, origin, protectedEntity = null
   const live = entities.filter((entity) => !entity.dead);
   const overflow = Math.max(0, live.length - cap);
   if (overflow === 0) return 0;
+  const protectedEntities = new Set(Array.isArray(protectedEntity) ? protectedEntity.filter(Boolean) : [protectedEntity].filter(Boolean));
   const removable = live
-    .filter((entity) => entity !== protectedEntity)
+    .filter((entity) => !protectedEntities.has(entity))
     .sort((left, right) => (
       Math.hypot(right.x - origin.x, right.y - origin.y)
       - Math.hypot(left.x - origin.x, left.y - origin.y)

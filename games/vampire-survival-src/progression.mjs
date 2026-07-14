@@ -12,36 +12,128 @@ export const CAMPAIGN_NIGHTS = Object.freeze({
     startingHunters: 0,
     crossPoints: Object.freeze([[420, 360], [2760, 420], [1664, 1840]]),
   }),
-});
-
-export const HUNT_PREVIEW_DEPTHS = Object.freeze({
-  1: Object.freeze({
-    id: "hunt-depth-1",
-    title: "Hunt Depth 1",
-    briefing: "Break 3 warding crosses, then survive until dawn.",
-    crossQuota: 3,
-    pressure: 1,
-    eliteBonus: 0.01,
-    enemyHp: 1,
-    enemyDamage: 1,
-    startingGuards: 3,
-    startingHunters: 0,
-    crossPoints: Object.freeze([[460, 420], [2680, 460], [1620, 1800]]),
-  }),
   2: Object.freeze({
-    id: "hunt-depth-2",
-    title: "Hunt Depth 2",
-    briefing: "Break 3 warding crosses. Patrols are faster and elites gather sooner.",
+    id: "night-2",
+    title: "Lantern Procession",
+    briefing: "Break 3 warding crosses and silence the 2 Procession Keepers before dawn.",
     crossQuota: 3,
-    pressure: 1.24,
-    eliteBonus: 0.09,
+    lieutenantQuota: 2,
+    lieutenantType: "priest",
+    lieutenantName: "Procession Keepers",
+    encounter: "procession",
+    pressure: 1.08,
+    eliteBonus: 0.025,
+    enemyHp: 1.03,
+    enemyDamage: 1.02,
+    startingGuards: 4,
+    startingHunters: 0,
+    crossPoints: Object.freeze([[520, 1720], [1570, 360], [2700, 1680]]),
+  }),
+  3: Object.freeze({
+    id: "night-3",
+    title: "Blackwater Fog",
+    briefing: "Break 4 warding crosses and hunt down the 2 Fog Stalkers before dawn.",
+    crossQuota: 4,
+    lieutenantQuota: 2,
+    lieutenantType: "hunter",
+    lieutenantName: "Fog Stalkers",
+    encounter: "fog",
+    pressure: 1.16,
+    eliteBonus: 0.045,
+    enemyHp: 1.07,
+    enemyDamage: 1.05,
+    startingGuards: 4,
+    startingHunters: 2,
+    crossPoints: Object.freeze([[380, 420], [1480, 430], [2780, 520], [1760, 1810]]),
+  }),
+  4: Object.freeze({
+    id: "night-4",
+    title: "Palace Lockdown",
+    briefing: "Break 4 warding crosses and defeat the 3 Ivory Captains before dawn.",
+    crossQuota: 4,
+    lieutenantQuota: 3,
+    lieutenantType: "captain",
+    lieutenantName: "Ivory Captains",
+    encounter: "lockdown",
+    pressure: 1.25,
+    eliteBonus: 0.065,
     enemyHp: 1.12,
     enemyDamage: 1.08,
-    startingGuards: 6,
+    startingGuards: 7,
     startingHunters: 2,
-    crossPoints: Object.freeze([[520, 1680], [1580, 360], [2700, 1680]]),
+    crossPoints: Object.freeze([[470, 360], [2600, 390], [620, 1780], [2700, 1770]]),
+  }),
+  5: Object.freeze({
+    id: "night-5",
+    title: "The Dawn Marshal",
+    briefing: "Break 4 warding crosses and survive until dawn. Captain Voss waits beyond it.",
+    crossQuota: 4,
+    lieutenantQuota: 0,
+    lieutenantType: null,
+    lieutenantName: "",
+    encounter: "voss",
+    bossId: "voss",
+    pressure: 1.34,
+    eliteBonus: 0.08,
+    enemyHp: 1.16,
+    enemyDamage: 1.12,
+    startingGuards: 8,
+    startingHunters: 3,
+    crossPoints: Object.freeze([[420, 380], [1570, 350], [2780, 470], [1640, 1840]]),
   }),
 });
+
+const HUNT_CROSS_LAYOUTS = Object.freeze({
+  3: Object.freeze([
+    Object.freeze([[460, 420], [2680, 460], [1620, 1800]]),
+    Object.freeze([[520, 1680], [1580, 360], [2700, 1680]]),
+  ]),
+  4: Object.freeze([
+    Object.freeze([[420, 390], [1560, 360], [2780, 500], [1640, 1840]]),
+    Object.freeze([[480, 520], [2700, 420], [520, 1760], [2660, 1780]]),
+  ]),
+  5: Object.freeze([
+    Object.freeze([[380, 410], [1570, 330], [2800, 470], [620, 1800], [2580, 1810]]),
+    Object.freeze([[520, 350], [2660, 380], [430, 1670], [1580, 1880], [2760, 1660]]),
+  ]),
+  6: Object.freeze([
+    Object.freeze([[390, 380], [1550, 340], [2790, 430], [450, 1760], [1600, 1880], [2740, 1740]]),
+    Object.freeze([[520, 460], [1580, 330], [2700, 520], [390, 1620], [1680, 1820], [2810, 1640]]),
+  ]),
+});
+
+export function huntCrossQuota(depth) {
+  if (!Number.isInteger(depth) || depth < 1) throw new Error("Hunt depth must be positive");
+  if (depth <= 2) return 3;
+  if (depth <= 5) return 4;
+  if (depth <= 7) return 5;
+  return 6;
+}
+
+export function createHuntDepth(depth) {
+  const crossQuota = huntCrossQuota(depth);
+  const layouts = HUNT_CROSS_LAYOUTS[crossQuota];
+  const crossPoints = layouts[(depth - 1) % layouts.length];
+  const tier = Math.floor((depth - 1) / 3);
+  return Object.freeze({
+    id: `hunt-depth-${depth}`,
+    title: `Hunt Depth ${depth}`,
+    briefing: `Break ${crossQuota} warding crosses. Pressure and elite patrols intensify while dawn stays fixed.`,
+    crossQuota,
+    lieutenantQuota: 0,
+    lieutenantType: null,
+    lieutenantName: "",
+    encounter: depth >= 8 ? "deep-hunt" : depth >= 4 ? "escalation" : "hunt",
+    pressure: Math.min(2.35, 1 + (depth - 1) * 0.095),
+    eliteBonus: Math.min(0.24, 0.01 + (depth - 1) * 0.022),
+    enemyHp: Math.min(1.72, 1 + (depth - 1) * 0.045),
+    enemyDamage: Math.min(1.55, 1 + (depth - 1) * 0.035),
+    scoreMultiplier: 1 + tier * 0.12,
+    startingGuards: Math.min(13, 3 + Math.floor(depth * 0.9)),
+    startingHunters: Math.min(8, Math.floor(depth / 2)),
+    crossPoints,
+  });
+}
 
 export const ABILITY_RULES = Object.freeze({
   feed: Object.freeze({ cost: 0, milestone: "Always available" }),
@@ -59,8 +151,7 @@ export function createRunContract({ mode, difficulty, campaignNight = 1, huntDep
     authored = CAMPAIGN_NIGHTS[campaignNight];
     if (!authored) throw new Error(`Campaign Night ${campaignNight} is not playable yet`);
   } else if (mode === "hunt") {
-    authored = HUNT_PREVIEW_DEPTHS[huntDepth];
-    if (!authored) throw new Error(`Hunt Depth ${huntDepth} is outside the preview`);
+    authored = createHuntDepth(huntDepth);
   } else {
     throw new Error(`Unknown run mode ${mode}`);
   }
@@ -147,11 +238,22 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
         grantedAt: nowValue,
       };
       draft.appliedEvents[clearId] = { appliedAt: nowValue };
+      if (outcome.campaignNight === 5) {
+        const mistUnlockId = "campaign:night-05:unlock-mist";
+        const huntUnlockId = "campaign:night-05:unlock-hunt";
+        draft.campaign.abilityUnlocks.mist = true;
+        draft.hunt.unlocked = true;
+        draft.appliedEvents[mistUnlockId] = { appliedAt: nowValue };
+        draft.appliedEvents[huntUnlockId] = { appliedAt: nowValue };
+      }
     }
     coffinOutcome = {
       eventId: runEventId,
       mode: "campaign",
       night: outcome.campaignNight,
+      nextNight: outcome.campaignNight < 5 ? outcome.campaignNight + 1 : null,
+      mistUnlocked: firstClear && outcome.campaignNight === 5,
+      huntUnlocked: firstClear && outcome.campaignNight === 5,
       firstClear,
       bloodPacks: firstClear ? 1 : 0,
       grade: entry.grade,
@@ -168,7 +270,7 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
       eventId: runEventId,
       mode: "hunt",
       depth: outcome.huntDepth,
-      nextDepth: outcome.huntDepth < 2 ? outcome.huntDepth + 1 : null,
+      nextDepth: outcome.huntDepth + 1,
       firstClear: false,
       bloodPacks: 0,
       grade: entry.grade,
