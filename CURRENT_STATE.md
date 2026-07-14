@@ -2,6 +2,27 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 35 Release Candidate - 2026-07-15
+
+- Bloodline v1 now lives in the coffin with Crimson Hunger, Moonstride, and
+  Nightborn Arts, each containing three prerequisite-linked nodes.
+- Every node shows cost, rank, prerequisite state, concise flavor, and current
+  versus next effect. Desktop shows three branches; 375x812 uses fitting tabs
+  and one vertically scrollable path without horizontal overflow.
+- Purchases debit the immutable economy ledger atomically. One-step Undo adds
+  an exact compensating refund; free respec refunds every active node. Invalid,
+  duplicate, orphaned, and stale transaction states are rejected.
+- Run stats derive from a copy of frozen base definitions at night start. A
+  coffin purchase never mutates the finished run; Crimson Reservoir changed
+  the next run from 112 to 124 maximum Blood in browser QA.
+- Verification passed: 36 Node tests, shared contracts, all module syntax,
+  deterministic double-build, exact archive equality, desktop/mobile Bloodline
+  flows, failed-save currency safety, and three 180-second cap soaks.
+- Candidate: 158,067 bytes, SHA-256
+  `0a8977e35c21225b11e46dfd5b94e3793470dc2017e6790a17092696587ddab9`.
+- Detailed evidence:
+  `games/vampire-survival-iterations/iteration-35-test-report.md`.
+
 ## Vampire Survival Iteration 34 - 2026-07-15
 
 - Chapter I Nights 1-5 are implemented with distinct objectives,

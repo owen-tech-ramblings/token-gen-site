@@ -12,6 +12,183 @@ const DEFAULT_SETTINGS = Object.freeze({
   reducedMotion: false,
 });
 
+const bloodlineNode = (node) => Object.freeze({ maxRank: 1, ...node });
+const bloodlineBranch = (branch) => Object.freeze({ ...branch, nodes: Object.freeze(branch.nodes.map(bloodlineNode)) });
+
+export const BLOODLINE_BRANCHES = Object.freeze([
+  bloodlineBranch({
+    id: "hunger",
+    name: "Crimson Hunger",
+    theme: "Blood, feeding, and recovery",
+    nodes: [
+      { id: "crimson-reservoir", name: "Crimson Reservoir", cost: 1, prerequisite: null, stat: "maxBlood", operation: "add", amount: 12, effect: "+12 maximum Blood", flavor: "A deeper thirst survives a longer night." },
+      { id: "predator-teeth", name: "Predator's Teeth", cost: 1, prerequisite: "crimson-reservoir", stat: "feedDamage", operation: "add", amount: 4, effect: "+4 Feed damage", flavor: "The first bite teaches the second." },
+      { id: "red-harvest", name: "Red Harvest", cost: 2, prerequisite: "predator-teeth", stat: "roseHeal", operation: "add", amount: 4, effect: "+4 Blood from roses", flavor: "Even fallen petals remember the vein." },
+    ],
+  }),
+  bloodlineBranch({
+    id: "moonstride",
+    name: "Moonstride",
+    theme: "Movement, escape, and Mist",
+    nodes: [
+      { id: "fleet-shadow", name: "Fleet Shadow", cost: 1, prerequisite: null, stat: "speed", operation: "multiply", amount: 1.04, effect: "+4% movement speed", flavor: "Moonlight arrives after the shadow has gone." },
+      { id: "spectral-step", name: "Spectral Step", cost: 1, prerequisite: "fleet-shadow", stat: "dashCooldown", operation: "add", amount: -0.25, effect: "-0.25s Dash cooldown", flavor: "Stone forgets the foot that never landed." },
+      { id: "lingering-mist", name: "Lingering Mist", cost: 2, prerequisite: "spectral-step", stat: "mistDuration", operation: "add", amount: 0.3, effect: "+0.30s Mist duration", flavor: "The fog remains after the hunter looks away." },
+    ],
+  }),
+  bloodlineBranch({
+    id: "nightborn",
+    name: "Nightborn Arts",
+    theme: "Reach, wards, and frenzy",
+    nodes: [
+      { id: "long-fangs", name: "Long Fangs", cost: 1, prerequisite: null, stat: "range", operation: "add", amount: 8, effect: "+8 attack range", flavor: "Distance is only another superstition." },
+      { id: "wardbreaker", name: "Wardbreaker", cost: 1, prerequisite: "long-fangs", stat: "relicDamage", operation: "add", amount: 10, effect: "+10 warding-cross damage", flavor: "Faith cracks where patience keeps striking." },
+      { id: "midnight-fervor", name: "Midnight Fervor", cost: 2, prerequisite: "wardbreaker", stat: "frenzyGain", operation: "multiply", amount: 1.12, effect: "+12% frenzy gain", flavor: "The darkest hour beats like a second heart." },
+    ],
+  }),
+]);
+
+export const BASE_RUN_STATS = Object.freeze({
+  maxBlood: 112,
+  speed: 248,
+  range: 74,
+  feedDamage: 25,
+  dashCooldown: 2.35,
+  mistBase: 8.5,
+  mistDuration: 2.15,
+  swarmDamage: 34,
+  swarmRadius: 215,
+  relicDamage: 48,
+  comboWindow: 3.2,
+  magnet: 28,
+  roseHeal: 18,
+  frenzyGain: 1,
+});
+
+const BLOODLINE_NODES = Object.freeze(BLOODLINE_BRANCHES.flatMap((branch) => branch.nodes));
+const BLOODLINE_NODE_MAP = new Map(BLOODLINE_NODES.map((node) => [node.id, node]));
+
+export function bloodlineNodeById(nodeId) {
+  return BLOODLINE_NODE_MAP.get(nodeId) || null;
+}
+
+function activeBloodlinePurchases(bloodline) {
+  return Object.entries(bloodline.purchases || {})
+    .map(([nodeId, purchase]) => ({ nodeId, ...purchase }))
+    .sort((left, right) => left.sequence - right.sequence);
+}
+
+export function validateBloodlineState(bloodline) {
+  if (!isRecord(bloodline) || !isRecord(bloodline.allocation) || !isRecord(bloodline.purchases)) {
+    throw new Error("Invalid Bloodline state");
+  }
+  if (!Number.isInteger(bloodline.nextTransaction) || bloodline.nextTransaction < 1) {
+    throw new Error("Invalid Bloodline transaction counter");
+  }
+  if (bloodline.lastPurchaseId !== null && typeof bloodline.lastPurchaseId !== "string") {
+    throw new Error("Invalid Bloodline undo state");
+  }
+  const seenTransactions = new Set();
+  let latest = null;
+  for (const [nodeId, rank] of Object.entries(bloodline.allocation)) {
+    const node = bloodlineNodeById(nodeId);
+    if (!node || rank !== 1) throw new Error(`Invalid Bloodline rank for ${nodeId}`);
+    if (node.prerequisite && bloodline.allocation[node.prerequisite] !== 1) {
+      throw new Error(`Bloodline prerequisite missing for ${nodeId}`);
+    }
+    const purchase = bloodline.purchases[nodeId];
+    if (!isRecord(purchase) || typeof purchase.transactionId !== "string" || !purchase.transactionId
+      || !Number.isInteger(purchase.sequence) || purchase.sequence < 1 || purchase.cost !== node.cost) {
+      throw new Error(`Invalid Bloodline purchase for ${nodeId}`);
+    }
+    if (seenTransactions.has(purchase.transactionId)) throw new Error("Duplicate Bloodline transaction");
+    seenTransactions.add(purchase.transactionId);
+    if (!latest || purchase.sequence > latest.sequence) latest = { nodeId, sequence: purchase.sequence };
+  }
+  for (const nodeId of Object.keys(bloodline.purchases)) {
+    if (bloodline.allocation[nodeId] !== 1) throw new Error(`Orphaned Bloodline purchase for ${nodeId}`);
+  }
+  if (latest && bloodline.nextTransaction <= latest.sequence) throw new Error("Bloodline transaction counter is stale");
+  if ((latest?.nodeId || null) !== bloodline.lastPurchaseId) throw new Error("Bloodline undo state is stale");
+  return true;
+}
+
+export function bloodlineNodeStatus(profile, nodeId) {
+  const node = bloodlineNodeById(nodeId);
+  if (!node) throw new Error(`Unknown Bloodline node ${nodeId}`);
+  const owned = profile.bloodline.allocation[nodeId] === 1;
+  const prerequisiteMet = !node.prerequisite || profile.bloodline.allocation[node.prerequisite] === 1;
+  const balance = profileBalance(profile);
+  return { node, owned, prerequisiteMet, affordable: balance >= node.cost, available: !owned && prerequisiteMet && balance >= node.cost, balance };
+}
+
+export function purchaseBloodlineNode(profile, nodeId, nowValue = new Date().toISOString()) {
+  validateBloodlineState(profile.bloodline);
+  const status = bloodlineNodeStatus(profile, nodeId);
+  if (status.owned) throw new Error(`${status.node.name} is already owned`);
+  if (!status.prerequisiteMet) throw new Error(`Purchase ${bloodlineNodeById(status.node.prerequisite).name} first`);
+  if (!status.affordable) throw new Error(`Need ${status.node.cost} Blood Pack${status.node.cost === 1 ? "" : "s"}`);
+  const sequence = profile.bloodline.nextTransaction;
+  const transactionId = `bloodline:purchase:${sequence}:${nodeId}`;
+  profile.economy.events[transactionId] = { amount: -status.node.cost, source: "bloodline-purchase", nodeId, appliedAt: nowValue };
+  profile.bloodline.allocation[nodeId] = 1;
+  profile.bloodline.purchases[nodeId] = { transactionId, sequence, cost: status.node.cost, purchasedAt: nowValue };
+  profile.bloodline.nextTransaction = sequence + 1;
+  profile.bloodline.lastPurchaseId = nodeId;
+  validateBloodlineState(profile.bloodline);
+  if (profileBalance(profile) < 0) throw new Error("Bloodline purchase produced a negative balance");
+  return { applied: true, node: status.node, transactionId, balance: profileBalance(profile) };
+}
+
+export function undoBloodlinePurchase(profile, nowValue = new Date().toISOString()) {
+  validateBloodlineState(profile.bloodline);
+  const nodeId = profile.bloodline.lastPurchaseId;
+  if (!nodeId) return { applied: false, reason: "Nothing to undo", balance: profileBalance(profile) };
+  const dependent = BLOODLINE_NODES.find((node) => node.prerequisite === nodeId && profile.bloodline.allocation[node.id] === 1);
+  if (dependent) throw new Error(`${bloodlineNodeById(nodeId).name} is required by ${dependent.name}`);
+  const purchase = profile.bloodline.purchases[nodeId];
+  const sequence = profile.bloodline.nextTransaction;
+  const transactionId = `bloodline:undo:${sequence}:${purchase.transactionId}`;
+  profile.economy.events[transactionId] = { amount: purchase.cost, source: "bloodline-undo", nodeId, appliedAt: nowValue };
+  delete profile.bloodline.allocation[nodeId];
+  delete profile.bloodline.purchases[nodeId];
+  profile.bloodline.nextTransaction = sequence + 1;
+  const remaining = activeBloodlinePurchases(profile.bloodline);
+  profile.bloodline.lastPurchaseId = remaining.at(-1)?.nodeId || null;
+  validateBloodlineState(profile.bloodline);
+  return { applied: true, node: bloodlineNodeById(nodeId), transactionId, balance: profileBalance(profile) };
+}
+
+export function respecBloodline(profile, nowValue = new Date().toISOString()) {
+  validateBloodlineState(profile.bloodline);
+  const purchases = activeBloodlinePurchases(profile.bloodline);
+  if (!purchases.length) return { applied: false, reason: "No Bloodline nodes to respec", refunded: 0, balance: profileBalance(profile) };
+  const refunded = purchases.reduce((total, purchase) => total + purchase.cost, 0);
+  const sequence = profile.bloodline.nextTransaction;
+  const transactionId = `bloodline:respec:${sequence}`;
+  profile.economy.events[transactionId] = { amount: refunded, source: "bloodline-respec", nodes: purchases.map((purchase) => purchase.nodeId), appliedAt: nowValue };
+  profile.bloodline.allocation = {};
+  profile.bloodline.purchases = {};
+  profile.bloodline.nextTransaction = sequence + 1;
+  profile.bloodline.lastPurchaseId = null;
+  validateBloodlineState(profile.bloodline);
+  return { applied: true, transactionId, refunded, balance: profileBalance(profile) };
+}
+
+export function deriveBloodlineRunStats(allocation = {}, baseStats = BASE_RUN_STATS) {
+  const stats = { ...baseStats };
+  const activeNodes = [];
+  for (const node of BLOODLINE_NODES) {
+    if (allocation[node.id] !== 1) continue;
+    activeNodes.push(node.id);
+    if (node.operation === "add") stats[node.stat] += node.amount;
+    else if (node.operation === "multiply") stats[node.stat] *= node.amount;
+    else throw new Error(`Unknown Bloodline effect operation ${node.operation}`);
+  }
+  stats.activeNodes = activeNodes;
+  return stats;
+}
+
 function clone(value) {
   if (typeof structuredClone === "function") return structuredClone(value);
   return JSON.parse(JSON.stringify(value));
@@ -129,7 +306,7 @@ export function freshProfileV2(options = {}) {
       pendingCoffinOutcome: null,
     },
     economy: { events: {} },
-    bloodline: { allocation: {}, purchases: {}, loadout: [] },
+    bloodline: { allocation: {}, purchases: {}, loadout: [], nextTransaction: 1, lastPurchaseId: null },
     hunt: { unlocked: false, bestDepth: 0, scores: {} },
     appliedEvents: {},
     migration: { sourceVersion: null, sourceFingerprint: null, sourceSnapshot: null, migratedAt: null },
@@ -159,7 +336,7 @@ export function normaliseProfileV2(candidate) {
     settings: { ...DEFAULT_SETTINGS, ...(candidate.settings || {}) },
     campaign: { ...base.campaign, ...(candidate.campaign || {}), abilityUnlocks: { ...base.campaign.abilityUnlocks, ...(candidate.campaign?.abilityUnlocks || {}) }, clears: { ...(candidate.campaign?.clears || {}) } },
     economy: { events: { ...(candidate.economy?.events || {}) } },
-    bloodline: { ...base.bloodline, ...(candidate.bloodline || {}), allocation: { ...(candidate.bloodline?.allocation || {}) }, purchases: { ...(candidate.bloodline?.purchases || {}) }, loadout: Array.isArray(candidate.bloodline?.loadout) ? [...candidate.bloodline.loadout] : [...base.bloodline.loadout] },
+    bloodline: { ...base.bloodline, ...(candidate.bloodline || {}), allocation: { ...(candidate.bloodline?.allocation || {}) }, purchases: { ...(candidate.bloodline?.purchases || {}) }, loadout: Array.isArray(candidate.bloodline?.loadout) ? [...candidate.bloodline.loadout] : [...base.bloodline.loadout], nextTransaction: Number.isInteger(candidate.bloodline?.nextTransaction) ? candidate.bloodline.nextTransaction : base.bloodline.nextTransaction, lastPurchaseId: typeof candidate.bloodline?.lastPurchaseId === "string" ? candidate.bloodline.lastPurchaseId : null },
     hunt: { ...base.hunt, ...(candidate.hunt || {}), scores: { ...(candidate.hunt?.scores || {}) } },
     appliedEvents: { ...(candidate.appliedEvents || {}) },
     migration: { ...base.migration, ...(candidate.migration || {}) },
@@ -174,9 +351,7 @@ export function normaliseProfileV2(candidate) {
   profile.campaign.abilityUnlocks.mist = Boolean(profile.campaign.clears["night-5"]);
   profile.campaign.abilityUnlocks.swarm = Boolean(profile.campaign.clears["night-10"]);
   profile.hunt.unlocked = Boolean(profile.campaign.clears["night-5"]);
-  for (const [nodeId, rank] of Object.entries(profile.bloodline.allocation)) {
-    if (!Number.isInteger(rank) || rank < 0) throw new Error(`Invalid Bloodline rank for ${nodeId}`);
-  }
+  validateBloodlineState(profile.bloodline);
   for (const [eventId, event] of Object.entries(profile.economy.events)) {
     if (!event || !Number.isFinite(event.amount)) throw new Error(`Invalid economy event ${eventId}`);
   }

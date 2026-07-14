@@ -15,18 +15,25 @@ import {
   recordProfileRunOutcome,
 } from "../games/vampire-survival-src/progression.mjs";
 import {
+  BASE_RUN_STATS,
+  BLOODLINE_BRANCHES,
   LEGACY_PROFILE_STORAGE_KEY,
   MAX_SCORE_HISTORY,
   PROFILE_RECOVERY_STORAGE_KEY,
   PROFILE_SCHEMA_VERSION,
   PROFILE_STORAGE_KEY,
   createProfileRepository,
+  deriveBloodlineRunStats,
   freshProfileV2,
   migrateLegacyProfile,
   mergeConcurrentProfiles,
   normaliseProfileV2,
   profileBalance,
+  purchaseBloodlineNode,
   reconcileLegacyRollback,
+  respecBloodline,
+  undoBloodlinePurchase,
+  validateBloodlineState,
 } from "../games/vampire-survival-src/profile.mjs";
 
 class MemoryStorage {
@@ -68,8 +75,8 @@ function legacyProfile(overrides = {}) {
   };
 }
 
-test("iteration 34 runtime and content contracts remain complete", () => {
-  assert.equal(BUILD.iteration, 34);
+test("iteration 35 runtime and content contracts remain complete", () => {
+  assert.equal(BUILD.iteration, 35);
   assert.equal(BUILD.profileSchema, 2);
   assert.equal(PROFILE_SCHEMA_VERSION, 2);
   assert.equal(Object.keys(DIFFICULTIES).length, 3);
@@ -85,6 +92,80 @@ test("iteration 34 runtime and content contracts remain complete", () => {
   assert.equal(createRunSeed("daily", clock), "daily:2026-07-14");
   assert.equal(createRunSeed("standard", clock), "standard:1234:0.25");
   assert.notEqual(createRunSeed("daily", { now: () => new Date("2026-07-15T00:00:00.000Z") }), createRunSeed("daily", clock));
+});
+
+test("Bloodline v1 defines three complete three-node branches", () => {
+  assert.equal(BLOODLINE_BRANCHES.length, 3);
+  assert.deepEqual(BLOODLINE_BRANCHES.map((branch) => branch.name), ["Crimson Hunger", "Moonstride", "Nightborn Arts"]);
+  assert.ok(BLOODLINE_BRANCHES.every((branch) => branch.nodes.length === 3));
+  const nodes = BLOODLINE_BRANCHES.flatMap((branch) => branch.nodes);
+  assert.equal(new Set(nodes.map((node) => node.id)).size, 9);
+  assert.ok(nodes.every((node) => node.cost > 0 && node.effect && node.flavor));
+  assert.ok(BLOODLINE_BRANCHES.every((branch) => branch.nodes[0].prerequisite === null
+    && branch.nodes[1].prerequisite === branch.nodes[0].id
+    && branch.nodes[2].prerequisite === branch.nodes[1].id));
+});
+
+test("Bloodline purchase, one-step undo, and free respec conserve currency atomically", () => {
+  const profile = freshProfileV2({ profileId: fixedId() });
+  profile.economy.events.seed = { amount: 5, source: "test" };
+  const beforeRejected = structuredClone(profile);
+  assert.throws(() => purchaseBloodlineNode(profile, "predator-teeth", fixedNow()), /first/);
+  assert.deepEqual(profile, beforeRejected);
+
+  const first = purchaseBloodlineNode(profile, "crimson-reservoir", fixedNow());
+  assert.equal(first.balance, 4);
+  assert.equal(profile.bloodline.allocation["crimson-reservoir"], 1);
+  const beforeDuplicate = structuredClone(profile);
+  assert.throws(() => purchaseBloodlineNode(profile, "crimson-reservoir", fixedNow()), /already owned/);
+  assert.deepEqual(profile, beforeDuplicate);
+
+  purchaseBloodlineNode(profile, "predator-teeth", fixedNow());
+  assert.equal(profileBalance(profile), 3);
+  const undone = undoBloodlinePurchase(profile, fixedNow());
+  assert.equal(undone.node.id, "predator-teeth");
+  assert.equal(profileBalance(profile), 4);
+  assert.equal(profile.bloodline.lastPurchaseId, "crimson-reservoir");
+  assert.equal(profile.bloodline.allocation["predator-teeth"], undefined);
+
+  const reset = respecBloodline(profile, fixedNow());
+  assert.equal(reset.refunded, 1);
+  assert.equal(profileBalance(profile), 5);
+  assert.deepEqual(profile.bloodline.allocation, {});
+  assert.deepEqual(profile.bloodline.purchases, {});
+  assert.equal(profile.bloodline.lastPurchaseId, null);
+  assert.equal(validateBloodlineState(profile.bloodline), true);
+});
+
+test("Bloodline run stats are derived from immutable base definitions", () => {
+  const baseBefore = structuredClone(BASE_RUN_STATS);
+  const stats = deriveBloodlineRunStats({
+    "crimson-reservoir": 1,
+    "fleet-shadow": 1,
+    "spectral-step": 1,
+    "long-fangs": 1,
+  });
+  assert.equal(stats.maxBlood, 124);
+  assert.equal(stats.speed, BASE_RUN_STATS.speed * 1.04);
+  assert.equal(stats.dashCooldown, 2.1);
+  assert.equal(stats.range, 82);
+  stats.maxBlood = 999;
+  assert.deepEqual(BASE_RUN_STATS, baseBefore);
+});
+
+test("a failed Bloodline save cannot debit the stored profile", () => {
+  const storage = new MemoryStorage();
+  const repository = createProfileRepository(storage, { now: fixedNow, makeId: fixedId });
+  const loaded = repository.load();
+  loaded.economy.events.seed = { amount: 2, source: "test" };
+  const funded = repository.save(loaded);
+  const draft = normaliseProfileV2(funded);
+  purchaseBloodlineNode(draft, "crimson-reservoir", fixedNow());
+  const storedBeforeFailure = storage.getItem(PROFILE_STORAGE_KEY);
+  storage.failWrites = true;
+  assert.throws(() => repository.save(draft), /storage denied/);
+  assert.equal(storage.getItem(PROFILE_STORAGE_KEY), storedBeforeFailure);
+  assert.equal(profileBalance(JSON.parse(storedBeforeFailure)), 2);
 });
 
 test("Chapter I and full Hunt keep fixed-duration contracts while objectives and quotas escalate", () => {
@@ -517,6 +598,7 @@ test("saveMerged rebases independent tab progress without losing either run", ()
 
 test("concurrent merge keeps score history bounded and refuses conflicting Bloodline changes", () => {
   const base = freshProfileV2({ profileId: fixedId() });
+  base.economy.events.seed = { amount: 10, source: "test" };
   base.scores = Array.from({ length: MAX_SCORE_HISTORY }, (_, index) => ({ score: index, time: index, grade: "D", win: false, difficulty: "story", date: "2026-07-14" }));
   const local = normaliseProfileV2(base);
   const latest = normaliseProfileV2(base);
@@ -536,8 +618,8 @@ test("concurrent merge keeps score history bounded and refuses conflicting Blood
   const identicalMerged = mergeConcurrentProfiles(identicalBase, identicalLocal, identicalLatest);
   assert.deepEqual(new Set(identicalMerged.scores.map((score) => score.runId)), new Set(["run:local", "run:latest"]));
 
-  local.bloodline.allocation.hunger = 1;
-  latest.bloodline.allocation.moonstride = 1;
+  purchaseBloodlineNode(local, "crimson-reservoir", fixedNow());
+  purchaseBloodlineNode(latest, "fleet-shadow", fixedNow());
   assert.throws(() => mergeConcurrentProfiles(base, local, latest), /explicit resolution/);
 
   const coffinLocal = normaliseProfileV2(identicalBase);
@@ -579,6 +661,13 @@ test("normalisation rejects negative currency and Bloodline allocation states", 
   const invalidAllocation = freshProfileV2({ profileId: fixedId() });
   invalidAllocation.bloodline.allocation.hunger = -1;
   assert.throws(() => normaliseProfileV2(invalidAllocation), /Invalid Bloodline rank/);
+
+  const missingPrerequisite = freshProfileV2({ profileId: fixedId() });
+  missingPrerequisite.bloodline.allocation["predator-teeth"] = 1;
+  missingPrerequisite.bloodline.purchases["predator-teeth"] = { transactionId: "bad", sequence: 1, cost: 1, purchasedAt: fixedNow() };
+  missingPrerequisite.bloodline.nextTransaction = 2;
+  missingPrerequisite.bloodline.lastPurchaseId = "predator-teeth";
+  assert.throws(() => normaliseProfileV2(missingPrerequisite), /prerequisite missing/);
 
   const invalidScore = freshProfileV2({ profileId: fixedId() });
   invalidScore.scores.push({ score: "100", time: 10, grade: "A", win: true, difficulty: "night", date: "2026-07-14" });

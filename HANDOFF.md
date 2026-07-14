@@ -2,6 +2,32 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 35 Release Candidate
+
+Iteration 35 is implemented and locally verified in the canonical Pages repo.
+
+- Bloodline definitions, validation, transactions, and run-stat derivation are
+  in `games/vampire-survival-src/profile.mjs`.
+- Nine v1 nodes form three linear prerequisite paths. All are optional for the
+  validated Chapter I base-stat route.
+- Purchase debits, Undo refunds, and respec refunds are distinct immutable
+  economy events. Active allocation/purchase records must agree exactly, and
+  the saved counter plus latest-purchase pointer prevent duplicate identities.
+- `world.mjs` derives a fresh stat object from the saved allocation at each run
+  start. Never mutate `BASE_RUN_STATS` or node definitions.
+- The coffin opens `bloodlineModal`; desktop uses three columns and narrow
+  layouts use the three accessible branch tabs plus a vertical path.
+- Exact candidate/archive: 158,067 bytes, SHA-256
+  `0a8977e35c21225b11e46dfd5b94e3793470dc2017e6790a17092696587ddab9`.
+- Local gate: 36 tests, site contracts, syntax, deterministic build,
+  transaction/save-failure flows, responsive browser QA, next-run derivation,
+  and bounded Hunt soaks.
+- Evidence:
+  `games/vampire-survival-iterations/iteration-35-test-report.md`.
+
+Next after publication: Iteration 36 loadout slots, cooldown tuning, and Create
+Thrall with visible cast/cooldown/targeting feedback.
+
 ## 2026-07-15 Vampire Survival Iteration 34 Handoff
 
 Iteration 34 is implemented, published, and exact-origin verified in the

@@ -176,15 +176,14 @@ Bytes: 128322
 
 ## Active Roadmap
 
-The experiment is active. Iterations 32 and 33 are published. Iteration 34's
-Chapter I, Voss milestone, Mist/Hunt unlock, and full escalating Hunt release
-candidate passed its local gate and is entering publication. Iterations 35-40
-remain planned.
+The experiment is active. Iterations 32-34 are published. Iteration 35's
+three-branch Bloodline release candidate passed its local gate and is entering
+publication. Iterations 36-40 remain planned.
 
 - Current live build: `games/vampire-survival.html`
-- Release candidate: `games/vampire-survival-iterations/iteration-34-codex.html`
+- Release candidate: `games/vampire-survival-iterations/iteration-35-codex.html`
 - Roadmap: `games/vampire-survival-iterations/iterations-32-40-roadmap.md`
-- Evidence: `games/vampire-survival-iterations/iteration-34-test-report.md`
+- Evidence: `games/vampire-survival-iterations/iteration-35-test-report.md`
 
 ## Iteration 34
 
@@ -208,3 +207,24 @@ Bytes: 137476
 GitHub Pages build `1095212527` completed for the exact release commit and the
 direct origin returned the exact archive hash. The public route retained its
 expected Cloudflare Access 302.
+
+## Iteration 35
+
+Accepted local Codex release candidate 35 on 2026-07-15. The coffin now hosts
+a permanent Bloodline with three branches and three nodes each. Purchases show
+their cost, prerequisite, current/next effect, rank, and flavor; atomic debit,
+one-step Undo, and free full respec preserve the immutable economy ledger.
+
+Desktop presents all three paths while phones use three fitting branch tabs and
+one vertical path. Purchased stats are copied from immutable base definitions
+when a new night starts, so Chapter I remains playable without upgrades.
+
+Thirty-six automated tests, site contracts, deterministic builds, desktop and
+mobile browser flows, transaction conservation, next-run derivation, failed-
+save safety, and three bounded 180-second Hunt simulations passed.
+
+Snapshot: `iteration-35-codex.html`
+
+SHA-256: `0a8977e35c21225b11e46dfd5b94e3793470dc2017e6790a17092696587ddab9`
+
+Bytes: 158067

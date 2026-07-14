@@ -14,7 +14,7 @@ function choosePact(index){if(!profileWriterLease)return;invariant(BUILD.upgrade
 function isAbilityUnlocked(id){if(id==="feed"||id==="dash")return true;if(id==="mist")return Boolean(profile.campaign.abilityUnlocks.mist&&profile.campaign.clears["night-5"]);if(id==="swarm")return Boolean(profile.campaign.abilityUnlocks.swarm&&profile.campaign.clears["night-10"]);return false}
 function currentAbilityStatus(id){const cooldown=id==="dash"?player.dashCd:id==="mist"?player.mistCd:id==="swarm"?player.swarmCd:player.attackCd;return abilityAvailability(id,{unlocked:isAbilityUnlocked(id),cooldown,blood:player.blood})}
 function rejectAbility(status){if(state.toast!==status.label||state.toastTime<.25)toast(status.label,1.25)}
-function triggerDash(){if(!state.running||state.paused)return;const status=currentAbilityStatus("dash");if(!status.ready){rejectAbility(status);return}player.dashTime=.18;player.dashCd=2.35;emit(player.x,player.y,24,"#8f68ff",.5,240,5);tone(260,.07,"triangle",.02)}
+function triggerDash(){if(!state.running||state.paused)return;const status=currentAbilityStatus("dash");if(!status.ready){rejectAbility(status);return}player.dashTime=.18;player.dashCd=player.dashBase;emit(player.x,player.y,24,"#8f68ff",.5,240,5);tone(260,.07,"triangle",.02)}
 function triggerMist(){if(!state.running||state.paused)return;const status=currentAbilityStatus("mist");if(!status.ready){rejectAbility(status);return}player.blood-=status.cost;player.mistTime=player.mistDuration;player.mistCd=player.mistBase;emit(player.x,player.y,44,"#b6a0ff",1,190,6);tone(188,.14,"sine",.02);toast("Mist form")}
 function triggerSwarm(){if(!state.running||state.paused)return;const status=currentAbilityStatus("swarm");if(!status.ready){rejectAbility(status);return}player.blood-=status.cost;player.swarmCd=9.5;emit(player.x,player.y,76,"#1a1027",1.1,350,6);tone(54,.2,"sawtooth",.025);for(const e of [...enemies])if(!e.dead&&Math.hypot(e.x-player.x,e.y-player.y)<player.swarmRadius)damageEnemy(e,player.swarmDamage,false);toast("Bat swarm")}
 function triggerBloodMoon(){if(!BUILD.polish||state.bloodMoon>0||state.frenzy<1)return;state.frenzy=0;state.bloodMoon=9;player.blood=Math.min(player.maxBlood,player.blood+25);toast("Blood Moon",2.4);chord(90,135,220);emit(player.x,player.y,100,"#ff2758",1.5,380,8)}
@@ -123,8 +123,62 @@ function renderCoffinHub(){
   if(pending.mode==="hunt")rewards.push(["Best depth",profile.hunt.bestDepth]);
   $("coffinMetrics").innerHTML=rewards.map(([key,value])=>`<div class="metric"><b>${value}</b><span>${key}</span></div>`).join("");
   $("coffinRestoreText").textContent=`Blood restored from ${state.restoredFrom??player.maxBlood} to ${player.maxBlood}. Cooldowns are ready. ${profile.campaign.abilityUnlocks.mist?"Mist is unlocked.":"Mist unlocks after the Night 5 boss;"} Swarm unlocks after the Night 10 boss.`;
+  const ownedNodes=Object.keys(profile.bloodline.allocation).length;
+  $("coffinBloodlineText").textContent=`${ownedNodes}/9 nodes awakened. Spend ${profileBalance(profile)} Blood Pack${profileBalance(profile)===1?"":"s"}; changes apply when the next night begins.`;
   $("coffinRiseBtn").textContent=pending.mode==="campaign"?(pending.nextNight?`Rise for Night ${pending.nextNight}`:"Return to Campaign"):profile.hunt.unlocked?`Descend to Hunt Depth ${pending.nextDepth}`:"Return to Campaign";
 }
+
+let activeBloodlineBranch="hunger";
+
+function renderBloodline(message=""){
+  const balance=profileBalance(profile),owned=Object.keys(profile.bloodline.allocation).length;
+  $("bloodlineBalance").textContent=`${balance} Blood Pack${balance===1?"":"s"} available · ${owned}/9 nodes awakened`;
+  document.querySelectorAll("[data-bloodline-tab]").forEach(tab=>{
+    const active=tab.dataset.bloodlineTab===activeBloodlineBranch;
+    tab.classList.toggle("active",active);tab.setAttribute("aria-selected",String(active));tab.tabIndex=active?0:-1;
+  });
+  $("bloodlineTree").replaceChildren(...BLOODLINE_BRANCHES.map(branch=>{
+    const section=document.createElement("section");section.className=`bloodline-branch${branch.id===activeBloodlineBranch?" active":""}`;section.dataset.branch=branch.id;
+    section.innerHTML=`<header><div class="eyebrow">${branch.theme}</div><h3>${branch.name}</h3></header><div class="bloodline-path"></div>`;
+    const path=section.querySelector(".bloodline-path");
+    path.replaceChildren(...branch.nodes.map(node=>{
+      const status=bloodlineNodeStatus(profile,node.id),prerequisite=node.prerequisite?bloodlineNodeById(node.prerequisite):null;
+      const card=document.createElement("article");card.className=`bloodline-node ${status.owned?"owned":status.available?"available":"locked"}`;
+      const action=status.owned?"Awakened":!status.prerequisiteMet?`Requires ${prerequisite.name}`:status.affordable?`Awaken · ${node.cost} Pack${node.cost===1?"":"s"}`:`Need ${node.cost} Pack${node.cost===1?"":"s"}`;
+      card.innerHTML=`<div class="bloodline-node-top"><span>Rank ${status.owned?1:0}/1</span><span>${node.cost} Pack${node.cost===1?"":"s"}</span></div><h4>${node.name}</h4><p>${node.flavor}</p><div class="bloodline-effect"><b>Current</b><span>${status.owned?node.effect:"Dormant"}</span><b>Next</b><span>${status.owned?"Fully awakened":node.effect}</span></div><button class="${status.available?"primary":"secondary"}" data-bloodline-node="${node.id}" ${status.available?"":"disabled"}>${action}</button>`;
+      return card;
+    }));
+    return section;
+  }));
+  document.querySelectorAll("[data-bloodline-node]").forEach(button=>button.addEventListener("click",()=>buyBloodlineNode(button.dataset.bloodlineNode)));
+  $("bloodlineUndoBtn").disabled=!profileWriterLease||!profile.bloodline.lastPurchaseId;
+  $("bloodlineRespecBtn").disabled=!profileWriterLease||owned===0;
+  $("bloodlineStatus").textContent=message||"Purchases save atomically. Undo reverses the latest purchase; Respec refunds every active node during roadmap validation.";
+}
+
+function openBloodline(){
+  if(!profileWriterLease||state.gamePhase!==GAME_PHASES.COFFIN_HUB)return;
+  hideDialog("coffinHub",false);state.gamePhase=GAME_PHASES.BLOODLINE;renderBloodline();showDialog("bloodlineModal",'[data-bloodline-node]:not([disabled]), #bloodlineCloseBtn');
+}
+
+function closeBloodline(){
+  if(state.gamePhase!==GAME_PHASES.BLOODLINE)return;
+  hideDialog("bloodlineModal",false);state.gamePhase=GAME_PHASES.COFFIN_HUB;renderCoffinHub();showDialog("coffinHub","#bloodlineBtn");
+}
+
+function commitBloodlineTransaction(operation,successMessage){
+  if(!profileWriterLease||state.gamePhase!==GAME_PHASES.BLOODLINE)return null;
+  const draft=normaliseProfileV2(profile);let result;
+  try{result=operation(draft)}catch(error){renderBloodline(String(error?.message||error));return null}
+  if(!result.applied){renderBloodline(result.reason);return result}
+  try{persistProfileStrict(draft)}catch(error){reportProfileSaveError(error);renderBloodline("The Bloodline change was not saved. Close other game tabs and try again.");return null}
+  renderBloodline(successMessage(result));chord(108,164,244);return result;
+}
+
+function buyBloodlineNode(nodeId){return commitBloodlineTransaction(draft=>purchaseBloodlineNode(draft,nodeId),result=>`${result.node.name} awakened. ${result.balance} Blood Pack${result.balance===1?"":"s"} remain.`)}
+function undoBloodline(){return commitBloodlineTransaction(draft=>undoBloodlinePurchase(draft),result=>`${result.node.name} returned to slumber. Its Blood Packs were refunded.`)}
+function respecBloodlineTree(){return commitBloodlineTransaction(draft=>respecBloodline(draft),result=>`Bloodline reset. ${result.refunded} Blood Pack${result.refunded===1?"":"s"} refunded.`)}
+function selectBloodlineBranch(branchId){if(!BLOODLINE_BRANCHES.some(branch=>branch.id===branchId))return;activeBloodlineBranch=branchId;renderBloodline();requestAnimationFrame(()=>document.querySelector(`[data-bloodline-tab="${branchId}"]`)?.focus())}
 
 function acknowledgeCoffinOutcome(eventId){
   try{
@@ -182,7 +236,7 @@ function startRun(options={}){
   resetRun(options);state.gamePhase=GAME_PHASES.NIGHT_ACTIVE;state.running=true;
   $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
   $("menu").classList.add("hidden");
-  for(const id of["campaignMap","resultModal","pauseModal","coffinTransition","coffinHub"])hideDialog(id,false);
+  for(const id of["campaignMap","resultModal","pauseModal","coffinTransition","coffinHub","bloodlineModal"])hideDialog(id,false);
   ensureAudio();toast(state.mode==="campaign"?`Campaign Night ${state.campaignNight} begins`:`Hunt Depth ${state.huntDepth} begins`);chord(92,132,188);canvas.focus();lastFrame=performance.now();
 }
 
@@ -192,7 +246,7 @@ function returnToTitle(){
   clearTimeout(coffinTransitionTimer);coffinTransitionTimer=null;
   state.gamePhase=GAME_PHASES.MENU;state.running=false;state.paused=false;state.over=true;
   $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
-  for(const id of["pauseModal","resultModal","campaignMap","coffinTransition","coffinHub"])hideDialog(id,false);
+  for(const id of["pauseModal","resultModal","campaignMap","coffinTransition","coffinHub","bloodlineModal"])hideDialog(id,false);
   $("menu").classList.remove("hidden");renderMenuProfile();$("startBtn").focus();
 }
 
@@ -230,7 +284,7 @@ function updateHud(){
   $("mission").textContent=state.bossActive?"Dawn phase: defeat Captain Voss. Victory is required to clear Night 5.":remaining?`Break ${remaining} of ${state.requiredCrosses} warding crosses${state.requiredLieutenants?` and defeat ${lieutenantsRemaining} ${state.contract.lieutenantName}`:""} before dawn.`:lieutenantsRemaining?`Crosses broken. Defeat ${lieutenantsRemaining} ${state.contract.lieutenantName} before dawn.`:state.contract.bossId?`Objectives complete. Survive ${dawnRemaining}s; Voss arrives after dawn.`:`All objectives complete. Survive ${dawnRemaining}s until dawn.`;
   $("stats").innerHTML=`${modeLabel} · Score ${Math.floor(state.score)}<br>${state.bossActive?"Post-dawn boss":`Time ${Math.floor(state.time)}s · Dawn ${dawnRemaining}s`}<br>Threat ${state.threat} · Crosses ${state.relicsBroken}/${state.requiredCrosses}${state.requiredLieutenants?`<br>Lieutenants ${state.lieutenantsDefeated}/${state.requiredLieutenants}`:""}<br>Combo x${player.combo} · Dominion ${player.level}`;
   $("toast").textContent=state.toast;$("toast").style.opacity=state.toastTime>0?"1":"0";
-  renderAbilityState("feed",currentAbilityStatus("feed"),player.attackCd,.22);renderAbilityState("dash",currentAbilityStatus("dash"),player.dashCd,2.35);renderAbilityState("mist",currentAbilityStatus("mist"),player.mistCd,player.mistBase);renderAbilityState("swarm",currentAbilityStatus("swarm"),player.swarmCd,9.5);
+  renderAbilityState("feed",currentAbilityStatus("feed"),player.attackCd,.22);renderAbilityState("dash",currentAbilityStatus("dash"),player.dashCd,player.dashBase);renderAbilityState("mist",currentAbilityStatus("mist"),player.mistCd,player.mistBase);renderAbilityState("swarm",currentAbilityStatus("swarm"),player.swarmCd,9.5);
   if(BUILD.polish){$("frenzyWrap").classList.remove("hidden");$("frenzyFill").style.width=clamp(state.frenzy*100,0,100)+"%";$("frenzyText").textContent=state.bloodMoon>0?state.bloodMoon.toFixed(1)+"s":Math.floor(state.frenzy*100)+"%"}
   if(boss&&!boss.dead){$("bossFill").style.width=clamp(boss.hp/boss.maxHp*100,0,100)+"%";$("bossPhase").textContent="Phase "+["","I","II","III"][boss.phase]}
 }
