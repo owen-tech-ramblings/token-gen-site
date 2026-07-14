@@ -9,7 +9,7 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
-const vampireArchive40 = read("games/vampire-survival-iterations/iteration-40-codex.html");
+const vampireArchive41 = read("games/vampire-survival-iterations/iteration-41-codex.html");
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
@@ -114,13 +114,15 @@ assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain o
 assert.doesNotMatch(monitorJs, /driver_version/, "Monitor must not show private-only GPU driver columns unless public status includes them.");
 assert.doesNotMatch(monitorJs, /uuid/, "Monitor must not show private-only GPU UUID columns unless public status includes them.");
 
-assert.equal(vampireArchive40, vampireGame, "Iteration 40 archive must match the exact deployed game artifact.");
-assert.match(vampireGame, /iteration:\s*40/, "Vampire Survival must expose Iteration 40 to its test contract.");
+assert.equal(vampireArchive41, vampireGame, "Iteration 41 archive must match the exact deployed game artifact.");
+assert.match(vampireGame, /iteration:\s*41/, "Vampire Survival must expose Iteration 41 to its test contract.");
 assert.match(vampireGame, /profileSchema:\s*2/, "Vampire Survival must declare profile schema v2.");
 assert.match(vampireGame, /vampire_survival_profile_v2/, "Vampire Survival must use the v2 profile key.");
 assert.match(vampireGame, /vampire_survival_profile_v31/, "Vampire Survival must retain the v31 migration source key.");
 assert.match(vampireGame, /Break 3 warding crosses, then survive until dawn/, "Vampire Survival must keep the exact Night 1 objective contract.");
 assert.match(vampireGame, /Progress is saved on this device/, "Vampire Survival must explain local persistence.");
+assert.match(vampireGame, /Begin Hunt · Depth/, "Fresh and returning players must see an explicit Hunt start action.");
+assert.match(vampireGame, /huntDepth:Math\.max\(1,\(profile\.hunt\.bestDepth\|\|0\)\+1\)/, "The Hunt start action must enter the next unbeaten depth.");
 assert.match(vampireGame, /objectiveDiagnostics/, "Vampire Survival test mode must expose objective diagnostics.");
 assert.match(vampireGame, /trimEntityOverflow\(enemies,BUILD_MAX_ENEMIES,player,\[boss,converting,\.\.\.enemies\.filter/, "Vampire Survival must protect bosses, conversion targets, and objective lieutenants from the enemy-cap guard.");
 assert.match(vampireGame, /requiredCrosses:contract\.crossQuota/, "Vampire Survival must derive its active cross quota from the authored run contract.");
@@ -198,6 +200,7 @@ assert.equal([...vampireGame.matchAll(/role="dialog" aria-modal="true"/g)].lengt
 assert.doesNotMatch(vampireGame, /#mission\{display:none/, "Vampire Survival must keep the cross objective visible on mobile.");
 assert.doesNotMatch(vampireGame, /while\(enemies\.length>BUILD_MAX_ENEMIES/, "Vampire Survival must not mark every removable enemy dead at the cap.");
 assert.doesNotMatch(vampireGame, /Codex Iteration|Build 31|Iteration 31|No network, remote assets/, "Vampire Survival must not expose internal build or requirements copy.");
+assert.doesNotMatch(vampireGame, /authored nights|committed ending|fixed-length night|warding-cross quota|atomic profile transaction|exact blocking reason/i, "Vampire Survival pages must use player-facing language instead of design requirements.");
 assert.doesNotMatch(vampireGame, /skill tree awakens here in the next iteration/i, "The coffin must not retain the Bloodline placeholder copy.");
 assert.doesNotMatch(vampireGame, /chatgptOled|mobileSkybridge|desktopSkybridge/, "Vampire Survival must not include injected Skybridge style overrides.");
 assert.doesNotMatch(vampireGame, /<script\s+[^>]*src=/i, "Vampire Survival must remain a self-contained runtime artifact.");

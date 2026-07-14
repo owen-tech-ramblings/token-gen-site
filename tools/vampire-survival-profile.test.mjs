@@ -81,8 +81,8 @@ function legacyProfile(overrides = {}) {
   };
 }
 
-test("iteration 40 runtime and content contracts remain complete", () => {
-  assert.equal(BUILD.iteration, 40);
+test("iteration 41 runtime and content contracts remain complete", () => {
+  assert.equal(BUILD.iteration, 41);
   assert.equal(BUILD.profileSchema, 2);
   assert.equal(PROFILE_SCHEMA_VERSION, 2);
   assert.equal(Object.keys(DIFFICULTIES).length, 3);
@@ -319,7 +319,7 @@ test("Campaign clear outcome grants one finite reward and creates a resumable co
   assert.equal(clearPendingCoffinOutcome(profile, replay.runEventId), false);
 });
 
-test("Night 5 victory atomically unlocks Mist and full Hunt exactly once", () => {
+test("Night 5 victory unlocks Mist exactly once while basic Hunt stays open", () => {
   const profile = freshProfileV2({ profileId: fixedId() });
   const outcome = {
     runId: "run:voss-first", mode: "campaign", campaignNight: 5, huntDepth: null,
@@ -328,12 +328,12 @@ test("Night 5 victory atomically unlocks Mist and full Hunt exactly once", () =>
   const first = recordProfileRunOutcome(profile, outcome, fixedNow());
   assert.equal(first.firstClear, true);
   assert.equal(first.coffinOutcome.mistUnlocked, true);
-  assert.equal(first.coffinOutcome.huntUnlocked, true);
+  assert.equal(Object.hasOwn(first.coffinOutcome, "huntUnlocked"), false);
   assert.equal(profile.campaign.abilityUnlocks.mist, true);
   assert.equal(profile.hunt.unlocked, true);
   assert.equal(profileBalance(profile), 1);
   assert.ok(profile.appliedEvents["campaign:night-05:unlock-mist"]);
-  assert.ok(profile.appliedEvents["campaign:night-05:unlock-hunt"]);
+  assert.equal(profile.appliedEvents["campaign:night-05:unlock-hunt"], undefined);
 
   const replay = recordProfileRunOutcome(profile, { ...outcome, runId: "run:voss-replay" }, fixedNow());
   assert.equal(replay.firstClear, false);
@@ -434,7 +434,7 @@ test("fresh profile starts Campaign with milestone abilities locked", () => {
   assert.equal(profile.campaign.abilityUnlocks.mist, false);
   assert.equal(profile.campaign.abilityUnlocks.swarm, false);
   assert.deepEqual(profile.bloodline.loadout, []);
-  assert.equal(profile.hunt.unlocked, false);
+  assert.equal(profile.hunt.unlocked, true);
   assert.equal(profile.hunt.ascensionUnlocked, false);
   assert.equal(profile.campaign.endingUnlocked, false);
   assert.equal(profile.campaign.endingSeen, false);
@@ -442,13 +442,13 @@ test("fresh profile starts Campaign with milestone abilities locked", () => {
   assert.equal(profileBalance(profile), 0);
 });
 
-test("normalisation derives Mist and Hunt access from the Night 5 clear", () => {
+test("normalisation derives Mist from Night 5 while basic Hunt remains available", () => {
   const forged = freshProfileV2({ profileId: fixedId() });
   forged.campaign.abilityUnlocks.mist = true;
-  forged.hunt.unlocked = true;
+  forged.hunt.unlocked = false;
   const locked = normaliseProfileV2(forged);
   assert.equal(locked.campaign.abilityUnlocks.mist, false);
-  assert.equal(locked.hunt.unlocked, false);
+  assert.equal(locked.hunt.unlocked, true);
 
   forged.campaign.clears["night-5"] = { eventId: campaignClearEventId(5), clearedAt: fixedNow(), grade: "A", score: 9000 };
   const unlocked = normaliseProfileV2(forged);

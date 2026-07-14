@@ -365,7 +365,7 @@ export function freshProfileV2(options = {}) {
     },
     economy: { events: {} },
     bloodline: { allocation: {}, purchases: {}, loadout: [], loadoutConfigured: false, nextTransaction: 1, lastPurchaseId: null },
-    hunt: { unlocked: false, ascensionUnlocked: false, bestDepth: 0, scores: {} },
+    hunt: { unlocked: true, ascensionUnlocked: false, bestDepth: 0, scores: {} },
     appliedEvents: {},
     migration: { sourceVersion: null, sourceFingerprint: null, sourceSnapshot: null, migratedAt: null },
   };
@@ -413,7 +413,7 @@ export function normaliseProfileV2(candidate) {
     profile.bloodline.loadout = ["createThrall", ...(profile.campaign.abilityUnlocks.mist ? ["mist"] : [])].slice(0, MAX_TALENT_SLOTS);
     profile.bloodline.loadoutConfigured = true;
   }
-  profile.hunt.unlocked = Boolean(profile.campaign.clears["night-5"]);
+  profile.hunt.unlocked = true;
   profile.campaign.endingUnlocked = Boolean(profile.campaign.clears["night-15"]);
   profile.campaign.endingSeen = Boolean(profile.campaign.endingSeen);
   profile.hunt.ascensionUnlocked = Boolean(profile.campaign.clears["night-15"]);

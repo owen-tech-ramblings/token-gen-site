@@ -81,7 +81,7 @@ function renderResult(grade,reason){
   $("resultEyebrow").textContent=saveFailed?"The chronicle fractured":reason==="dawn-crosses"?"The city seals itself":reason==="dawn-lieutenants"?"The quarry escaped":"The hunters prevail";
   $("resultTitle").textContent=saveFailed?"Progress Not Saved":reason==="dawn-crosses"?"Dawn Claimed the Crosses":reason==="dawn-lieutenants"?"Dawn Saved the Lieutenants":"You Perished";
   $("resultText").textContent=saveFailed
-    ?"The night ended, but its result could not be committed. Keep this tab open, close other game tabs, and retry the night."
+    ?"The night ended, but your progress was not saved. Keep this tab open, close other game tabs, and retry the night."
     :reason==="dawn-crosses"
       ?`${crossesRemaining} warding ${crossesRemaining===1?"cross remained":"crosses remained"} when dawn arrived. Every cross must fall before the timer reaches zero. Night grade: ${grade}.`
       :reason==="dawn-lieutenants"
@@ -129,16 +129,16 @@ function finishCoffinTransition(){
   renderCoffinHub();showDialog("coffinHub","#coffinRiseBtn");
 }
 
-function renderEnding(){$("endingLegacy").textContent=`The fifteen-night chronicle is committed. Ascension Hunt is unlocked; bosses return every five depths and rotating rites now shape every descent.`}
-function completeEnding(){if(!profileWriterLease||state.gamePhase!==GAME_PHASES.ENDING)return;try{const draft=normaliseProfileV2(profile);draft.campaign.endingSeen=true;persistProfileStrict(draft)}catch(error){reportProfileSaveError(error);$("endingLegacy").textContent="The ending could not be acknowledged safely. Close other game tabs and try again.";return}hideDialog("endingModal",false);state.gamePhase=GAME_PHASES.COFFIN_HUB;renderCoffinHub();showDialog("coffinHub","#coffinRiseBtn")}
+function renderEnding(){$("endingLegacy").textContent=`Veyr remembers your victory. Ascension Hunt is awake, and every fifth depth calls back one of the three rulers.`}
+function completeEnding(){if(!profileWriterLease||state.gamePhase!==GAME_PHASES.ENDING)return;try{const draft=normaliseProfileV2(profile);draft.campaign.endingSeen=true;persistProfileStrict(draft)}catch(error){reportProfileSaveError(error);$("endingLegacy").textContent="Your victory could not be saved. Close other game tabs and try again.";return}hideDialog("endingModal",false);state.gamePhase=GAME_PHASES.COFFIN_HUB;renderCoffinHub();showDialog("coffinHub","#coffinRiseBtn")}
 
 function renderCoffinHub(){
   const pending=profile.campaign.pendingCoffinOutcome;
   if(!pending){returnToTitle();return}
   const label=pending.mode==="campaign"?`Campaign Night ${pending.night}`:`Hunt Depth ${pending.depth}`;
   $("coffinTitle").textContent=`${label} Survived`;
-  $("coffinSummary").textContent=pending.endingUnlocked?"Archon Sol is defeated. The ending and Ascension Hunt were committed before this coffin opened.":pending.swarmUnlocked?"Sister Elowen is defeated. Swarm was unlocked in the same committed clear.":pending.mistUnlocked?"Captain Voss is defeated. Mist and full Hunt were unlocked in the same committed clear.":pending.firstClear?"First clear secured. The reward was committed before the coffin closed.":"The night is recorded. Repeat clears sharpen mastery without duplicating first-clear rewards.";
-  const rewards=[["Blood",`${player.maxBlood}/${player.maxBlood}`],["Cooldowns","Ready"],["Reward",pending.bloodPacks?`+${pending.bloodPacks} Blood Pack`:"No repeat pack"],["Balance",`${profileBalance(profile)} Blood Pack${profileBalance(profile)===1?"":"s"}`]];
+  $("coffinSummary").textContent=pending.endingUnlocked?"Archon Sol is defeated. Veyr is yours, and Ascension Hunt awakens.":pending.swarmUnlocked?"Sister Elowen is defeated. Swarm now answers your call.":pending.mistUnlocked?"Captain Voss is defeated. Mist now coils around you.":pending.firstClear?"A new night opens, and a Blood Pack waits in your coffin.":pending.mode==="hunt"?`Hunt Depth ${pending.depth} is conquered. The next descent is waiting.`:"Another victory deepens your legend.";
+  const reward=pending.mode==="hunt"?"Score only":pending.bloodPacks?`+${pending.bloodPacks} Blood Pack`:"Already claimed",rewards=[["Blood",`${player.maxBlood}/${player.maxBlood}`],["Cooldowns","Ready"],["Reward",reward],["Balance",`${profileBalance(profile)} Blood Pack${profileBalance(profile)===1?"":"s"}`]];
   if(pending.mode==="hunt")rewards.push(["Best depth",profile.hunt.bestDepth]);
   $("coffinMetrics").innerHTML=rewards.map(([key,value])=>`<div class="metric"><b>${value}</b><span>${key}</span></div>`).join("");
   $("coffinRestoreText").textContent=`Blood restored from ${state.restoredFrom??player.maxBlood} to ${player.maxBlood}. Cooldowns are ready. ${profile.campaign.abilityUnlocks.mist?"Mist is unlocked.":"Mist unlocks after the Night 5 boss;"} ${profile.campaign.abilityUnlocks.swarm?"Swarm is unlocked.":"Swarm unlocks after the Night 10 boss."}`;
@@ -146,7 +146,7 @@ function renderCoffinHub(){
   $("coffinBloodlineText").textContent=`${ownedNodes}/${totalNodes} nodes awakened. Spend ${profileBalance(profile)} Blood Pack${profileBalance(profile)===1?"":"s"}; changes apply when the next night begins.`;
   const selected=profile.bloodline.loadout.map(id=>TALENT_TECHNIQUES.find(technique=>technique.id===id)?.name).filter(Boolean);
   $("coffinLoadoutText").textContent=selected.length?`${selected.join(" + ")} selected. Feed and Dash remain core techniques.`:"No signature techniques selected. Feed and Dash remain available.";
-  $("coffinRiseBtn").textContent=pending.mode==="campaign"?(pending.nextNight?`Rise for Night ${pending.nextNight}`:"Return to Campaign"):profile.hunt.unlocked?`Descend to Hunt Depth ${pending.nextDepth}`:"Return to Campaign";
+  $("coffinRiseBtn").textContent=pending.mode==="campaign"?(pending.nextNight?`Rise for Night ${pending.nextNight}`:"Return to Campaign"):`Descend to Hunt Depth ${pending.nextDepth}`;
 }
 
 let activeBloodlineBranch="hunger";
@@ -205,9 +205,9 @@ function selectBloodlineBranch(branchId){if(!BLOODLINE_BRANCHES.some(branch=>bra
 function renderTalentLoadout(message=""){
   const selected=profile.bloodline.loadout;
   $("loadoutSlots").replaceChildren(...Array.from({length:MAX_TALENT_SLOTS},(_,index)=>{const technique=TALENT_TECHNIQUES.find(item=>item.id===selected[index]);const slot=document.createElement("div");slot.className="loadout-slot";slot.innerHTML=technique?`<b>Slot ${index+1} · ${technique.name}</b><span>${technique.key} · selected and ready to enter the next night</span>`:`<b>Slot ${index+1} · Empty</b><span>Select an unlocked technique below</span>`;return slot}));
-  $("techniqueGrid").replaceChildren(...TALENT_TECHNIQUES.map(technique=>{const unlocked=isTechniqueUnlocked(profile,technique.id),active=selected.includes(technique.id),card=document.createElement("article");card.className=`technique-card ${active?"selected":unlocked?"owned":"locked"}`;const stateLabel=active?"Selected":unlocked?"Owned · available":"Locked";card.innerHTML=`<div class="eyebrow">${technique.key} · ${stateLabel}</div><h3>${technique.name}</h3><p>${technique.description}</p><div class="status">Prerequisite: ${technique.prerequisite}</div><button class="${active?"primary":"secondary"}" data-technique="${technique.id}" ${unlocked?"":"disabled"}>${active?"Remove from loadout":unlocked?"Select technique":"Prerequisite unmet"}</button>`;return card}));
+  $("techniqueGrid").replaceChildren(...TALENT_TECHNIQUES.map(technique=>{const unlocked=isTechniqueUnlocked(profile,technique.id),active=selected.includes(technique.id),card=document.createElement("article");card.className=`technique-card ${active?"selected":unlocked?"owned":"locked"}`;const stateLabel=active?"Selected":unlocked?"Awakened":"Locked";card.innerHTML=`<div class="eyebrow">${technique.key} · ${stateLabel}</div><h3>${technique.name}</h3><p>${technique.description}</p><div class="status">Awakens: ${technique.prerequisite}</div><button class="${active?"primary":"secondary"}" data-technique="${technique.id}" ${unlocked?"":"disabled"}>${active?"Remove from loadout":unlocked?"Select technique":"Still sleeping"}</button>`;return card}));
   document.querySelectorAll("[data-technique]").forEach(button=>button.addEventListener("click",()=>changeTalentLoadout(button.dataset.technique)));
-  $("loadoutStatus").textContent=message||`${selected.length}/${MAX_TALENT_SLOTS} signature slots selected. Every change saves immediately and applies to the next run.`;
+  $("loadoutStatus").textContent=message||`${selected.length}/${MAX_TALENT_SLOTS} signature slots selected. Your choices take effect when you rise.`;
 }
 
 function openTalentLoadout(){if(!profileWriterLease||state.gamePhase!==GAME_PHASES.COFFIN_HUB)return;hideDialog("coffinHub",false);state.gamePhase=GAME_PHASES.LOADOUT;renderTalentLoadout();showDialog("loadoutModal",'[data-technique]:not([disabled]), #loadoutCloseBtn')}
@@ -226,7 +226,7 @@ function coffinRise(){
   const pending=profile.campaign.pendingCoffinOutcome;
   if(!pending||!acknowledgeCoffinOutcome(pending.eventId))return;
   hideDialog("coffinHub",false);
-  if(pending.mode==="hunt"&&profile.hunt.unlocked){startRun({mode:"hunt",huntDepth:pending.nextDepth||1});return}
+  if(pending.mode==="hunt"){startRun({mode:"hunt",huntDepth:pending.nextDepth||1});return}
   openCampaignMap();
 }
 
@@ -250,17 +250,24 @@ function renderCampaignMap(){
     const night=Number(contract.id.split("-")[1]),cleared=Boolean(profile.campaign.clears[`night-${night}`]),unlocked=profile.campaign.unlockedNight>=night;
     const card=document.createElement("article");card.className=`night-card${unlocked?"":" locked"}`;
     const bossName=contract.bossId==="sol"?"Sol":contract.bossId==="elowen"?"Elowen":"Voss",objective=contract.bossId?`${contract.crossQuota} crosses · ${bossName} after dawn`:contract.lieutenantQuota?`${contract.crossQuota} crosses · ${contract.lieutenantQuota} ${contract.lieutenantName}`:`${contract.crossQuota} crosses · survive until dawn`;
-    card.innerHTML=`<div class="night-number">Night ${night}${contract.bossId?" · Chapter boss":""}</div><h3>${contract.title}</h3><p>${contract.briefing}</p><button id="campaignNight${night}Btn" class="${unlocked?"primary":"secondary"}" ${unlocked?"":"disabled"}>${cleared?`Replay Night ${night}`:unlocked?`Enter Night ${night}`:"Locked"}</button><div class="status">${cleared?"Cleared · first reward secured":unlocked?`Playable · ${objective}`:`Clear Night ${night-1} to unlock`}</div>`;
+    card.innerHTML=`<div class="night-number">Night ${night}${contract.bossId?" · Chapter boss":""}</div><h3>${contract.title}</h3><p>${contract.briefing}</p><button id="campaignNight${night}Btn" class="${unlocked?"primary":"secondary"}" ${unlocked?"":"disabled"}>${cleared?`Replay Night ${night}`:unlocked?`Enter Night ${night}`:"Locked"}</button><div class="status">${cleared?"Conquered · Blood Pack claimed":unlocked?`Ready · ${objective}`:`Conquer Night ${night-1} to enter`}</div>`;
     const button=card.querySelector("button");if(unlocked)button.addEventListener("click",()=>startRun({mode:"campaign",campaignNight:night}));
     return card;
   }));
-  $("campaignBalance").textContent=`Blood Packs: ${profileBalance(profile)} · All fifteen nights keep the selected length fixed. ${profile.campaign.endingUnlocked?"Ending complete · Ascension Hunt unlocked.":profile.campaign.abilityUnlocks.swarm?"Swarm unlocked · defeat Archon Sol on Night 15.":profile.campaign.abilityUnlocks.mist?"Mist and Hunt unlocked · defeat Elowen on Night 10 for Swarm.":"Defeat Voss on Night 5 to unlock Mist and full Hunt."}`;
+  const milestone=profile.campaign.endingUnlocked?"Veyr is yours. Ascension Hunt is awake.":profile.campaign.abilityUnlocks.swarm?"Swarm is yours. Archon Sol waits beyond Night 15 dawn.":profile.campaign.abilityUnlocks.mist?"Mist is yours. Sister Elowen guards Swarm beyond Night 10 dawn.":profile.campaign.abilityUnlocks.createThrall?"Create Thrall is yours. Captain Voss guards Mist beyond Night 5 dawn.":"Your first victory awakens Create Thrall. Captain Voss guards Mist beyond Night 5 dawn.";
+  $("campaignBalance").textContent=`Blood Packs: ${profileBalance(profile)} · ${milestone}`;
+}
+
+function setGameplaySurfaceActive(active){
+  $("hud").setAttribute("aria-hidden",String(!active));
+  canvas.setAttribute("aria-hidden",String(!active));
+  canvas.tabIndex=active?0:-1;
 }
 
 function openCampaignMap(){
   if(!profileWriterLease)return;
   state.gamePhase=GAME_PHASES.CAMPAIGN_MAP;state.running=false;state.paused=false;
-  $("menu").classList.add("hidden");renderCampaignMap();showDialog("campaignMap","#campaignNight1Btn");
+  setGameplaySurfaceActive(false);$("menu").classList.add("hidden");renderCampaignMap();showDialog("campaignMap","#campaignNight1Btn");
 }
 
 function currentRunOptions(){return{mode:state.mode,campaignNight:state.campaignNight||1,huntDepth:state.huntDepth||1,ascension:Boolean(state.ascension)}}
@@ -269,7 +276,7 @@ function startRun(options={}){
   if(!profileWriterLease)return;
   resetRun(options);state.gamePhase=GAME_PHASES.NIGHT_ACTIVE;state.running=true;
   $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
-  $("menu").classList.add("hidden");
+  setGameplaySurfaceActive(true);$("menu").classList.add("hidden");
   for(const id of["campaignMap","resultModal","pauseModal","coffinTransition","coffinHub","bloodlineModal","loadoutModal","endingModal"])hideDialog(id,false);
   ensureAudio();toast(state.mode==="campaign"?`Campaign Night ${state.campaignNight} begins`:`Hunt Depth ${state.huntDepth} · ${state.huntMutator.name}${state.ascension?" · Ascension":""}`);chord(92,132,188);canvas.focus();lastFrame=performance.now();
 }
@@ -282,7 +289,7 @@ function returnToTitle(){
   state.gamePhase=GAME_PHASES.MENU;state.running=false;state.paused=false;state.over=true;
   $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
   for(const id of["pauseModal","resultModal","campaignMap","coffinTransition","coffinHub","bloodlineModal","loadoutModal","endingModal"])hideDialog(id,false);
-  $("menu").classList.remove("hidden");renderMenuProfile();$("startBtn").focus();
+  setGameplaySurfaceActive(false);$("menu").classList.remove("hidden");renderMenuProfile();$("startBtn").focus();
 }
 
 function renderScores(){const lines=profile.scores.slice(0,5).map((score,index)=>`${index+1}. ${score.score} · ${score.grade} · ${score.time}s · ${score.mode||"legacy"}`);$("scoreList").textContent=lines.length?"Best nights\n"+lines.join("\n"):"No completed nights recorded."}
@@ -292,14 +299,14 @@ function renderMenuProfile(){
   const campaign=$("gameMode").value==="campaign";
   $("seedField").classList.toggle("hidden",campaign);
   $("huntRiteField").classList.toggle("hidden",campaign);$("huntRite").disabled=!profile.hunt.ascensionUnlocked;if(!profile.hunt.ascensionUnlocked)$("huntRite").value="standard";
-  const huntUnlocked=Boolean(profile.hunt.unlocked&&profile.campaign.clears["night-5"]);
-  $("startBtn").textContent=campaign?"Open Campaign":huntUnlocked?"Begin Hunt":"Defeat Voss to Unlock Hunt";
-  $("startBtn").disabled=!profileWriterLease||(!campaign&&!huntUnlocked);
+  const nextDepth=Math.max(1,(profile.hunt.bestDepth||0)+1),nextBoss=Math.ceil(nextDepth/5)*5,mutator=huntMutatorForDepth(nextDepth);
+  $("startBtn").textContent=campaign?"Choose Campaign Night":`Begin Hunt · Depth ${nextDepth}`;
+  $("startBtn").disabled=!profileWriterLease;
+  $("modeBriefing").innerHTML=campaign?"<b>Campaign</b><span>Choose an unlocked night and carve a path toward the rulers of Veyr.</span>":`<b>Hunt Depth ${nextDepth}</b><span>${mutator.name}: ${mutator.description} Survive to open Depth ${nextDepth+1}; ${nextDepth===nextBoss?"a ruler waits beyond dawn":`the next ruler waits at Depth ${nextBoss}`}.${profile.hunt.ascensionUnlocked?" Ascension adds danger and a 30% score bonus.":""}</span>`;
   $("continueCoffinBtn").classList.toggle("hidden",!profile.campaign.pendingCoffinOutcome);
   $("contrastSettingWrap").classList.remove("hidden");$("motionSettingWrap").classList.remove("hidden");
   const labels=profile.achievements.map(id=>ACHIEVEMENTS[id]);
-  const nextDepth=Math.max(1,(profile.hunt.bestDepth||0)+1),nextBoss=Math.ceil(nextDepth/5)*5,mutator=huntMutatorForDepth(nextDepth);
-  $("menuAchievements").innerHTML=labels.map(label=>`<span class="badge">${label}</span>`).join("")+`<span class="status">Night Legacy: ${profile.totalRuns} runs, ${profile.totalWins} victories · ${profileBalance(profile)} Blood Packs · Hunt best ${profile.hunt.bestDepth||"—"}.${campaign?"":`\nNext depth ${nextDepth}: ${mutator.name} · boss at ${nextBoss} · Hunt awards score mastery, not repeat Blood Packs.${profile.hunt.ascensionUnlocked?" Ascension available.":""}`}</span>`;
+  $("menuAchievements").innerHTML=labels.map(label=>`<span class="badge">${label}</span>`).join("")+`<span class="status">Night Legacy: ${profile.totalRuns} runs, ${profile.totalWins} victories · ${profileBalance(profile)} Blood Packs · Hunt best ${profile.hunt.bestDepth||"—"}.${campaign?"":`\nHunt raises your best depth and score. Blood Packs come from first Campaign victories.`}</span>`;
 }
 
 function applySettings(options={}){profile.settings.audio=$("audioSetting").checked;profile.settings.shake=$("shakeSetting").checked;profile.settings.particles=$("particlesSetting").checked;if(BUILD.platform){profile.settings.contrast=$("contrastSetting").checked;profile.settings.reducedMotion=$("motionSetting").checked;document.body.classList.toggle("high-contrast",profile.settings.contrast);document.body.classList.toggle("reduce-motion",profile.settings.reducedMotion)}if(options.persist!==false)saveProfile()}

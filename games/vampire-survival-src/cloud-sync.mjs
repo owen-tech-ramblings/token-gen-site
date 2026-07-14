@@ -142,11 +142,11 @@ export function createCloudProfileSync(options = {}) {
     persisted.enabled = true;
     storeState();
     busy = true;
-    publish("checking", "Checking the protected cloud copy…");
+    publish("checking", "Checking your cloud save…");
     try {
       const { response, body, etag } = await request("GET");
       if (response.status === 401 || response.status === 403) {
-        publish("needs-session", "Open a protected Cloudflare session to connect this save.");
+        publish("needs-session", "Sign in to connect Cloud Save.");
         return snapshot();
       }
       if (response.status === 404) {
@@ -210,7 +210,7 @@ export function createCloudProfileSync(options = {}) {
         return snapshot();
       }
       if (response.status === 409) {
-        publish("conflict", "Cloud rejected a reused write key. The local save remains queued for review.");
+        publish("conflict", "Cloud Save needs your attention. Your progress on this device is still safe.");
         return snapshot();
       }
       if (response.status === 412) {
@@ -230,7 +230,7 @@ export function createCloudProfileSync(options = {}) {
         storeQueue(queue);
         scheduleFlush(0);
       }
-      publish("synced", body.idempotentReplay ? "Queued save was already safely stored in the cloud." : "Local progress is backed up to the cloud.");
+      publish("synced", body.idempotentReplay ? "The cloud already has this progress." : "Your progress is backed up to the cloud.");
     } catch (error) {
       publish(error?.code === "PROFILE_TOO_LARGE" ? "too-large" : navigatorObject.onLine === false ? "offline" : "unavailable", error?.code === "PROFILE_TOO_LARGE"
         ? "This profile is too large for cloud backup. Export the local save; local play still works."
@@ -287,7 +287,7 @@ export function createCloudProfileSync(options = {}) {
     persisted.lastSyncedAt = now();
     persisted.lastSyncedLocalRevision = normalisedReplacement.revision;
     storeState();
-    publish("synced", "The cloud copy now replaces this device. The previous local copy is preserved for recovery.");
+    publish("synced", "Cloud progress loaded. Your previous save is kept as an emergency backup.");
     return normalisedReplacement;
   }
 
@@ -327,7 +327,7 @@ export function createCloudProfileSync(options = {}) {
   function openSession() {
     persisted.enabled = true;
     storeState();
-    publish("needs-session", "Complete Cloudflare Access in the new window, then return here.");
+    publish("needs-session", "Finish signing in through the new window, then return here.");
     const popup = windowObject?.open?.(`${apiBase}/session`, "vampire-cloud-session", "popup,width=560,height=680");
     if (!popup) publish("needs-session", "Pop-up blocked. Allow the cloud connection window and try again.");
     return Boolean(popup);

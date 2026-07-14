@@ -44,7 +44,7 @@ test("all Campaign nights and representative deep Hunt depths retain fixed-night
 test("fresh, completed, and large valid profiles normalise within the cloud envelope", () => {
   const fresh = normaliseProfileV2(freshProfileV2({ profileId: "local:hardening:fresh" }));
   assert.equal(fresh.campaign.unlockedNight, 1);
-  assert.equal(fresh.hunt.unlocked, false);
+  assert.equal(fresh.hunt.unlocked, true);
 
   const completedCandidate = freshProfileV2({ profileId: "local:hardening:completed", revision: 40 });
   completedCandidate.campaign.clears = Object.fromEntries(Array.from({ length: 15 }, (_, index) => [`night-${index + 1}`, true]));
@@ -80,16 +80,24 @@ test("fresh, completed, and large valid profiles normalise within the cloud enve
   assert.ok(bytes < CLOUD_PROFILE_MAX_BYTES, `stress profile exceeded cloud limit at ${bytes} bytes`);
 });
 
-test("Iteration 40 source keeps modal isolation, controller, target-size, and reduced-motion contracts", async () => {
-  const [runtime, input, template] = await Promise.all([
+test("Iteration 41 source keeps Hunt entry, player copy, accessibility, and controller contracts", async () => {
+  const [runtime, input, template, gameplay] = await Promise.all([
     readFile(new URL("../games/vampire-survival-src/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../games/vampire-survival-src/input.mjs", import.meta.url), "utf8"),
     readFile(new URL("../games/vampire-survival-src/template.html", import.meta.url), "utf8"),
+    readFile(new URL("../games/vampire-survival-src/gameplay.mjs", import.meta.url), "utf8"),
   ]);
-  assert.match(runtime, /iteration:\s*40/);
+  assert.match(runtime, /iteration:\s*41/);
   assert.match(input, /syncDialogIsolation/);
   assert.match(input, /pollGamepadInput/);
   assert.match(input, /gamepadBack/);
+  assert.match(input, /huntDepth:Math\.max\(1,\(profile\.hunt\.bestDepth\|\|0\)\+1\)/);
+  assert.match(template, /id="modeBriefing"/);
+  assert.match(template, /Hunt from the start/);
+  assert.match(template, /id="game"[^>]+aria-hidden="true"[^>]+tabindex="-1"/);
+  assert.match(template, /id="hud" aria-hidden="true"/);
+  assert.match(gameplay, /function setGameplaySurfaceActive\(active\)/);
+  assert.doesNotMatch(template, /authored nights|committed ending|fixed-length night|warding-cross quota|atomic profile transaction|exact blocking reason/i);
   assert.match(template, /min-height:44px/);
   assert.match(template, /\.check\{[^}]*min-height:44px/);
   assert.match(template, /@media\(pointer:coarse\)\{[^}]*\.check\{?[^}]*min-height:48px/);

@@ -1,5 +1,5 @@
 export const BUILD = Object.freeze({
-  iteration: 40,
+  iteration: 41,
   upgrades: true,
   boss: true,
   districts: true,

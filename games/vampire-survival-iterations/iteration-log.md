@@ -1,5 +1,19 @@
 # Vampire Survival Qwen Iterations
 
+## Iteration 41
+
+- Opened Basic Hunt from a fresh profile while preserving Campaign milestone
+  authority for Create Thrall, Mist, Swarm, and Ascension.
+- Made the title action enter the next unbeaten Hunt depth and added a visible
+  briefing for its mutator, following depth, and ruler milestone.
+- Rewrote every player surface to remove requirements/design/validation
+  language and keep only useful instructions, progression, and story context.
+- Removed the background HUD and canvas from the title-screen accessibility
+  tree, then restored both when play begins.
+- Passed 58 tests, exact contracts, deterministic build/archive equality,
+  responsive review, rendered-copy audit, Hunt Depth 1-to-2 coffin flow, and a
+  clean browser console.
+
 ## Iteration 40
 
 - Completed the Iterations 32-40 roadmap with full controller menu/gameplay

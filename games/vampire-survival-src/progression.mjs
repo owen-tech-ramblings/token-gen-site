@@ -343,11 +343,8 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
       }
       if (outcome.campaignNight === 5) {
         const mistUnlockId = "campaign:night-05:unlock-mist";
-        const huntUnlockId = "campaign:night-05:unlock-hunt";
         draft.campaign.abilityUnlocks.mist = true;
-        draft.hunt.unlocked = true;
         draft.appliedEvents[mistUnlockId] = { appliedAt: nowValue };
-        draft.appliedEvents[huntUnlockId] = { appliedAt: nowValue };
       }
       if (outcome.campaignNight === 10) {
         const swarmUnlockId = "campaign:night-10:unlock-swarm";
@@ -369,7 +366,6 @@ export function recordProfileRunOutcome(draft, outcome, nowValue = new Date().to
       night: outcome.campaignNight,
       nextNight: outcome.campaignNight < 15 ? outcome.campaignNight + 1 : null,
       mistUnlocked: firstClear && outcome.campaignNight === 5,
-      huntUnlocked: firstClear && outcome.campaignNight === 5,
       swarmUnlocked: firstClear && outcome.campaignNight === 10,
       endingUnlocked: firstClear && outcome.campaignNight === 15,
       firstClear,
