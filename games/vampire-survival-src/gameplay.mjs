@@ -38,7 +38,8 @@ function beginMilestoneBoss(){
   enemies=[];bullets=[];hazards=[];telegraphs=[];pickups=[];boss=null;
   spawnBoss();
   $("mission").textContent="Dawn phase: defeat Captain Voss. The night clears only when he falls.";
-  toast("Dawn breaks · Voss stands between you and the coffin",3.2);
+  toast("Dawn breaks · defeat Voss to reach the coffin",3.2);
+  updateHud();
 }
 function updateCombatCollections(dt){for(const e of enemies)updateEnemy(e,dt);for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;if(b.life<=0||blocked(b.x,b.y,b.radius)){bullets.splice(i,1);continue}if(Math.hypot(b.x-player.x,b.y-player.y)<b.radius+player.radius){takeDamage(b.damage,b.x,b.y);bullets.splice(i,1)}}updateTelegraphs(dt);updateHazards(dt);collectPickups(dt);for(const p of particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;p.life-=dt}particles=particles.filter(p=>p.life>0);for(const f of floaters){f.y-=28*dt;f.life-=dt}floaters=floaters.filter(f=>f.life>0);for(const s of stains)s.life-=dt;stains=stains.filter(s=>s.life>0);enemies=enemies.filter(e=>!e.dead)}
 function update(dt){if(!profileWriterLease||!state.running||state.paused||state.over)return;if(state.hitStop>0){state.hitStop-=dt;return}if(state.bossIntro>0){state.bossIntro-=dt;return}state.toastTime=Math.max(0,state.toastTime-dt);if(state.bossActive){state.score+=dt*18*(state.contract.scoreMultiplier||1);updatePlayer(dt);updateCombatCollections(dt);updateHud();return}state.time+=dt;state.score+=dt*(4+state.phase*.8+state.relicsBroken*2)*(state.contract.scoreMultiplier||1)*(BUILD.polish&&state.bloodMoon>0?2.2:1);if(state.time>=state.dawn){if(state.relicsBroken<state.requiredCrosses){state.failureReason="dawn-crosses";toast("Dawn sealed the remaining crosses",1);endRun(false,"dawn-crosses")}else if(state.lieutenantsDefeated<state.requiredLieutenants){state.failureReason="dawn-lieutenants";toast("Dawn rescued the surviving lieutenants",1);endRun(false,"dawn-lieutenants")}else if(state.contract.bossId){beginMilestoneBoss()}else endRun(true);return}if(BUILD.polish){state.bloodMoon=Math.max(0,state.bloodMoon-dt);if(state.frenzy>=1&&state.bloodMoon<=0)triggerBloodMoon()}updatePlayer(dt);updateDirector(dt);attackRelics(dt);districtEffects();updateCombatCollections(dt);updateHud()}
@@ -87,7 +88,7 @@ function endRun(win,reason=null){
   if(win&&grade==="S")award("s_rank");
   if(win&&state.mode==="hunt"&&$("runMode").value==="daily")award("daily");
   const committed=commitRunOutcome(win,grade);
-  $("bossWrap").style.display="none";
+  $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
   if(!committed){renderResult(grade,"save-failed");return}
   if(win){showCoffinTransition(committed.coffinOutcome);chord(220,330,440);return}
   renderResult(grade,reason||state.failureReason);
@@ -179,6 +180,7 @@ function currentRunOptions(){return{mode:state.mode,campaignNight:state.campaign
 function startRun(options={}){
   if(!profileWriterLease)return;
   resetRun(options);state.gamePhase=GAME_PHASES.NIGHT_ACTIVE;state.running=true;
+  $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
   $("menu").classList.add("hidden");
   for(const id of["campaignMap","resultModal","pauseModal","coffinTransition","coffinHub"])hideDialog(id,false);
   ensureAudio();toast(state.mode==="campaign"?`Campaign Night ${state.campaignNight} begins`:`Hunt Depth ${state.huntDepth} begins`);chord(92,132,188);canvas.focus();lastFrame=performance.now();
@@ -189,6 +191,7 @@ function togglePause(force){if(!state.running||state.over||!$("pactModal").class
 function returnToTitle(){
   clearTimeout(coffinTransitionTimer);coffinTransitionTimer=null;
   state.gamePhase=GAME_PHASES.MENU;state.running=false;state.paused=false;state.over=true;
+  $("bossWrap").style.display="none";$("bossWrap").classList.remove("active");
   for(const id of["pauseModal","resultModal","campaignMap","coffinTransition","coffinHub"])hideDialog(id,false);
   $("menu").classList.remove("hidden");renderMenuProfile();$("startBtn").focus();
 }

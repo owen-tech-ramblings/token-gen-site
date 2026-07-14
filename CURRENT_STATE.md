@@ -2,6 +2,27 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 34 Release Candidate - 2026-07-15
+
+- Chapter I Nights 1-5 are implemented with distinct objectives,
+  lieutenants, composition, map presentation, and fixed selected night length.
+- Night 5 enters a separate post-dawn Captain Voss phase. His first defeat
+  atomically grants one Blood Pack, Mist, and full Hunt; forged unlock fields
+  and old pending coffin outcomes cannot bypass the clear requirement.
+- Full Hunt stays open-ended. Its cross quotas follow
+  `3,3,4,4,4,5,5,6,6,6...`, while bounded pressure, elites, health, damage,
+  hunters, guards, and score multipliers continue to rise with depth.
+- Review fixed objective-enemy removal at the entity cap, locked-Hunt bypass,
+  stale post-dawn HUD data, and desktop/mobile boss-message overlap.
+- Local verification passed: 32 Node tests, shared contracts, all module syntax,
+  deterministic double-build, exact archive equality, browser Night 2 failure,
+  Voss milestone/coffin flow, deep Hunt route checks, responsive layouts, and a
+  180-second 108-enemy soak.
+- Candidate: 137,476 bytes, SHA-256
+  `442cff973527cdbbafecb05e861720448d5b05648eea45199ba078ff76656f45`.
+- Detailed evidence:
+  `games/vampire-survival-iterations/iteration-34-test-report.md`.
+
 ## Vampire Survival Iteration 33 - 2026-07-15
 
 - Iteration 33 was published from the canonical Pages repo at final gameplay

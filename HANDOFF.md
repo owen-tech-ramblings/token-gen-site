@@ -2,6 +2,29 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 34 Release Candidate
+
+Iteration 34 is implemented and locally verified in the canonical Pages repo.
+
+- Chapter I contracts live in `games/vampire-survival-src/progression.mjs`;
+  gameplay enforces required crosses and lieutenants before dawn, then Voss as
+  a distinct Night 5 post-dawn phase.
+- Objective bosses and lieutenants are protected from entity-cap trimming.
+- A recorded Night 5 clear is the authority for Mist and full Hunt. The clear,
+  one-time Blood Pack, unlock events, and coffin result commit together.
+- Full Hunt has fixed selected night length, approved cross cadence
+  `3,3,4,4,4,5,5,6,6,6...`, and bounded open-ended pressure scaling.
+- Exact candidate/archive: 137,476 bytes, SHA-256
+  `442cff973527cdbbafecb05e861720448d5b05648eea45199ba078ff76656f45`.
+- Local gate: 32 tests, site contracts, module syntax, deterministic build,
+  campaign/Voss/coffin/Hunt browser flows, responsive checks, and a three-minute
+  108-enemy soak.
+- Evidence:
+  `games/vampire-survival-iterations/iteration-34-test-report.md`.
+
+Next after publication: Iteration 35 Bloodline v1 with three branches, atomic
+purchases, one-step undo, and free respec in the coffin hub.
+
 ## 2026-07-15 Vampire Survival Iteration 33 Handoff
 
 Iteration 33 is implemented, published, and authenticated-production verified

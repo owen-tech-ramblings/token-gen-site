@@ -176,11 +176,30 @@ Bytes: 128322
 
 ## Active Roadmap
 
-The experiment is active. Iterations 32 and 33 are published, the authenticated
-Iteration 33 Campaign/coffin production canary passed, and Iterations 34-40 are
-planned. Chapter I may begin.
+The experiment is active. Iterations 32 and 33 are published. Iteration 34's
+Chapter I, Voss milestone, Mist/Hunt unlock, and full escalating Hunt release
+candidate passed its local gate and is entering publication. Iterations 35-40
+remain planned.
 
 - Current live build: `games/vampire-survival.html`
-- Snapshot: `games/vampire-survival-iterations/iteration-33-codex.html`
+- Release candidate: `games/vampire-survival-iterations/iteration-34-codex.html`
 - Roadmap: `games/vampire-survival-iterations/iterations-32-40-roadmap.md`
-- Status notes: `games/vampire-survival-iterations/iteration-33-status.html`, `games/vampire-survival-parked.html`, and `games/vampire-survival-parked.md`
+- Evidence: `games/vampire-survival-iterations/iteration-34-test-report.md`
+
+## Iteration 34
+
+Accepted local Codex release candidate 34 on 2026-07-15. Chapter I now spans
+Nights 1-5 with authored objectives and compositions. Captain Voss follows the
+Night 5 dawn as a separate boss phase; his first defeat grants Mist, full Hunt,
+and one Blood Pack atomically.
+
+Full Hunt keeps night duration fixed while cross quotas follow
+`3,3,4,4,4,5,5,6,6,6...` and bounded enemy pressure continues to rise. Thirty-
+two automated tests, contracts, deterministic builds, browser campaign/boss/
+coffin/Hunt flows, phone layouts, and a three-minute 108-enemy soak passed.
+
+Snapshot: `iteration-34-codex.html`
+
+SHA-256: `442cff973527cdbbafecb05e861720448d5b05648eea45199ba078ff76656f45`
+
+Bytes: 137476

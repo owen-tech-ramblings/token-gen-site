@@ -162,6 +162,6 @@ function spawnBoss(){
     elite:true,dead:false,target:{x:player.x,y:player.y},
   };
   enemies.push(boss);state.bossIntro=BUILD.polish?1.35:0;
-  $("bossWrap").style.display="block";toast("Captain Voss enters the hunt",3);chord(72,61,49);
+  $("bossWrap").style.display="block";$("bossWrap").classList.add("active");toast("Captain Voss enters the hunt",3);chord(72,61,49);
   return boss;
 }

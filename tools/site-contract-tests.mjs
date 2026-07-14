@@ -127,6 +127,9 @@ assert.match(vampireGame, /requiredCrosses:contract\.crossQuota/, "Vampire Survi
 assert.match(vampireGame, /if \(depth <= 2\) return 3;[\s\S]*if \(depth <= 5\) return 4;[\s\S]*if \(depth <= 7\) return 5;/, "Iteration 34 must implement the approved Hunt cross cadence.");
 assert.match(vampireGame, /BOSS_ACTIVE:\s*"boss-active"/, "Night 5 must expose a separate post-dawn boss phase.");
 assert.match(vampireGame, /beginMilestoneBoss/, "Night 5 must start Voss only after the authored night objective.");
+assert.match(vampireGame, /function beginMilestoneBoss\(\)\{[\s\S]*updateHud\(\)/, "The post-dawn Voss transition must refresh the HUD immediately.");
+assert.match(vampireGame, /boss-wrap\.active~\.toast\{top:170px\}/, "Desktop boss messaging must clear Voss's health bar.");
+assert.match(vampireGame, /boss-wrap\.active~\.toast\{top:365px\}/, "Mobile boss messaging must clear Voss's health bar and stacked HUD.");
 assert.match(vampireGame, /mistUnlockId/, "Voss victory must stage the one-time Mist unlock atomically.");
 assert.match(vampireGame, /id="campaignGrid"/, "Chapter I must expose the five-night Campaign map.");
 assert.match(vampireGame, /COFFIN_TRANSITION:\s*"coffin-transition"/, "Vampire Survival must expose a named coffin transition phase.");
