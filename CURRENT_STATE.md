@@ -4,7 +4,8 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## Vampire Survival Iteration 37 - 2026-07-15
 
-- Iteration 37 is release-candidate complete in the canonical Pages repo.
+- Iteration 37 is published and exact-origin verified at commit `99ef258`
+  through Pages workflow `29351419995`.
 - Campaign now contains Nights 1-10. Nights 6-10 add Bell Keepers, four authored
   objective nights, and Sister Elowen in a separate Night 10 dawn phase.
 - Elowen uses timing zones, radial peals, charge lanes, and summons; her first
@@ -14,7 +15,7 @@ Last updated: 2026-07-15 Australia/Sydney
 - Validation: 39/39 tests, ten collision-free routes, exact contracts,
   responsive Chromium QA, zero console errors, 182,897 bytes, SHA-256
   `560e9abfa223188547e2a7c3a8bd38be7b3f7592eb4121932a60e78de7460d2e`.
-- Next: publish and verify Iteration 37, then build Iteration 38.
+- Next: Iteration 38 Chapter III, ending, and endgame.
 
 ## Vampire Survival Iteration 36 - 2026-07-15
 
