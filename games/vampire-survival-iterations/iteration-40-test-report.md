@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 40 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate complete; publication verification pending
+Status: published; exact production origin and authenticated Access gates passed
 
 ## Artifact
 
@@ -85,5 +85,14 @@ Status: release candidate complete; publication verification pending
 
 ## Publication Evidence
 
-- Pending release commit, Pages workflow, exact-origin digest, Access check,
-  and authenticated production smoke.
+- Release commit `540c4188d36a6eadf79a7f04734491e5e7eee3ce` was pushed to
+  both public and private `master` remotes.
+- GitHub Pages workflow `29358796611` completed successfully for that exact
+  commit.
+- Direct GitHub Pages origin returned HTTP 200, 218,870 bytes, and SHA-256
+  `480c642170cbe2e69599d00e87409a84e0059782a7e8df2a159796cdab7fafb4`.
+- Public HTTPS retained the expected unauthenticated Cloudflare Access 302.
+- Authenticated production reported Iteration 40, retained an empty remote
+  account, passed forward/reverse focus wrapping and dialog isolation, and
+  produced no console errors after the expected empty-account check was
+  cleared from the browser log.

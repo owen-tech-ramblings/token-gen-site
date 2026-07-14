@@ -4,8 +4,8 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## Vampire Survival Iteration 40 - 2026-07-15
 
-- Iteration 40's final hardening candidate is complete and entering
-  publication with an exact 218,870-byte archive and SHA-256
+- Iteration 40 is published and exact-origin verified at commit `540c418`
+  through Pages workflow `29358796611`, with a 218,870-byte archive and SHA-256
   `480c642170cbe2e69599d00e87409a84e0059782a7e8df2a159796cdab7fafb4`.
 - Full controller navigation/gameplay, modal isolation and focus containment,
   visible keyboard focus, 44/48px targets, system/app reduced motion, and
@@ -20,8 +20,11 @@ Last updated: 2026-07-15 Australia/Sydney
   180-second soak, and a 67 ms p95 versus Iteration 39's 146 ms.
 - The exact runtime module is active. Authenticated CRUD/conflict/delete and
   oversized-request canaries passed and left the cloud account empty.
-- Next: publish, verify the exact Pages origin and Access boundary, and run the
-  authenticated Iteration 40 production smoke.
+- Direct origin matches the archive, public HTTPS retains its expected Access
+  302, and authenticated production passed focus/isolation/cloud-state smoke
+  with an empty remote account and no fresh console errors.
+- The planned Iterations 32-40 roadmap is complete. Further work should begin
+  as a new playtest-driven roadmap from this verified rollback point.
 
 ## Vampire Survival Iteration 39 - 2026-07-15
 
