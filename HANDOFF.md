@@ -2,6 +2,21 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 40 Handoff
+
+Iteration 40's release candidate completes the Iterations 32-40 roadmap. Its
+exact archive is `iteration-40-codex.html` (218,870 bytes; SHA-256
+`480c642170cbe2e69599d00e87409a84e0059782a7e8df2a159796cdab7fafb4`).
+
+The final pass adds complete controller menu/gameplay support, strict modal
+isolation and focus containment, 44/48px targets, visible focus, system/app
+reduced motion, high contrast verification, local cloud-size preflight, and a
+safe backend 413 path. All 58 tests, exact contracts, deterministic builds,
+responsive/accessibility QA, deep Hunt/Campaign routes, entity caps, and the
+performance gate pass. The exact backend is active; authenticated normal and
+oversize canaries passed and cleaned up. Publish the candidate, verify exact
+origin plus Access, then run one authenticated Iteration 40 production smoke.
+
 ## 2026-07-15 Vampire Survival Iteration 39 Handoff
 
 Iteration 39 is published and exact-origin verified at commit `77bb6d5` through

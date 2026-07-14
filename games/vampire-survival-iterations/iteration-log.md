@@ -1,5 +1,19 @@
 # Vampire Survival Qwen Iterations
 
+## Iteration 40
+
+- Completed the Iterations 32-40 roadmap with full controller menu/gameplay
+  support, modal isolation and focus containment, visible focus, 44/48px
+  targets, high contrast, and system/app reduced-motion behavior.
+- Hardened optional cloud profiles with a 512 KiB client preflight and a server
+  413 path that safely discards the remaining request without partial storage.
+- Revalidated all 15 Campaign nights and Hunt through Depth 10,000: routes stay
+  collision-free and reachable, duration stays fixed, quotas cap at six, and
+  bounded pressure continues to rise.
+- Passed 58 tests, exact archive/site contracts, deterministic builds,
+  responsive/accessibility browser QA, authenticated runtime canaries, entity
+  caps, and a faster accepted performance comparison against Iteration 39.
+
 ## Iteration 39
 
 - Added optional local-first cloud profiles behind Cloudflare Access without

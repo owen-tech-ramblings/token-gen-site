@@ -9,7 +9,7 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
-const vampireArchive39 = read("games/vampire-survival-iterations/iteration-39-codex.html");
+const vampireArchive40 = read("games/vampire-survival-iterations/iteration-40-codex.html");
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
@@ -114,8 +114,8 @@ assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain o
 assert.doesNotMatch(monitorJs, /driver_version/, "Monitor must not show private-only GPU driver columns unless public status includes them.");
 assert.doesNotMatch(monitorJs, /uuid/, "Monitor must not show private-only GPU UUID columns unless public status includes them.");
 
-assert.equal(vampireArchive39, vampireGame, "Iteration 39 archive must match the exact deployed game artifact.");
-assert.match(vampireGame, /iteration:\s*39/, "Vampire Survival must expose Iteration 39 to its test contract.");
+assert.equal(vampireArchive40, vampireGame, "Iteration 40 archive must match the exact deployed game artifact.");
+assert.match(vampireGame, /iteration:\s*40/, "Vampire Survival must expose Iteration 40 to its test contract.");
 assert.match(vampireGame, /profileSchema:\s*2/, "Vampire Survival must declare profile schema v2.");
 assert.match(vampireGame, /vampire_survival_profile_v2/, "Vampire Survival must use the v2 profile key.");
 assert.match(vampireGame, /vampire_survival_profile_v31/, "Vampire Survival must retain the v31 migration source key.");
@@ -189,6 +189,11 @@ assert.match(vampireGame, /if-match/, "Cloud profile writes must carry revision 
 assert.match(vampireGame, /idempotency-key/, "Cloud profile writes must carry idempotency keys.");
 assert.match(vampireGame, /CLOUD_QUEUE_STORAGE_KEY/, "Offline cloud writes must use a separate replay queue.");
 assert.match(vampireGame, /CLOUD_RECOVERY_STORAGE_KEY/, "Choosing the cloud copy must preserve the replaced local profile.");
+assert.match(vampireGame, /syncDialogIsolation/, "Open dialogs must isolate background controls from assistive technology.");
+assert.match(vampireGame, /pollGamepadInput/, "Controller input must cover gameplay and menu navigation.");
+assert.match(vampireGame, /CLOUD_PROFILE_MAX_BYTES/, "Cloud backup must reject oversized profiles without blocking local play.");
+assert.match(vampireGame, /prefers-reduced-motion:reduce/, "System reduced-motion preferences must be respected.");
+assert.match(vampireGame, /min-height:44px/, "Keyboard and pointer controls must retain accessible target sizes.");
 assert.equal([...vampireGame.matchAll(/role="dialog" aria-modal="true"/g)].length, 11, "Vampire Survival overlays must expose accessible modal semantics.");
 assert.doesNotMatch(vampireGame, /#mission\{display:none/, "Vampire Survival must keep the cross objective visible on mobile.");
 assert.doesNotMatch(vampireGame, /while\(enemies\.length>BUILD_MAX_ENEMIES/, "Vampire Survival must not mark every removable enemy dead at the cap.");

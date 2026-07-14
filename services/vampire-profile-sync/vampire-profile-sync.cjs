@@ -235,16 +235,20 @@ function createVampireProfileHandler(options = {}) {
     return new Promise((resolve, reject) => {
       let size = 0;
       const chunks = [];
+      let rejected = false;
       req.on("data", (chunk) => {
+        if (rejected) return;
         size += chunk.length;
         if (size > maxBytes) {
+          rejected = true;
+          chunks.length = 0;
           reject(Object.assign(new Error("Profile payload is too large"), { status: 413 }));
-          req.destroy();
           return;
         }
         chunks.push(chunk);
       });
       req.on("end", () => {
+        if (rejected) return;
         try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}")); }
         catch { reject(Object.assign(new Error("Request body must be valid JSON"), { status: 400 })); }
       });

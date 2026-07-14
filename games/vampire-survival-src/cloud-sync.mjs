@@ -2,6 +2,7 @@ export const CLOUD_PROFILE_API = "https://vampire-save.owenonthenet.com/api/vamp
 export const CLOUD_STATE_STORAGE_KEY = "vampire_survival_cloud_state_v1";
 export const CLOUD_QUEUE_STORAGE_KEY = "vampire_survival_cloud_queue_v1";
 export const CLOUD_RECOVERY_STORAGE_KEY = "vampire_survival_cloud_recovery_v1";
+export const CLOUD_PROFILE_MAX_BYTES = 512 * 1024;
 
 function cloudClone(value) {
   if (typeof structuredClone === "function") return structuredClone(value);
@@ -128,6 +129,9 @@ export function createCloudProfileSync(options = {}) {
     if (profile) {
       headers["content-type"] = "application/json";
       init.body = JSON.stringify({ profile });
+      if (new TextEncoder().encode(init.body).byteLength > CLOUD_PROFILE_MAX_BYTES) {
+        throw Object.assign(new Error("Cloud profile exceeds the backup size limit"), { code: "PROFILE_TOO_LARGE" });
+      }
     }
     const response = await fetchImpl(apiBase, init);
     const body = await responseJson(response);
@@ -227,10 +231,12 @@ export function createCloudProfileSync(options = {}) {
         scheduleFlush(0);
       }
       publish("synced", body.idempotentReplay ? "Queued save was already safely stored in the cloud." : "Local progress is backed up to the cloud.");
-    } catch {
-      publish(navigatorObject.onLine === false ? "offline" : "unavailable", navigatorObject.onLine === false
-        ? "Offline. The latest local save remains queued."
-        : "Cloud upload failed. The local save remains safe and queued.");
+    } catch (error) {
+      publish(error?.code === "PROFILE_TOO_LARGE" ? "too-large" : navigatorObject.onLine === false ? "offline" : "unavailable", error?.code === "PROFILE_TOO_LARGE"
+        ? "This profile is too large for cloud backup. Export the local save; local play still works."
+        : navigatorObject.onLine === false
+          ? "Offline. The latest local save remains queued."
+          : "Cloud upload failed. The local save remains safe and queued.");
     } finally {
       busy = false;
       onChange(snapshot());

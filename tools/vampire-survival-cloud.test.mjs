@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  CLOUD_PROFILE_MAX_BYTES,
   CLOUD_QUEUE_STORAGE_KEY,
   CLOUD_RECOVERY_STORAGE_KEY,
   createCloudProfileSync,
@@ -137,4 +138,19 @@ test("cloud deletion preserves the local profile", async () => {
   assert.deepEqual(fixture.local, profile(2, 50));
   assert.equal(fixture.sync.snapshot().remotePresent, false);
   assert.equal(fixture.sync.snapshot().phase, "no-remote");
+});
+
+test("an oversized cloud payload stays local and recommends export", async () => {
+  let calls = 0;
+  const large = { ...profile(9, 900), padding: "x".repeat(CLOUD_PROFILE_MAX_BYTES) };
+  const fixture = controller({
+    local: large,
+    fetchImpl: async () => { calls += 1; return response(500, {}); },
+  });
+  await fixture.sync.uploadLocal();
+  assert.equal(calls, 0);
+  assert.equal(fixture.sync.snapshot().phase, "too-large");
+  assert.equal(fixture.sync.snapshot().queued, true);
+  assert.match(fixture.sync.snapshot().message, /Export the local save/);
+  assert.deepEqual(fixture.local, large);
 });

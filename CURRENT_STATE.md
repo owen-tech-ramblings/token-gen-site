@@ -2,6 +2,27 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 40 - 2026-07-15
+
+- Iteration 40's final hardening candidate is complete and entering
+  publication with an exact 218,870-byte archive and SHA-256
+  `480c642170cbe2e69599d00e87409a84e0059782a7e8df2a159796cdab7fafb4`.
+- Full controller navigation/gameplay, modal isolation and focus containment,
+  visible keyboard focus, 44/48px targets, system/app reduced motion, and
+  high-contrast QA are complete.
+- All Campaign nights and representative Hunt depths through 10,000 retain
+  reachable collision-free routes. Quotas rise to six while duration remains
+  fixed and bounded pressure continues to increase.
+- Cloud payloads are capped before fetch. Oversized saves stay local and
+  exportable; the backend safely returns 413 without a partial write.
+- Validation: 58/58 tests, site contracts, 12 syntax checks, deterministic
+  build/archive equality, responsive and accessibility browser QA, a bounded
+  180-second soak, and a 67 ms p95 versus Iteration 39's 146 ms.
+- The exact runtime module is active. Authenticated CRUD/conflict/delete and
+  oversized-request canaries passed and left the cloud account empty.
+- Next: publish, verify the exact Pages origin and Access boundary, and run the
+  authenticated Iteration 40 production smoke.
+
 ## Vampire Survival Iteration 39 - 2026-07-15
 
 - Iteration 39 is published and exact-origin verified at commit `77bb6d5`
