@@ -4,7 +4,8 @@ Last updated: 2026-07-15 Australia/Sydney
 
 ## 2026-07-15 Vampire Survival Iteration 36 Handoff
 
-Iteration 36 is validated in the canonical Pages repo and ready to publish.
+Iteration 36 is published and exact-origin verified from canonical commit
+`806e110` through successful Pages workflow `29350408386`.
 Its exact archive is `games/vampire-survival-iterations/iteration-36-codex.html`
 (175,359 bytes; SHA-256
 `b460366aacc7d1e63b1774943081ff57c862787255a8954bd20a4c026075d09e`).
@@ -13,8 +14,9 @@ The release adds the two-slot coffin loadout and Create Thrall. Unlock authority
 comes from immutable Campaign clears, target ties use stable IDs, conversion and
 active counts are bounded, and every exit uses centralized cleanup. Thirty-eight
 tests, exact archive contracts, responsive browser QA, and the performance gate
-pass. Publish to both remotes, verify Pages and the Access 302, then continue
-directly to Iteration 37 Chapter II and Swarm.
+pass. Both remotes contain the release, the Pages-origin digest matches, and
+the public route retains the expected Access 302. Continue directly to
+Iteration 37 Chapter II and Swarm.
 
 ## 2026-07-15 Vampire Survival Iteration 35 Handoff
 
