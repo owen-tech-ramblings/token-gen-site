@@ -2,9 +2,10 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
-## 2026-07-15 Vampire Survival Iteration 35 Release Candidate
+## 2026-07-15 Vampire Survival Iteration 35 Handoff
 
-Iteration 35 is implemented and locally verified in the canonical Pages repo.
+Iteration 35 is implemented, published, and exact-origin verified in the
+canonical Pages repo at release commit `d59a907`.
 
 - Bloodline definitions, validation, transactions, and run-stat derivation are
   in `games/vampire-survival-src/profile.mjs`.
@@ -24,6 +25,12 @@ Iteration 35 is implemented and locally verified in the canonical Pages repo.
   and bounded Hunt soaks.
 - Evidence:
   `games/vampire-survival-iterations/iteration-35-test-report.md`.
+- GitHub Pages build `1095252135` completed for exact commit `d59a907`. Direct
+  origin returned the exact 158,067-byte archive hash; unauthenticated HTTPS
+  returned the expected Access 302.
+- The authenticated Windows helper remained unavailable, so the release did
+  not attempt unsafe foreground automation or a broad Chrome cookie copy. No
+  production profile or Cloudflare state changed.
 
 Next after publication: Iteration 36 loadout slots, cooldown tuning, and Create
 Thrall with visible cast/cooldown/targeting feedback.

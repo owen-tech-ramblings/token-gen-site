@@ -210,7 +210,8 @@ expected Cloudflare Access 302.
 
 ## Iteration 35
 
-Accepted local Codex release candidate 35 on 2026-07-15. The coffin now hosts
+Accepted and published Codex release 35 on 2026-07-15 at commit `d59a907`.
+The coffin now hosts
 a permanent Bloodline with three branches and three nodes each. Purchases show
 their cost, prerequisite, current/next effect, rank, and flavor; atomic debit,
 one-step Undo, and free full respec preserve the immutable economy ledger.
@@ -228,3 +229,7 @@ Snapshot: `iteration-35-codex.html`
 SHA-256: `0a8977e35c21225b11e46dfd5b94e3793470dc2017e6790a17092696587ddab9`
 
 Bytes: 158067
+
+GitHub Pages build `1095252135` completed for the exact release commit. Direct
+origin returned the exact archive hash and the public route retained its
+expected Cloudflare Access 302.

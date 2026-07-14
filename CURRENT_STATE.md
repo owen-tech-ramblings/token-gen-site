@@ -2,7 +2,7 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
-## Vampire Survival Iteration 35 Release Candidate - 2026-07-15
+## Vampire Survival Iteration 35 - 2026-07-15
 
 - Bloodline v1 now lives in the coffin with Crimson Hunger, Moonstride, and
   Nightborn Arts, each containing three prerequisite-linked nodes.
@@ -18,8 +18,14 @@ Last updated: 2026-07-15 Australia/Sydney
 - Verification passed: 36 Node tests, shared contracts, all module syntax,
   deterministic double-build, exact archive equality, desktop/mobile Bloodline
   flows, failed-save currency safety, and three 180-second cap soaks.
-- Candidate: 158,067 bytes, SHA-256
+- Published artifact: 158,067 bytes, SHA-256
   `0a8977e35c21225b11e46dfd5b94e3793470dc2017e6790a17092696587ddab9`.
+- Release commit `d59a907` is on both remotes. GitHub Pages build `1095252135`
+  completed for the exact commit; direct origin returned the exact archive and
+  the public hostname retained its expected Access 302.
+- The authenticated Windows helper remained unavailable. No broad cookie copy
+  or foreground automation was used; production profile and Cloudflare state
+  were not changed.
 - Detailed evidence:
   `games/vampire-survival-iterations/iteration-35-test-report.md`.
 

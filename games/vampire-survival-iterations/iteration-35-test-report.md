@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 35 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate; Bloodline transaction, responsive, and run-derivation gates passed
+Status: published; exact production origin and Access gates passed
 
 ## Artifact
 
@@ -89,5 +89,13 @@ the node action retains a visible keyboard focus indicator.
 
 ## Publication Evidence
 
-- Pending release commit, GitHub Pages build, direct-origin hash, and Access
-  redirect verification.
+- Release commit `d59a90783ccdd1aeafc2f4021eeefee564d83bff` was pushed to both public and
+  private `master` remotes.
+- GitHub Pages build `1095252135` completed successfully for that exact commit.
+- A direct Pages-origin request returned HTTP 200, 158,067 bytes, and SHA-256
+  `0a8977e35c21225b11e46dfd5b94e3793470dc2017e6790a17092696587ddab9`.
+- Unauthenticated public HTTPS returned the expected Cloudflare Access 302.
+- The authenticated Windows helper remained unavailable, so no unsafe
+  foreground automation or broad cookie copy was attempted. The release used
+  exact-origin artifact proof plus the full generated-artifact browser gate;
+  no production profile, credentials, mailbox, or Cloudflare state changed.
