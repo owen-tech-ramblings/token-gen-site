@@ -49,14 +49,30 @@ const els = {
   form: $("#chatForm"),
   input: $("#chatInput"),
   send: $("#chatSend"),
+  activeModel: $("#chatActiveModel"),
+  runtimeDot: $("#chatRuntimeDot"),
+  modeButtons: Array.from(document.querySelectorAll("[data-chat-mode]")),
+  modeHint: $("#chatModeHint"),
+  settingsOpen: $("#chatSettingsOpen"),
+  settingsClose: $("#chatSettingsClose"),
+  settingsDrawer: $("#chatSettingsDrawer"),
+  settingsBackdrop: $("#chatSettingsBackdrop"),
+  rail: $("#chatRail"),
+  railOpen: $("#chatRailOpen"),
+  railClose: $("#chatRailClose"),
+  attachMenu: $("#chatAttachMenu"),
+  attachDocument: $("#chatAttachDocument"),
+  attachImage: $("#chatAttachImage"),
+  attachMask: $("#chatAttachMask"),
+  webQuickToggle: $("#chatWebQuickToggle"),
+  docBudgetValue: $("#chatDocBudgetValue"),
 };
 
-let messages = [
-  {
-    role: "assistant",
-    content: "Token Gen chat is ready. Ask a short test question or paste a prompt you want to run locally.",
-  },
-];
+function welcomeMessage() {
+  return { role: "assistant", content: "", isWelcome: true };
+}
+
+let messages = [welcomeMessage()];
 let webSearchSupported = false;
 let imageGenerationSupported = false;
 let availableModels = [];
@@ -234,16 +250,55 @@ function isImageGenerationRunning() {
   return Boolean(activeImageAbortController);
 }
 
+function syncModeUI() {
+  const mode = getMode();
+  els.modeButtons.forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.chatMode === mode));
+  });
+  document.body.classList.toggle("chat-image-active", mode === "image" || Boolean(activeImageSource));
+  if (els.modeHint) {
+    els.modeHint.textContent = mode === "auto"
+      ? "Auto chooses chat or image from your request"
+      : mode === "image"
+        ? "Create, edit, restyle, or enhance an image"
+        : "Answer with the active local language model";
+  }
+}
+
+function syncWebUI() {
+  if (!els.webQuickToggle) return;
+  const enabled = Boolean(els.webSearch.checked);
+  els.webQuickToggle.setAttribute("aria-pressed", String(enabled));
+  els.webQuickToggle.disabled = els.webSearch.disabled;
+  els.webQuickToggle.title = enabled ? "Web context is on" : "Use current web information";
+}
+
+function setAttachMenu(open) {
+  if (!els.attachMenu) return;
+  els.attachMenu.hidden = !open;
+  els.documentsButton.setAttribute("aria-expanded", String(open));
+}
+
+function setSettingsOpen(open) {
+  els.settingsDrawer?.classList.toggle("is-open", open);
+  els.settingsDrawer?.setAttribute("aria-hidden", String(!open));
+  if (els.settingsBackdrop) els.settingsBackdrop.hidden = !open;
+  document.body.classList.toggle("chat-settings-open", open);
+}
+
+function setRailOpen(open) {
+  els.rail?.classList.toggle("is-open", open);
+  document.body.classList.toggle("chat-rail-opened", open);
+}
+
 function syncSendButtonState() {
   if (isImageGenerationRunning()) {
-    els.send.textContent = "\u25a0";
     els.send.title = "Stop image generation";
     els.send.setAttribute("aria-label", "Stop image generation");
     els.send.classList.add("chat-stop-button");
     return;
   }
-  els.send.textContent = "Send";
-  els.send.title = "";
+  els.send.title = "Send message";
   els.send.setAttribute("aria-label", "Send message");
   els.send.classList.remove("chat-stop-button");
 }
@@ -346,12 +401,14 @@ function setActiveImageSource(source) {
   releaseImagePreviewUrl(activeImageSource);
   activeImageSource = source;
   renderImageSourcePreview();
+  syncModeUI();
 }
 
 function clearActiveImageSource() {
   releaseImagePreviewUrl(activeImageSource);
   activeImageSource = null;
   renderImageSourcePreview();
+  syncModeUI();
 }
 
 function setActiveImageMask(mask) {
@@ -369,7 +426,7 @@ function clearActiveImageMask() {
 function renderImageSourcePreview() {
   if (!els.imageSourcePreview) return;
   if (!activeImageSource) {
-    els.imageSourcePreview.innerHTML = `<p class="chat-web-note">No source image selected.</p>`;
+    els.imageSourcePreview.innerHTML = "";
     return;
   }
   const src = activeImageSource.previewUrl || activeImageSource.url || "";
@@ -388,7 +445,7 @@ function renderImageSourcePreview() {
 function renderImageMaskPreview() {
   if (!els.imageMaskPreview) return;
   if (!activeImageMask) {
-    els.imageMaskPreview.innerHTML = `<p class="chat-web-note">No edit mask selected.</p>`;
+    els.imageMaskPreview.innerHTML = "";
     return;
   }
   const src = activeImageMask.previewUrl || activeImageMask.url || "";
@@ -503,6 +560,7 @@ async function resizeImageSourceForEdit(source, settings) {
 function setStatus(text, state = "neutral") {
   els.status.textContent = text;
   els.status.dataset.state = state;
+  if (els.runtimeDot) els.runtimeDot.dataset.state = state;
 }
 
 function formatNumber(value) {
@@ -645,6 +703,7 @@ function renderDocuments() {
   const percentUsed = budget ? Math.min(100, (total / budget) * 100) : 0;
   const overBudget = total > budget;
   els.docBudget.value = String(getDocumentBudgetPercent());
+  if (els.docBudgetValue) els.docBudgetValue.textContent = `${getDocumentBudgetPercent()}%`;
   els.docMeter.style.width = `${percentUsed}%`;
   els.docMeter.dataset.state = overBudget ? "bad" : total ? "good" : "neutral";
   els.docStatus.textContent = uploadedDocuments.length
@@ -680,18 +739,164 @@ function buildDocumentContextMessage() {
   };
 }
 
-function renderMessages(pending = false) {
-  els.thread.innerHTML = messages.map((message) => `
-    <article class="chat-message chat-message-${message.role}">
-      <div class="chat-avatar">${message.role === "user" ? "You" : "TG"}</div>
-      <div class="chat-bubble">
-        <div class="chat-role">${message.role === "user" ? "You" : "Token Gen"}</div>
-        ${renderWebContext(message.webContext)}
-        ${renderImageOutputs(message)}
-        <div class="chat-content">${escapeHtml(message.content).replace(/\n/g, "<br>")}</div>
+function renderInlineMarkdown(value) {
+  return escapeHtml(value)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/__([^_]+)__/g, "<strong>$1</strong>")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "<em>$1</em>")
+    .replace(/`([^`\n]+)`/g, "<code>$1</code>");
+}
+
+function renderProseMarkdown(value) {
+  const lines = String(value || "").split("\n");
+  const output = [];
+  let listType = "";
+  let paragraph = [];
+
+  const closeList = () => {
+    if (!listType) return;
+    output.push(`</${listType}>`);
+    listType = "";
+  };
+  const closeParagraph = () => {
+    if (!paragraph.length) return;
+    output.push(`<p>${renderInlineMarkdown(paragraph.join(" "))}</p>`);
+    paragraph = [];
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      closeParagraph();
+      closeList();
+      return;
+    }
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      closeParagraph();
+      closeList();
+      const level = heading[1].length + 1;
+      output.push(`<h${level}>${renderInlineMarkdown(heading[2])}</h${level}>`);
+      return;
+    }
+    const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+    const ordered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    if (unordered || ordered) {
+      closeParagraph();
+      const nextType = unordered ? "ul" : "ol";
+      if (listType !== nextType) {
+        closeList();
+        listType = nextType;
+        output.push(`<${listType}>`);
+      }
+      output.push(`<li>${renderInlineMarkdown((unordered || ordered)[1])}</li>`);
+      return;
+    }
+    if (trimmed.startsWith("> ")) {
+      closeParagraph();
+      closeList();
+      output.push(`<blockquote>${renderInlineMarkdown(trimmed.slice(2))}</blockquote>`);
+      return;
+    }
+    closeList();
+    paragraph.push(trimmed);
+  });
+
+  closeParagraph();
+  closeList();
+  return output.join("");
+}
+
+function renderMarkdown(value) {
+  const text = String(value || "");
+  const output = [];
+  const fence = /```([^\n]*)\n?([\s\S]*?)```/g;
+  let cursor = 0;
+  let match;
+  while ((match = fence.exec(text))) {
+    output.push(renderProseMarkdown(text.slice(cursor, match.index)));
+    const language = match[1].trim() || "code";
+    output.push(`
+      <div class="chat-code-block">
+        <div class="chat-code-head">
+          <span>${escapeHtml(language)}</span>
+          <button class="chat-code-copy" type="button" data-code-copy>Copy</button>
+        </div>
+        <pre><code>${escapeHtml(match[2].replace(/\n$/, ""))}</code></pre>
       </div>
-    </article>
-  `).join("") + (pending ? `
+    `);
+    cursor = fence.lastIndex;
+  }
+  output.push(renderProseMarkdown(text.slice(cursor)));
+  return output.join("");
+}
+
+function renderWelcome() {
+  return `
+    <section class="chat-welcome">
+      <div class="chat-welcome-visual">
+        <img src="./assets/token-gen-server.png" alt="" />
+        <div class="chat-welcome-copy">
+          <span class="chat-welcome-kicker">Private local intelligence</span>
+          <h1>What can Token Gen help with?</h1>
+          <p>Ask a question, work with a document, search current information, or create and refine images.</p>
+        </div>
+      </div>
+      <div class="chat-suggestions">
+        <button class="chat-suggestion" type="button" data-chat-suggestion="Help me think through a complex decision. Start by asking for the context that matters.">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 18h5M10 22h4M8.7 15.5A7 7 0 1 1 15.3 15.5C14.5 16.1 14 17 14 18h-4c0-1-.5-1.9-1.3-2.5Z" /></svg>
+          <span><strong>Think something through</strong><small>Reason, compare, and plan</small></span>
+        </button>
+        <button class="chat-suggestion" type="button" data-chat-action="attach-document">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6M8 13h8M8 17h6" /></svg>
+          <span><strong>Work with a document</strong><small>PDF, Word, text, or code</small></span>
+        </button>
+        <button class="chat-suggestion" type="button" data-chat-suggestion="Create an image of " data-suggestion-mode="image">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
+          <span><strong>Create an image</strong><small>Generate, edit, or restyle</small></span>
+        </button>
+        <button class="chat-suggestion" type="button" data-chat-suggestion="Research the latest information about " data-suggestion-web="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>
+          <span><strong>Research the web</strong><small>Use private routed web context</small></span>
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function renderMessages(pending = false) {
+  const visibleMessages = messages.filter((message) => !message.isWelcome);
+  if (!visibleMessages.length && !pending) {
+    els.thread.innerHTML = renderWelcome();
+    els.thread.scrollTop = 0;
+    return;
+  }
+
+  els.thread.innerHTML = visibleMessages.map((message) => {
+    const originalIndex = messages.indexOf(message);
+    const content = message.role === "assistant"
+      ? renderMarkdown(message.content)
+      : `<p>${escapeHtml(message.content).replace(/\n/g, "<br>")}</p>`;
+    return `
+      <article class="chat-message chat-message-${message.role}">
+        <div class="chat-avatar">${message.role === "user" ? "You" : "TG"}</div>
+        <div class="chat-bubble">
+          <div class="chat-role">${message.role === "user" ? "You" : "Token Gen"}</div>
+          ${renderWebContext(message.webContext)}
+          ${renderImageOutputs(message)}
+          <div class="chat-content">${content}</div>
+          ${message.role === "assistant" && message.content ? `
+            <div class="chat-message-actions">
+              <button class="chat-message-copy" type="button" data-message-copy="${originalIndex}" title="Copy response" aria-label="Copy response">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" /></svg>
+              </button>
+            </div>
+          ` : ""}
+        </div>
+      </article>
+    `;
+  }).join("") + (pending ? `
     <article class="chat-message chat-message-assistant">
       <div class="chat-avatar">TG</div>
       <div class="chat-bubble">
@@ -761,11 +966,12 @@ function renderWebContext(context) {
   if (!context) return "";
   const sources = Array.isArray(context.sources) ? context.sources.slice(0, 6) : [];
   return `
-    <section class="chat-web-context">
-      <div class="chat-web-context-head">
+    <details class="chat-web-context">
+      <summary>
         <span>Web context</span>
-        <span class="chat-web-mode">${escapeHtml(`${context.provider || context.search_route?.provider || "web"} · ${context.fetch_mode || context.fetchMode || "direct"}`)}</span>
-      </div>
+        <span class="chat-web-mode">${escapeHtml(context.provider || context.search_route?.provider || "web")} / ${escapeHtml(context.fetch_mode || context.fetchMode || "direct")} / ${sources.length} source${sources.length === 1 ? "" : "s"}</span>
+      </summary>
+      <div class="chat-web-context-body">
       ${context.query ? `<p class="chat-web-query">Query: ${escapeHtml(context.query)}</p>` : ""}
       ${sources.length ? `
         <div class="chat-web-sources">
@@ -777,7 +983,8 @@ function renderWebContext(context) {
           `).join("")}
         </div>
       ` : ""}
-    </section>
+      </div>
+    </details>
   `;
 }
 
@@ -810,8 +1017,7 @@ function buildPayload(userId) {
     ...(documentContext?.content ? [documentContext.content] : []),
   ];
   const history = messages
-    .filter((message) => message.role === "user" || message.role === "assistant")
-    .slice(1)
+    .filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"))
     .map((message) => ({ role: message.role, content: message.content }));
 
   return {
@@ -860,6 +1066,7 @@ function disableChat(reason = "Token Gen API model discovery failed") {
   chatReady = false;
   availableModels = [];
   els.model.innerHTML = `<option value="">API unavailable</option>`;
+  if (els.activeModel) els.activeModel.textContent = "API unavailable";
   els.maxTokens.max = String(DEFAULT_CONTEXT_WINDOW);
   els.input.disabled = true;
   els.send.disabled = true;
@@ -887,6 +1094,7 @@ async function loadModels() {
   }
   availableModels = models;
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
+  if (els.activeModel) els.activeModel.textContent = modelLabel(models[0].id);
   const contextWindow = getModelContextWindow(models[0]);
   els.maxTokens.max = String(contextWindow);
   els.input.disabled = false;
@@ -931,6 +1139,7 @@ async function loadWebSearchCapability() {
       els.webStatus.textContent = "Web context is available: Tavily first, then balanced SearXNG if Tavily credits are exhausted.";
       els.webStatus.dataset.state = "good";
       els.webSearch.disabled = false;
+      syncWebUI();
       return;
     }
     if (res.ok && health.tavily_configured === false && health.searxng_available === false) {
@@ -938,6 +1147,7 @@ async function loadWebSearchCapability() {
       els.webStatus.dataset.state = "bad";
       els.webSearch.checked = false;
       els.webSearch.disabled = true;
+      syncWebUI();
       return;
     }
     throw new Error(json.error || "Web-search API is not available yet.");
@@ -947,6 +1157,7 @@ async function loadWebSearchCapability() {
     els.webSearch.disabled = true;
     els.webStatus.textContent = "Web context service is not configured or unavailable.";
     els.webStatus.dataset.state = "bad";
+    syncWebUI();
   }
 }
 
@@ -1530,10 +1741,13 @@ els.input.addEventListener("input", autosizeInput);
 
 els.model.addEventListener("change", () => {
   els.maxTokens.max = String(getModelContextWindow());
+  if (els.activeModel) els.activeModel.textContent = modelLabel(getSelectedModel().id);
+  if (chatReady) setStatus(`Connected to ${modelLabel(getSelectedModel().id)}`, "good");
   renderDocuments();
 });
 
 els.mode.addEventListener("change", () => {
+  syncModeUI();
   updateSendState();
   if (getMode() === "image" && !imageGenerationSupported) {
     setStatus("Image generation is unavailable", "bad");
@@ -1593,7 +1807,57 @@ els.imageMaskUploadButton.addEventListener("click", () => {
 });
 
 els.documentsButton.addEventListener("click", () => {
+  setAttachMenu(els.attachMenu.hidden);
+});
+
+els.attachDocument.addEventListener("click", () => {
+  setAttachMenu(false);
   els.documents.click();
+});
+
+els.attachImage.addEventListener("click", () => {
+  setAttachMenu(false);
+  els.imageUpload.click();
+});
+
+els.attachMask.addEventListener("click", () => {
+  setAttachMenu(false);
+  els.imageMaskUpload.click();
+});
+
+els.modeButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    els.mode.value = button.dataset.chatMode;
+    els.mode.dispatchEvent(new Event("change"));
+    els.input.focus();
+  });
+});
+
+els.settingsOpen.addEventListener("click", () => setSettingsOpen(true));
+els.settingsClose.addEventListener("click", () => setSettingsOpen(false));
+els.settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
+els.railOpen.addEventListener("click", () => setRailOpen(true));
+els.railClose.addEventListener("click", () => setRailOpen(false));
+
+els.webQuickToggle.addEventListener("click", () => {
+  if (els.webSearch.disabled) return;
+  els.webSearch.checked = !els.webSearch.checked;
+  syncWebUI();
+  setStatus(els.webSearch.checked ? "Web context enabled for the next message" : "Web context disabled", "good");
+  els.input.focus();
+});
+
+els.webSearch.addEventListener("change", syncWebUI);
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".chat-attach-wrap")) setAttachMenu(false);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  setAttachMenu(false);
+  setSettingsOpen(false);
+  setRailOpen(false);
 });
 
 els.imageUpload.addEventListener("change", async () => {
@@ -1605,6 +1869,7 @@ els.imageUpload.addEventListener("change", async () => {
     const source = await readUploadedImage(file);
     setActiveImageSource(source);
     els.mode.value = "image";
+    syncModeUI();
     if (els.imageSourceMode.value === "new") {
       els.imageSourceMode.value = els.imageStyle.value !== "none" ? "restyle" : "edit";
       if (els.imageSourceMode.value === "restyle") applyRestyleDefaults();
@@ -1628,6 +1893,7 @@ els.imageMaskUpload.addEventListener("change", async () => {
     const mask = await readUploadedImage(file);
     setActiveImageMask(mask);
     els.mode.value = "image";
+    syncModeUI();
     if (els.imageSourceMode.value === "new") els.imageSourceMode.value = "edit";
     setStatus(`${file.name} ready as an edit mask`, "good");
   } catch (error) {
@@ -1681,6 +1947,47 @@ els.docClear.addEventListener("click", () => {
 });
 
 els.thread.addEventListener("click", (event) => {
+  const attachAction = event.target.closest('[data-chat-action="attach-document"]');
+  if (attachAction) {
+    els.documents.click();
+    return;
+  }
+
+  const suggestion = event.target.closest("[data-chat-suggestion]");
+  if (suggestion) {
+    els.input.value = suggestion.dataset.chatSuggestion || "";
+    if (suggestion.dataset.suggestionMode) {
+      els.mode.value = suggestion.dataset.suggestionMode;
+      els.mode.dispatchEvent(new Event("change"));
+    }
+    if (suggestion.dataset.suggestionWeb === "true" && !els.webSearch.disabled) {
+      els.webSearch.checked = true;
+      syncWebUI();
+    }
+    autosizeInput();
+    els.input.focus();
+    return;
+  }
+
+  const codeCopy = event.target.closest("[data-code-copy]");
+  if (codeCopy) {
+    const code = codeCopy.closest(".chat-code-block")?.querySelector("code")?.textContent || "";
+    navigator.clipboard.writeText(code).then(() => {
+      codeCopy.textContent = "Copied";
+      setTimeout(() => { codeCopy.textContent = "Copy"; }, 1500);
+    }).catch(() => setStatus("Could not copy code", "bad"));
+    return;
+  }
+
+  const messageCopy = event.target.closest("[data-message-copy]");
+  if (messageCopy) {
+    const message = messages[Number(messageCopy.dataset.messageCopy)];
+    navigator.clipboard.writeText(message?.content || "")
+      .then(() => setStatus("Response copied", "good"))
+      .catch(() => setStatus("Could not copy response", "bad"));
+    return;
+  }
+
   const downloadButton = event.target.closest("[data-image-download]");
   if (downloadButton) {
     event.preventDefault();
@@ -1717,6 +2024,7 @@ els.thread.addEventListener("click", (event) => {
     image,
   });
   els.mode.value = "image";
+  syncModeUI();
   els.imageSourceMode.value = "edit";
   els.input.value = `Create a variation of this image: ${prompt}`;
   autosizeInput();
@@ -1740,9 +2048,18 @@ els.imageMaskPreview.addEventListener("click", (event) => {
 });
 
 els.clear.addEventListener("click", () => {
-  messages = [{ role: "assistant", content: "New chat started." }];
-  renderMessages(false);
+  messages = [welcomeMessage()];
+  uploadedDocuments = [];
+  renderDocuments();
+  clearActiveImageSource();
   clearActiveImageMask();
+  els.mode.value = "auto";
+  syncModeUI();
+  els.input.value = "";
+  autosizeInput();
+  setRailOpen(false);
+  setStatus(chatReady ? `Connected to ${modelLabel(getSelectedModel().id)}` : "Connecting to Token Gen...", chatReady ? "good" : "neutral");
+  renderMessages(false);
   els.input.focus();
 });
 
@@ -1751,6 +2068,8 @@ renderDocuments();
 renderImageSourcePreview();
 renderImageMaskPreview();
 syncImageEditStrengthValue();
+syncModeUI();
+syncWebUI();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
