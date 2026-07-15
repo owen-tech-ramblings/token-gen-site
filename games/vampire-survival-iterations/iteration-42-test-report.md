@@ -1,7 +1,7 @@
 # Vampire Survival Iteration 42 Test Report
 
 Date: 2026-07-15 Australia/Sydney
-Status: release candidate passed; publication pending
+Status: published; exact production origin and authenticated Access gates passed
 
 ## Artifact
 
@@ -68,5 +68,15 @@ Status: release candidate passed; publication pending
 
 ## Publication Evidence
 
-- Pending release commit, GitHub Pages workflow, exact-origin digest, public
-  Access response, and authenticated production smoke.
+- Release commit `6e2fbabe7159c7fb8d6185c34bfe2d2cdc076e32` was pushed to
+  both public and private `master` remotes.
+- GitHub Pages workflow `29409992586` completed successfully for that exact
+  commit.
+- Direct GitHub Pages origin returned HTTP 200, 461,813 bytes, and SHA-256
+  `e591395c1f6efbf71470b48b7e7eb3c00d1b56c283d0b7715e59ab3890df5fe5`.
+- Public HTTPS retained the expected unauthenticated Cloudflare Access 302.
+- Authenticated production reported Iteration 42, used the embedded WebP,
+  rendered both candles and bats plus the mist and seal effect, and matched
+  the locally approved closed-coffin frame.
+- Cloud Save remained local-only with no queue or remote profile. A clean
+  production reload produced no game console errors.

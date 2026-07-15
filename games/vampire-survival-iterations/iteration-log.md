@@ -310,3 +310,30 @@ Bytes: 158067
 GitHub Pages build `1095252135` completed for the exact release commit. Direct
 origin returned the exact archive hash and the public route retained its
 expected Cloudflare Access 302.
+
+## Iteration 42
+
+Accepted and published Codex release 42 on 2026-07-15 at commit `6e2fbab`.
+The survived-night transition now centers on an ornate generated coffin lid
+over a velvet-lined base, with moonlight, bats, candles, ground mist, a
+detailed vampire, and a sealing pulse synchronized to the lid close.
+
+The transparent 300x480 WebP is retained as a source asset and embedded into
+the generated HTML, preserving the standalone deployment. Mobile keeps the
+scene centered; app and system reduced-motion modes show the settled closed
+coffin with zero running animations.
+
+Fifty-eight automated tests, site contracts, source syntax, deterministic
+build/archive equality, desktop and phone browser review, reduced-motion
+inspection, and the real Night 1 victory-to-coffin flow passed.
+
+Snapshot: `iteration-42-codex.html`
+
+SHA-256: `e591395c1f6efbf71470b48b7e7eb3c00d1b56c283d0b7715e59ab3890df5fe5`
+
+Bytes: 461813
+
+GitHub Pages workflow `29409992586` completed for the exact release commit.
+Direct origin returned the exact archive hash, public HTTPS retained its
+expected Access 302, and authenticated production passed with Cloud Save
+local-only and a clean game console.

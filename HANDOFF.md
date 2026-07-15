@@ -2,6 +2,25 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## 2026-07-15 Vampire Survival Iteration 42 Handoff
+
+Iteration 42 is published at exact release commit `6e2fbab` through successful
+Pages workflow `29409992586`. Its exact archive is
+`iteration-42-codex.html` (461,813 bytes; SHA-256
+`e591395c1f6efbf71470b48b7e7eb3c00d1b56c283d0b7715e59ab3890df5fe5`).
+
+The dawn transition now uses an embedded generated WebP for an ornate
+burgundy, black, gold, and ruby lid, backed by a velvet-lined coffin, detailed
+vampire, moonbeams, bats, candles, mist, and a timed sealing pulse. The
+four-second transition remains skippable; mobile and app/system reduced-motion
+states are verified. Fifty-eight tests, exact contracts, deterministic builds,
+desktop/mobile visual review, reduced-motion inspection, and the real Night 1
+coffin flow pass. Both remotes contain the release; direct origin matches the
+archive, public HTTPS retains its Access 302, and authenticated production
+passed with Cloud Save left local-only and no game console errors. Use
+Iteration 41 commit `561f3bd` and `iteration-41-codex.html` as the rollback
+point.
+
 ## 2026-07-15 Vampire Survival Iteration 41 Handoff
 
 Iteration 41 is published at exact release commit `561f3bd` through successful

@@ -2,6 +2,28 @@
 
 Last updated: 2026-07-15 Australia/Sydney
 
+## Vampire Survival Iteration 42 - 2026-07-15
+
+- Iteration 42 is published and exact-origin verified at commit `6e2fbab`
+  through Pages workflow `29409992586`, with a 461,813-byte archive and
+  SHA-256
+  `e591395c1f6efbf71470b48b7e7eb3c00d1b56c283d0b7715e59ab3890df5fe5`.
+- The survived-night scene now uses a generated ornate burgundy, black, gold,
+  and ruby coffin lid over a velvet-lined base. The asset remains available as
+  `games/vampire-survival-assets/coffin-lid-v42.webp` and is embedded into
+  the standalone game at build time.
+- Moonbeams, stars, bats, candles, ground mist, a detailed vampire sprite, and
+  a sealing pulse complete the four-second skippable hop-and-close sequence.
+- Mobile keeps the scene centered and fully visible. App and system
+  reduced-motion modes settle directly on the closed coffin with zero scene
+  animations.
+- Validation: 58/58 tests, site contracts, source syntax, deterministic exact
+  archive equality, desktop/mobile animation review, reduced-motion
+  inspection, and the real Night 1 victory-to-coffin flow.
+- Direct origin matches the archive, public HTTPS retains its expected Access
+  302, and authenticated production passed the embedded-asset and visual smoke
+  with Cloud Save local-only and a clean game console.
+
 ## Vampire Survival Iteration 41 - 2026-07-15
 
 - Iteration 41 is published and exact-origin verified at commit `561f3bd`
