@@ -9,7 +9,7 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
-const vampireArchive41 = read("games/vampire-survival-iterations/iteration-41-codex.html");
+const vampireArchive42 = read("games/vampire-survival-iterations/iteration-42-codex.html");
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
@@ -114,8 +114,8 @@ assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain o
 assert.doesNotMatch(monitorJs, /driver_version/, "Monitor must not show private-only GPU driver columns unless public status includes them.");
 assert.doesNotMatch(monitorJs, /uuid/, "Monitor must not show private-only GPU UUID columns unless public status includes them.");
 
-assert.equal(vampireArchive41, vampireGame, "Iteration 41 archive must match the exact deployed game artifact.");
-assert.match(vampireGame, /iteration:\s*41/, "Vampire Survival must expose Iteration 41 to its test contract.");
+assert.equal(vampireArchive42, vampireGame, "Iteration 42 archive must match the exact deployed game artifact.");
+assert.match(vampireGame, /iteration:\s*42/, "Vampire Survival must expose Iteration 42 to its test contract.");
 assert.match(vampireGame, /profileSchema:\s*2/, "Vampire Survival must declare profile schema v2.");
 assert.match(vampireGame, /vampire_survival_profile_v2/, "Vampire Survival must use the v2 profile key.");
 assert.match(vampireGame, /vampire_survival_profile_v31/, "Vampire Survival must retain the v31 migration source key.");
@@ -174,6 +174,8 @@ assert.match(vampireGame, /rule\.cost\s*>\s*0\s*&&\s*blood\s*<\s*rule\.cost/, "Z
 assert.match(vampireGame, /id="feedStatus">Ready/, "Vampire Survival must expose Feed's authoritative availability state.");
 assert.match(vampireGame, /renderAbilityState\("feed",currentAbilityStatus\("feed"\)/, "Vampire Survival must update Feed's cooldown feedback from gameplay state.");
 assert.match(vampireGame, /coffin-playing \.coffin-vampire/, "Vampire Survival must include the skippable coffin animation.");
+assert.match(vampireGame, /data:image\/webp;base64,/, "The ornate coffin artwork must be embedded in the standalone game.");
+assert.match(vampireGame, /coffin-seal-v42/, "The coffin transition must include the lid-seal effect.");
 assert.match(vampireGame, /runId:state\.runId/, "Vampire Survival score records must retain a stable per-run identity.");
 assert.match(vampireGame, /Profile identity changed:/, "Vampire Survival must reject equal-revision writes from a replaced profile identity.");
 assert.match(vampireGame, /vampire-survival-profile-writer/, "Vampire Survival must serialize public profile writers across supported tabs.");
@@ -205,5 +207,6 @@ assert.doesNotMatch(vampireGame, /skill tree awakens here in the next iteration/
 assert.doesNotMatch(vampireGame, /chatgptOled|mobileSkybridge|desktopSkybridge/, "Vampire Survival must not include injected Skybridge style overrides.");
 assert.doesNotMatch(vampireGame, /<script\s+[^>]*src=/i, "Vampire Survival must remain a self-contained runtime artifact.");
 assert.doesNotMatch(vampireGame, /\/\*__\w+__\*\//, "Vampire Survival must not contain unresolved build markers.");
+assert.doesNotMatch(vampireGame, /__COFFIN_LID_DATA_URI__|vampire-survival-assets\/coffin-lid-v42\.webp/, "The deployed game must not retain an asset marker or external coffin path.");
 
 console.log("site contract tests passed");

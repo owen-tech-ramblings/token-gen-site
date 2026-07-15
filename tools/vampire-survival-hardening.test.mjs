@@ -80,14 +80,16 @@ test("fresh, completed, and large valid profiles normalise within the cloud enve
   assert.ok(bytes < CLOUD_PROFILE_MAX_BYTES, `stress profile exceeded cloud limit at ${bytes} bytes`);
 });
 
-test("Iteration 41 source keeps Hunt entry, player copy, accessibility, and controller contracts", async () => {
-  const [runtime, input, template, gameplay] = await Promise.all([
+test("Iteration 42 source keeps Hunt entry, accessible controls, and the self-contained gothic coffin", async () => {
+  const [runtime, input, template, gameplay, buildTool, coffinLid] = await Promise.all([
     readFile(new URL("../games/vampire-survival-src/runtime.mjs", import.meta.url), "utf8"),
     readFile(new URL("../games/vampire-survival-src/input.mjs", import.meta.url), "utf8"),
     readFile(new URL("../games/vampire-survival-src/template.html", import.meta.url), "utf8"),
     readFile(new URL("../games/vampire-survival-src/gameplay.mjs", import.meta.url), "utf8"),
+    readFile(new URL("./build-vampire-survival.mjs", import.meta.url), "utf8"),
+    readFile(new URL("../games/vampire-survival-assets/coffin-lid-v42.webp", import.meta.url)),
   ]);
-  assert.match(runtime, /iteration:\s*41/);
+  assert.match(runtime, /iteration:\s*42/);
   assert.match(input, /syncDialogIsolation/);
   assert.match(input, /pollGamepadInput/);
   assert.match(input, /gamepadBack/);
@@ -102,6 +104,15 @@ test("Iteration 41 source keeps Hunt entry, player copy, accessibility, and cont
   assert.match(template, /\.check\{[^}]*min-height:44px/);
   assert.match(template, /@media\(pointer:coarse\)\{[^}]*\.check\{?[^}]*min-height:48px/);
   assert.match(template, /prefers-reduced-motion:reduce/);
+  assert.match(template, /__COFFIN_LID_DATA_URI__/);
+  assert.match(template, /coffin-candle-left/);
+  assert.match(template, /coffin-mist/);
+  assert.match(template, /coffin-seal-v42/);
+  assert.match(template, /body\.reduce-motion \.coffin-stage/);
+  assert.match(buildTool, /data:image\/webp;base64/);
+  assert.match(buildTool, /coffin-lid-v42\.webp/);
+  assert.equal(coffinLid.subarray(0, 4).toString("ascii"), "RIFF");
+  assert.equal(coffinLid.subarray(8, 12).toString("ascii"), "WEBP");
   assert.match(template, /left stick/);
   assert.match(template, /LB creates a Thrall/);
 });

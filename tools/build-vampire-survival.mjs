@@ -8,6 +8,8 @@ const repositoryRoot = resolve(toolDirectory, "..");
 const sourceDirectory = resolve(repositoryRoot, "games", "vampire-survival-src");
 const templatePath = resolve(sourceDirectory, "template.html");
 const outputPath = resolve(repositoryRoot, "games", "vampire-survival.html");
+const coffinLidAssetPath = resolve(repositoryRoot, "games", "vampire-survival-assets", "coffin-lid-v42.webp");
+const coffinLidMarker = "__COFFIN_LID_DATA_URI__";
 
 const moduleFiles = [
   ["/*__RUNTIME_MODULE__*/", "runtime.mjs"],
@@ -33,13 +35,19 @@ function inlineModule(source, filename) {
 
 async function render() {
   let html = await readFile(templatePath, "utf8");
+  const coffinLidOccurrences = html.split(coffinLidMarker).length - 1;
+  if (coffinLidOccurrences !== 1) {
+    throw new Error(`Expected one ${coffinLidMarker} marker, found ${coffinLidOccurrences}`);
+  }
+  const coffinLid = await readFile(coffinLidAssetPath);
+  html = html.replace(coffinLidMarker, `data:image/webp;base64,${coffinLid.toString("base64")}`);
   for (const [marker, filename] of moduleFiles) {
     const occurrences = html.split(marker).length - 1;
     if (occurrences !== 1) throw new Error(`Expected one ${marker} marker, found ${occurrences}`);
     const source = await readFile(resolve(sourceDirectory, filename), "utf8");
     html = html.replace(marker, inlineModule(source, filename));
   }
-  if (html.includes("/*__") || /<script\s+[^>]*src=/i.test(html)) {
+  if (html.includes("/*__") || html.includes(coffinLidMarker) || /<script\s+[^>]*src=/i.test(html)) {
     throw new Error("Generated game contains an unresolved marker or external runtime script");
   }
   return html.endsWith("\n") ? html : `${html}\n`;

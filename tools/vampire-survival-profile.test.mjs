@@ -81,8 +81,8 @@ function legacyProfile(overrides = {}) {
   };
 }
 
-test("iteration 41 runtime and content contracts remain complete", () => {
-  assert.equal(BUILD.iteration, 41);
+test("iteration 42 runtime and content contracts remain complete", () => {
+  assert.equal(BUILD.iteration, 42);
   assert.equal(BUILD.profileSchema, 2);
   assert.equal(PROFILE_SCHEMA_VERSION, 2);
   assert.equal(Object.keys(DIFFICULTIES).length, 3);
