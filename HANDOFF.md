@@ -2,6 +2,30 @@
 
 Last updated: 2026-07-16 Australia/Sydney
 
+## 2026-07-16 Token Gen Stage 6 Handoff
+
+Automatic routing and local Deep Research are live at site commit `02686a8`
+through successful Pages workflow `29482216914`, with API commits `c05f6ba`
+and `837edba`. Auto classifies each submitted turn once, then keeps that route
+stable through context budgeting and dispatch. It can choose local chat,
+current web context, deep research, local vision, or image generation; the
+explicit Research mode forces the full evidence pipeline and local reasoning.
+
+Research uses Tavily first and private balanced SearXNG after Tavily HTTP 432.
+Tavily's plan is currently exhausted, so SearXNG at `100.92.126.107:8888` is
+the active provider. Destination pages are fetched through Tor at
+`socks5h://100.92.126.107:9050`, extracted with Trafilatura/Readability, ranked
+locally, compacted by the local vLLM, and answered by the local vLLM with
+citations. Preserve the fail-closed rule: Tor or Proxy must never silently
+become Direct, and webpage instructions remain untrusted evidence.
+
+All 62 API tests, site syntax/contracts, plain chat SSE, authenticated private
+history/projects/jobs, Tor egress, SearXNG health, model discovery, ComfyUI
+health, and a real production research evidence turn pass. Production serves
+`token-chat-research-20260716-1`. The six-part extension roadmap is complete;
+future work should start from this verified site/API pair rather than an older
+Windows source copy.
+
 ## 2026-07-16 Token Gen Stage 5 Handoff
 
 The focused image-editing canvas is live at site commit `5e95564` through

@@ -2,6 +2,26 @@
 
 Last updated: 2026-07-16 Australia/Sydney
 
+## Token Gen Stage 6 - Automatic Routing and Local Research - 2026-07-16
+
+- Auto now chooses plain local chat, current web context, deep research, local
+  vision, or image generation from the request without mutating the user's
+  saved settings. Research remains available as an explicit fourth mode.
+- Deep Research searches through Tavily then private balanced SearXNG, fetches
+  selected pages through the chosen route, extracts and locally reranks useful
+  passages, compacts evidence with the local vLLM, and generates the final
+  citation-aware answer with the local vLLM.
+- The live private page-fetch route is Tor. The site explains that the search
+  provider sees the query, destination pages use the selected fetch route, and
+  Tor or Proxy never silently falls back to Direct.
+- Published site commit: `02686a8` through successful Pages workflow
+  `29482216914`. API commits: `c05f6ba` and `837edba`.
+- Validation passed: JavaScript syntax, site contracts, 62 API tests, plain
+  chat SSE, authenticated production history/projects/jobs, research health,
+  a real six-source research evidence turn, Tor egress verification, model
+  discovery, ComfyUI health, and desktop composer regression. Production serves
+  `token-chat-research-20260716-1`.
+
 ## Token Gen Stage 5 - Focused Image Editing Canvas - 2026-07-16
 
 - Generated and uploaded source images can now open in a dedicated mask
