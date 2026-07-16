@@ -2,6 +2,25 @@
 
 Last updated: 2026-07-16 Australia/Sydney
 
+## 2026-07-16 Token Gen Stage 5 Handoff
+
+The focused image-editing canvas is live at site commit `5e95564` through
+successful Pages workflow `29478424261`. It opens from attached source images
+or generated outputs and uses the established `/api/image/edits` contract, so
+no API deployment was required. Painted areas become a lossless grayscale PNG
+mask; existing target-size preparation sends source and mask at matching edit
+dimensions.
+
+The editor supports paint, erase, brush size, bounded undo/redo, clear,
+keyboard focus containment, Escape, pointer capture, and full-screen mobile
+use. A new source always clears the previous mask. JavaScript syntax, site
+contracts, real generation and editing interactions, desktop/mobile visual QA,
+and authenticated production all pass. Production serves
+`token-chat-canvas-20260716-1`; private history and projects remain healthy and
+the console is clean. The next roadmap item is Stage 6: automatic routing and
+a research mode that should coordinate existing web, project, document, vision,
+chat, and image capabilities without requiring routine manual mode selection.
+
 ## 2026-07-16 Token Gen Stage 4 Handoff
 
 Persistent background image jobs are live. Site commits `90fef73`, `e3f077d`,

@@ -2,6 +2,26 @@
 
 Last updated: 2026-07-16 Australia/Sydney
 
+## Token Gen Stage 5 - Focused Image Editing Canvas - 2026-07-16
+
+- Generated and uploaded source images can now open in a dedicated mask
+  editor without changing the normal chat composer or quick Iterate action.
+  Paint and erase tools, adjustable brush size, bounded undo/redo, clear, and
+  responsive desktop/mobile layouts feed the existing image-edit API.
+- The editor keeps source pixels visually intact and exports only a lossless
+  grayscale mask: light areas may change and dark areas are preserved. A new
+  source image clears an old mask so selections cannot leak between images.
+- The modal restores and contains keyboard focus, supports Escape and pointer
+  input, caps its working canvas at 2,048 pixels on the longest side, and keeps
+  the API's existing target-size preparation in charge of final dimensions.
+- Published site commit: `5e95564` through successful Pages workflow
+  `29478424261`.
+- Validation passed: JavaScript syntax, site contracts, diff checks, real local
+  image generation, paint/apply, undo/redo, focus wrapping, 390 x 844 mobile
+  layout, desktop composer regression, and authenticated production. The live
+  site serves `token-chat-canvas-20260716-1`; private history and projects remain
+  available and the browser console is clean.
+
 ## Token Gen Stage 4 - Background Image Jobs - 2026-07-16
 
 - Image generation, edit, restyle, and upscale work is persisted before
