@@ -2,6 +2,28 @@
 
 Last updated: 2026-07-16 Australia/Sydney
 
+## Token Gen Stage 4 - Background Image Jobs - 2026-07-16
+
+- Image generation, edit, restyle, and upscale work is persisted before
+  ComfyUI submission in a signed-in user's encrypted OWENLABSHARE job area.
+  Active jobs resume after navigation and completed results can be added to
+  chat, downloaded, opened separately, or dismissed.
+- The compact queue control shows active work without changing the composer.
+  Stopping local monitoring leaves submitted server work running, and 1-4
+  samples are queued together then displayed as each completes.
+- Conversation history, projects, and jobs now use the narrow same-origin
+  `/api/private/*` Cloudflare Worker route. It strips browser credentials,
+  re-presents only the signed Token Gen Access assertion to the API Access
+  application, and forwards that assertion for API signature, audience,
+  expiry, and user-ownership verification.
+- Published site commits: `90fef73`, `e3f077d`, and `cc67f9b`. API commits:
+  `8b5ba3b` and `0f8c0e9`. Cloudflare route scope is exactly
+  `token-gen.owenonthenet.com/api/private/*`.
+- Validation passed: 53 API tests, site contracts and syntax, encrypted NAS
+  job canary, responsive queue QA, successful Pages deployments, and an
+  authenticated production check showing private history ready, projects
+  available, jobs available, and no browser errors.
+
 ## Token Gen Stage 3 - Local Image Understanding - 2026-07-16
 
 - Token Gen chat now accepts up to four PNG, JPEG, or WebP images per message

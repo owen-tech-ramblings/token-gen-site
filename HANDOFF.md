@@ -2,6 +2,29 @@
 
 Last updated: 2026-07-16 Australia/Sydney
 
+## 2026-07-16 Token Gen Stage 4 Handoff
+
+Persistent background image jobs are live. Site commits `90fef73`, `e3f077d`,
+and `cc67f9b` add the queue UI and the same-origin private bridge. API commits
+`8b5ba3b` and `0f8c0e9` add the encrypted job store and support the bridge's
+forwarded signed Access assertion. Job records are stored separately under
+`token_gen_server/private-ai/v1/jobs` using AES-256-GCM over encrypted SMB;
+the default retention is 30 days with a 100-job user cap.
+
+The Cloudflare Worker source is in `cloudflare/private-api-bridge`. Its route
+must remain exactly `token-gen.owenonthenet.com/api/private/*`, and its resource
+allowlist must remain conversations, projects, and jobs. It strips incoming
+cookies and authorization, re-presents only the signed site assertion as the
+API application's `CF_Authorization` cookie, and forwards the same assertion
+for Token Gen's issuer/audience/signature/expiry/email verification. Do not put
+an Access token, service token, or bearer token in browser JavaScript.
+
+All 53 API tests and site contracts pass. Authenticated production reports
+`Private history ready`, an available project library, an available background
+queue, and no browser errors. The next roadmap item is Stage 5, an image edit
+canvas that should build on the existing source-image and optional mask API
+contracts without changing plain chat behavior.
+
 ## 2026-07-16 Token Gen Stage 3 Handoff
 
 Local image understanding is published at site commit `a903d23` through
