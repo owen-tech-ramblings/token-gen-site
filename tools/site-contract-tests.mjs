@@ -7,6 +7,8 @@ const read = (path) => readFileSync(new URL(path, root), "utf8");
 const index = read("index.html");
 const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
+const privateBridgeWorker = read("cloudflare/private-api-bridge/worker.js");
+const privateBridgeConfig = read("cloudflare/private-api-bridge/wrangler.jsonc");
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
 const vampireArchive42 = read("games/vampire-survival-iterations/iteration-42-codex.html");
@@ -57,8 +59,8 @@ assert.match(chatHtml, /value="adult_ok"/, "Chat image content rating must use t
 assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include the API flexible value.");
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-jobs-20260716-1/, "Chat HTML must use the current background-jobs CSS.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-jobs-20260716-1/, "Chat HTML must cache-bust the background-jobs script.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-private-bridge-20260716-1/, "Chat HTML must use the current private-bridge CSS cache key.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-private-bridge-20260716-1/, "Chat HTML must cache-bust the private-bridge script.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
@@ -66,7 +68,7 @@ assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image genera
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
 assert.match(chatJs, /\/api\/image\/upscale/, "Chat must submit deterministic image upscale jobs.");
 assert.match(chatJs, /\/api\/image\/history\/\$\{/, "Chat must poll image generation history.");
-assert.match(chatJs, /\/api\/jobs/, "Chat must use the private durable background-job API.");
+assert.match(chatJs, /\/api\/private\/jobs/, "Chat must use the private durable background-job API.");
 assert.match(chatJs, /createBackgroundJob/, "Chat must persist image jobs before monitoring them.");
 assert.match(chatJs, /refreshActiveJobs/, "Chat must resume active job monitoring after navigation.");
 assert.match(chatJs, /Submitted images continue in Background jobs/, "Stopping local monitoring must explain that submitted work continues.");
@@ -116,7 +118,10 @@ assert.match(chatHtml, /id="chatProjectSelect"/, "Chat must expose a compact act
 assert.match(chatHtml, /id="chatProjectSettings"/, "Chat must expose structured project management in Settings.");
 assert.match(chatHtml, /id="chatAttachProjectDocument"/, "The existing attachment menu must support explicit reusable project uploads.");
 assert.match(chatHtml, /id="chatProjectDocuments"[^>]+multiple/, "Project uploads must support multiple documents without replacing quick chat attachments.");
-assert.match(chatJs, /PROJECTS_API_PATH\s*=\s*`\$\{API_BASE\}\/api\/projects`/, "Chat must consume the protected project API.");
+assert.match(chatJs, /HISTORY_API_PATH\s*=\s*"\/api\/private\/conversations"/, "History must use the same-origin Access bridge.");
+assert.match(chatJs, /PROJECTS_API_PATH\s*=\s*"\/api\/private\/projects"/, "Projects must use the same-origin Access bridge.");
+assert.match(chatJs, /JOBS_API_PATH\s*=\s*"\/api\/private\/jobs"/, "Jobs must use the same-origin Access bridge.");
+assert.match(chatJs, /absolutePrivateUrl/, "Private conversation assets must remain on the same-origin bridge.");
 assert.match(chatJs, /credentials:\s*"include"/, "Protected project requests must use the Cloudflare Access session.");
 assert.match(chatJs, /retrieveActiveProjectContext/, "Chat must retrieve only relevant project passages for each question.");
 assert.match(chatJs, /<project_evidence>/, "Retrieved project evidence must be isolated from trusted project instructions.");
@@ -138,6 +143,13 @@ assert.match(chatJs, /releaseConversationVisionPreviews/, "Starting or opening a
 assert.match(chatJs, /previewUrl:\s*source\.dataUrl\s*\|\|\s*source\.url\s*\|\|\s*source\.previewUrl/, "An image edit source must not take ownership of the conversation preview URL.");
 assert.match(chatJs, /function isLoopbackHost\(\)/, "Local chat testing must use an explicitly loopback-scoped identity fallback.");
 assert.match(chatJs, /isLoopbackHost\(\)\s*\?\s*"local-development"\s*:\s*"cloudflare-access"/, "Local chat requests must not claim a Cloudflare Access identity source.");
+
+assert.match(privateBridgeWorker, /new Set\(\["conversations", "projects", "jobs"\]\)/, "The Worker bridge must expose only approved private resources.");
+assert.match(privateBridgeWorker, /request\.headers\.get\("Cf-Access-Jwt-Assertion"\)/, "The Worker bridge must require the signed Cloudflare Access assertion.");
+assert.match(privateBridgeWorker, /headers\.delete\("authorization"\)/, "The Worker bridge must not forward browser authorization credentials.");
+assert.match(privateBridgeWorker, /headers\.delete\("cookie"\)/, "The Worker bridge must not forward browser cookies to the API origin.");
+assert.match(privateBridgeWorker, /headers\.set\("X-Token-Gen-Site-Access-JWT", assertion\)/, "The Worker bridge must forward the signed assertion through the dedicated origin header.");
+assert.match(privateBridgeConfig, /token-gen\.owenonthenet\.com\/api\/private\/\*/, "The Worker route must remain narrowly scoped to private API paths.");
 
 assert.match(monitorJs, /function renderObjectDetails/, "Monitor must include a generic object renderer for all public-status fields.");
 assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain old data when the API is broken.");

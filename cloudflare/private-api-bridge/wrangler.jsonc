@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "token-gen-private-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-07-16",
+  "routes": [
+    {
+      "pattern": "token-gen.owenonthenet.com/api/private/*",
+      "zone_name": "owenonthenet.com"
+    }
+  ]
+}

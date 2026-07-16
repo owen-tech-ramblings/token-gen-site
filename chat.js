@@ -167,9 +167,9 @@ let jobState = {
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
-const HISTORY_API_PATH = `${API_BASE}/api/conversations`;
-const PROJECTS_API_PATH = `${API_BASE}/api/projects`;
-const JOBS_API_PATH = `${API_BASE}/api/jobs`;
+const HISTORY_API_PATH = "/api/private/conversations";
+const PROJECTS_API_PATH = "/api/private/projects";
+const JOBS_API_PATH = "/api/private/jobs";
 const HISTORY_SAVE_DELAY_MS = 450;
 const JOB_REFRESH_INTERVAL_MS = 2800;
 const PROJECT_MAX_FILE_BYTES = 30 * 1024 * 1024;
@@ -445,6 +445,13 @@ function updateSendState() {
 function absoluteImageUrl(url) {
   if (!url) return "";
   return url.startsWith("http") ? url : `${API_BASE}${url}`;
+}
+
+function absolutePrivateUrl(url) {
+  if (!url || url.startsWith("http")) return url || "";
+  return url.startsWith("/api/conversations")
+    ? url.replace("/api/conversations", HISTORY_API_PATH)
+    : url;
 }
 
 function outputImageReference(output) {
@@ -747,7 +754,7 @@ async function uploadVisionAsset(image) {
   return {
     ...image,
     assetId: json.asset.asset_id,
-    url: absoluteImageUrl(json.asset.url),
+    url: absolutePrivateUrl(json.asset.url),
     mimeType: json.asset.mime_type || image.mimeType,
     sizeBytes: json.asset.size_bytes || image.sizeBytes,
   };
