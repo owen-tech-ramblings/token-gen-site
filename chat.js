@@ -66,10 +66,27 @@ const els = {
   attachMask: $("#chatAttachMask"),
   webQuickToggle: $("#chatWebQuickToggle"),
   docBudgetValue: $("#chatDocBudgetValue"),
+  historyList: $("#chatHistoryList"),
+  historyCount: $("#chatHistoryCount"),
+  historyStatus: $("#chatHistoryStatus"),
+  historyRetention: $("#chatHistoryRetention"),
+  privacyStatus: $("#chatPrivacyStatus"),
+  historyExport: $("#chatHistoryExport"),
+  historyDelete: $("#chatHistoryDelete"),
 };
 
 function welcomeMessage() {
   return { role: "assistant", content: "", isWelcome: true };
+}
+
+function createMessage(role, content, extra = {}) {
+  return {
+    id: globalThis.crypto?.randomUUID?.() || `message-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    role,
+    content,
+    createdAt: new Date().toISOString(),
+    ...extra,
+  };
 }
 
 let messages = [welcomeMessage()];
@@ -83,10 +100,24 @@ let activeImageAbortController = null;
 let mammothLoader = null;
 let chatReady = false;
 let chatUserIdPromise = null;
+let historyState = {
+  available: false,
+  loading: true,
+  conversations: [],
+  currentId: null,
+  currentVersion: null,
+  defaultRetention: "30_days",
+  currentRetention: "30_days",
+  saveTimer: null,
+  saving: false,
+  saveQueued: false,
+};
 
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
+const HISTORY_API_PATH = `${API_BASE}/api/conversations`;
+const HISTORY_SAVE_DELAY_MS = 450;
 const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", steps: 8, cfg: 5.0, prompt: "quick clean preview" },
   standard: { label: "Standard", steps: 20, cfg: 5.0, prompt: "balanced detail and prompt fidelity" },
@@ -586,6 +617,427 @@ function getChatUserId() {
   return chatUserIdPromise;
 }
 
+function setHistoryStatus(text, state = "neutral", privacyText = text) {
+  if (els.historyStatus) {
+    els.historyStatus.textContent = text;
+    els.historyStatus.dataset.state = state;
+  }
+  if (els.privacyStatus) {
+    els.privacyStatus.textContent = privacyText;
+    els.privacyStatus.dataset.state = state;
+  }
+}
+
+function historyTimeLabel(value) {
+  const timestamp = Date.parse(value || "");
+  if (!Number.isFinite(timestamp)) return "Saved chat";
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return "Just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.round(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.round(seconds / 86400)}d ago`;
+  return new Date(timestamp).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+}
+
+function renderConversationHistory() {
+  if (!els.historyList) return;
+  const items = historyState.conversations;
+  els.historyCount.textContent = items.length ? String(items.length) : "";
+  if (historyState.loading) {
+    els.historyList.innerHTML = '<p class="chat-history-empty">Loading chats...</p>';
+    return;
+  }
+  if (!historyState.available) {
+    els.historyList.innerHTML = '<p class="chat-history-empty">History is unavailable. Chat still works in this tab.</p>';
+    return;
+  }
+  if (!items.length) {
+    els.historyList.innerHTML = '<p class="chat-history-empty">Your saved chats will appear here.</p>';
+    return;
+  }
+  els.historyList.innerHTML = items.map((conversation) => `
+    <div class="chat-history-item${conversation.id === historyState.currentId ? " is-current" : ""}">
+      <button class="chat-history-open" type="button" data-history-open="${escapeHtml(conversation.id)}">
+        <strong>${escapeHtml(conversation.title || "Untitled chat")}</strong>
+        <small>${escapeHtml(historyTimeLabel(conversation.updated_at))}</small>
+      </button>
+      <button class="chat-history-remove" type="button" data-history-delete="${escapeHtml(conversation.id)}" title="Delete saved chat" aria-label="Delete ${escapeHtml(conversation.title || "saved chat")}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+      </button>
+    </div>
+  `).join("");
+}
+
+async function historyRequest(path = "", options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  let response;
+  try {
+    response = await fetch(`${HISTORY_API_PATH}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch (cause) {
+    const error = new Error("Private history could not be reached.");
+    error.cause = cause;
+    error.status = 0;
+    throw error;
+  }
+  const raw = response.status === 204 ? "" : await response.text();
+  let json = {};
+  if (raw) {
+    try { json = JSON.parse(raw); } catch { json = {}; }
+  }
+  if (!response.ok) {
+    const error = new Error(json.error?.message || "Private history request failed.");
+    error.status = response.status;
+    error.code = json.error?.code;
+    throw error;
+  }
+  return { response, json, etag: response.headers.get("etag") };
+}
+
+function currentMessages() {
+  return messages.filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"));
+}
+
+function historyImageMetadata(output) {
+  return {
+    url: output.url,
+    filename: output.filename,
+    subfolder: output.subfolder || "",
+    type: output.type || "output",
+    prompt: output.prompt,
+    model: output.model,
+    quality: output.quality,
+    size: output.size,
+  };
+}
+
+function storedHistoryMessages() {
+  return currentMessages().map((message) => {
+    if (!message.id) message.id = createMessage(message.role, "").id;
+    if (!message.createdAt) message.createdAt = new Date().toISOString();
+    const item = {
+      id: message.id,
+      role: message.role,
+      content: String(message.content || ""),
+      created_at: message.createdAt,
+    };
+    const images = Array.isArray(message.imageOutputs)
+      ? message.imageOutputs.slice(0, 4).map(historyImageMetadata)
+      : [];
+    if (images.length) {
+      item.image = images[0];
+      item.images = images;
+    }
+    if (message.webContext) {
+      item.web_context = {
+        query: message.webContext.query,
+        provider: message.webContext.provider || message.webContext.search_route?.provider,
+        fetch_mode: message.webContext.fetch_mode || message.webContext.fetchMode,
+        sources: Array.isArray(message.webContext.sources)
+          ? message.webContext.sources.slice(0, 10).map((source) => ({
+              index: source.index,
+              title: source.title,
+              url: source.url,
+              fetched: source.fetched,
+              extraction_method: source.extraction_method,
+            }))
+          : [],
+      };
+    }
+    return item;
+  });
+}
+
+function restoredHistoryMessage(message) {
+  const images = Array.isArray(message.images) && message.images.length
+    ? message.images
+    : message.image ? [message.image] : [];
+  return createMessage(message.role, message.content || "", {
+    id: message.id,
+    createdAt: message.created_at,
+    webContext: message.web_context,
+    imageOutputs: images.map((image) => ({ ...image, url: absoluteImageUrl(image.url) })),
+    imagePrompt: images[0]?.prompt || "",
+  });
+}
+
+function currentConversationTitle() {
+  const firstUserMessage = currentMessages().find((message) => message.role === "user")?.content || "";
+  const cleaned = firstUserMessage.replace(/\s+/g, " ").trim();
+  if (!cleaned) return "New chat";
+  if (cleaned.length <= 72) return cleaned;
+  const shortened = cleaned.slice(0, 69).replace(/\s+\S*$/, "").trim();
+  return `${shortened || cleaned.slice(0, 69).trim()}...`;
+}
+
+function historySummary(conversation) {
+  return {
+    id: conversation.id,
+    title: conversation.title,
+    created_at: conversation.created_at,
+    updated_at: conversation.updated_at,
+    retention: conversation.retention,
+    message_count: conversation.message_count,
+    version: conversation.version,
+  };
+}
+
+function upsertHistorySummary(conversation) {
+  historyState.conversations = [
+    historySummary(conversation),
+    ...historyState.conversations.filter((item) => item.id !== conversation.id),
+  ].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  renderConversationHistory();
+}
+
+function updateHistoryControls() {
+  const hasMessages = currentMessages().length > 0;
+  if (els.historyExport) els.historyExport.disabled = !hasMessages;
+  if (els.historyDelete) els.historyDelete.disabled = !historyState.currentId;
+}
+
+async function loadConversationHistory() {
+  historyState.loading = true;
+  renderConversationHistory();
+  try {
+    const { json } = await historyRequest();
+    if (!json.ok || !Array.isArray(json.conversations)) throw new Error("Private history returned an invalid response.");
+    historyState.available = true;
+    historyState.conversations = json.conversations;
+    historyState.defaultRetention = json.preferences?.retention || "30_days";
+    if (!historyState.currentId && currentMessages().length === 0) {
+      historyState.currentRetention = historyState.defaultRetention;
+      els.historyRetention.value = historyState.currentRetention;
+    }
+    setHistoryStatus(
+      historyState.currentRetention === "none" ? "Not saved" : "Private history ready",
+      "good",
+      historyState.currentRetention === "none"
+        ? "This chat stays only in this browser tab."
+        : "Saved chats are encrypted and private to your signed-in account.",
+    );
+  } catch {
+    historyState.available = false;
+    historyState.conversations = [];
+    setHistoryStatus("History unavailable", "bad", "History is unavailable in this browser session. Chat still works normally.");
+  } finally {
+    historyState.loading = false;
+    renderConversationHistory();
+    updateHistoryControls();
+  }
+}
+
+function historyMessagesArePrefix(remoteMessages, localMessages) {
+  if (!Array.isArray(remoteMessages) || remoteMessages.length > localMessages.length) return false;
+  return remoteMessages.every((message, index) => (
+    message.role === localMessages[index]?.role && message.content === localMessages[index]?.content
+  ));
+}
+
+async function saveConversation() {
+  if (!historyState.available || historyState.currentRetention === "none") return;
+  const storedMessages = storedHistoryMessages();
+  if (!storedMessages.some((message) => message.role === "user")) return;
+  if (historyState.saving) {
+    historyState.saveQueued = true;
+    return;
+  }
+  historyState.saving = true;
+  setHistoryStatus("Saving...", "neutral", "Saving this chat privately...");
+  const body = {
+    title: currentConversationTitle(),
+    retention: historyState.currentRetention,
+    messages: storedMessages,
+  };
+  try {
+    let result;
+    if (historyState.currentId) {
+      try {
+        result = await historyRequest(`/${encodeURIComponent(historyState.currentId)}`, {
+          method: "PUT",
+          headers: { "if-match": historyState.currentVersion },
+          body: JSON.stringify(body),
+        });
+      } catch (error) {
+        if (error.status !== 409) throw error;
+        const latest = await historyRequest(`/${encodeURIComponent(historyState.currentId)}`);
+        const remoteConversation = latest.json.conversation;
+        if (historyMessagesArePrefix(remoteConversation?.messages, storedMessages)) {
+          result = await historyRequest(`/${encodeURIComponent(historyState.currentId)}`, {
+            method: "PUT",
+            headers: { "if-match": latest.etag || remoteConversation.version },
+            body: JSON.stringify(body),
+          });
+        } else {
+          historyState.currentId = null;
+          historyState.currentVersion = null;
+          body.title = `${body.title.slice(0, 106)} (continued)`;
+          result = await historyRequest("", { method: "POST", body: JSON.stringify(body) });
+        }
+      }
+    } else {
+      result = await historyRequest("", { method: "POST", body: JSON.stringify(body) });
+    }
+    const conversation = result.json.conversation;
+    if (!conversation?.id) throw new Error("Private history returned an invalid response.");
+    historyState.currentId = conversation.id;
+    historyState.currentVersion = result.etag || conversation.version;
+    upsertHistorySummary(conversation);
+    setHistoryStatus("Saved", "good", historyState.currentRetention === "forever"
+      ? "This chat is encrypted and kept until you delete it."
+      : "This chat is encrypted and kept for 30 days after its latest update.");
+  } catch (error) {
+    if (error.status === 401 || error.status === 403 || error.status === 0) historyState.available = false;
+    const rejected = error.status === 400 || error.status === 413;
+    setHistoryStatus(
+      rejected ? "Not saved" : "Save unavailable",
+      "bad",
+      rejected ? error.message : "This chat is still available in this tab, but could not be saved right now.",
+    );
+    renderConversationHistory();
+  } finally {
+    historyState.saving = false;
+    updateHistoryControls();
+    if (historyState.saveQueued) {
+      historyState.saveQueued = false;
+      scheduleConversationSave(0);
+    }
+  }
+}
+
+function scheduleConversationSave(delay = HISTORY_SAVE_DELAY_MS) {
+  if (!historyState.available || historyState.currentRetention === "none") return;
+  if (historyState.saveTimer) clearTimeout(historyState.saveTimer);
+  historyState.saveTimer = setTimeout(() => {
+    historyState.saveTimer = null;
+    saveConversation();
+  }, delay);
+}
+
+async function saveHistoryPreference(retention) {
+  if (!historyState.available) return false;
+  try {
+    await historyRequest("/preferences", {
+      method: "PUT",
+      body: JSON.stringify({ retention }),
+    });
+    return true;
+  } catch {
+    setHistoryStatus("Preference not saved", "bad", "Your history preference could not be saved right now.");
+    return false;
+  }
+}
+
+async function waitForConversationSave() {
+  while (historyState.saving) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+async function flushConversationSave() {
+  if (historyState.saveTimer) {
+    clearTimeout(historyState.saveTimer);
+    historyState.saveTimer = null;
+  }
+  await waitForConversationSave();
+  await saveConversation();
+  await waitForConversationSave();
+}
+
+async function openStoredConversation(id) {
+  if (!historyState.available || id === historyState.currentId) {
+    setRailOpen(false);
+    return;
+  }
+  if (historyState.saveTimer) {
+    clearTimeout(historyState.saveTimer);
+    historyState.saveTimer = null;
+    await saveConversation();
+  }
+  setHistoryStatus("Opening...", "neutral", "Opening your saved chat...");
+  try {
+    const { json, etag } = await historyRequest(`/${encodeURIComponent(id)}`);
+    const conversation = json.conversation;
+    messages = conversation.messages?.length
+      ? conversation.messages.map(restoredHistoryMessage)
+      : [welcomeMessage()];
+    historyState.currentId = conversation.id;
+    historyState.currentVersion = etag || conversation.version;
+    historyState.currentRetention = conversation.retention;
+    els.historyRetention.value = historyState.currentRetention;
+    uploadedDocuments = [];
+    renderDocuments();
+    clearActiveImageSource();
+    clearActiveImageMask();
+    renderMessages(false);
+    renderConversationHistory();
+    updateHistoryControls();
+    setRailOpen(false);
+    setHistoryStatus("Saved", "good", "This saved chat is private to your signed-in account.");
+    setStatus(`Opened ${conversation.title || "saved chat"}`, "good");
+    els.input.focus();
+  } catch (error) {
+    setHistoryStatus("Could not open chat", "bad", error.message);
+  }
+}
+
+async function deleteStoredConversation(id, ask = true) {
+  const conversation = historyState.conversations.find((item) => item.id === id);
+  if (ask && !window.confirm(`Delete "${conversation?.title || "this saved chat"}"? This cannot be undone.`)) return false;
+  try {
+    await historyRequest(`/${encodeURIComponent(id)}`, { method: "DELETE" });
+    historyState.conversations = historyState.conversations.filter((item) => item.id !== id);
+    if (historyState.currentId === id) {
+      historyState.currentId = null;
+      historyState.currentVersion = null;
+      historyState.currentRetention = "none";
+      els.historyRetention.value = "none";
+    }
+    renderConversationHistory();
+    updateHistoryControls();
+    setHistoryStatus("Deleted", "good", historyState.currentId
+      ? "The saved chat was deleted."
+      : "This chat remains in this tab but is no longer saved.");
+    return true;
+  } catch (error) {
+    setHistoryStatus("Delete failed", "bad", error.message);
+    return false;
+  }
+}
+
+function exportCurrentConversation() {
+  const visibleMessages = currentMessages();
+  if (!visibleMessages.length) return;
+  const lines = [`# ${currentConversationTitle()}`, "", `Exported ${new Date().toLocaleString("en-AU")}`, ""];
+  visibleMessages.forEach((message) => {
+    lines.push(`## ${message.role === "user" ? "You" : "Token Gen"}`, "", message.content || "", "");
+    (message.imageOutputs || []).forEach((image, index) => {
+      lines.push(`- [Image ${index + 1}](${image.url})${image.size ? ` - ${image.size}` : ""}`);
+    });
+    const sources = message.webContext?.sources || [];
+    if (sources.length) {
+      lines.push("", "Sources:");
+      sources.forEach((source) => lines.push(`- [${source.title || source.url}](${source.url})`));
+    }
+    lines.push("");
+  });
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${currentConversationTitle().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) || "token-gen-chat"}.md`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setHistoryStatus("Exported", "good", "A Markdown copy of this chat was downloaded.");
+}
+
 function fileExtension(name) {
   return String(name || "").split(".").pop()?.toLowerCase() || "";
 }
@@ -870,6 +1322,7 @@ function renderMessages(pending = false) {
   if (!visibleMessages.length && !pending) {
     els.thread.innerHTML = renderWelcome();
     els.thread.scrollTop = 0;
+    updateHistoryControls();
     return;
   }
 
@@ -906,6 +1359,7 @@ function renderMessages(pending = false) {
     </article>
   ` : "");
   els.thread.scrollTop = els.thread.scrollHeight;
+  updateHistoryControls();
 }
 
 function renderImageOutputs(message) {
@@ -989,7 +1443,7 @@ function renderWebContext(context) {
 }
 
 function appendAssistantMessage(content = "") {
-  messages.push({ role: "assistant", content });
+  messages.push(createMessage("assistant", content));
   renderMessages(false);
   return messages.length - 1;
 }
@@ -1009,6 +1463,40 @@ function attachWebContext(index, context) {
   renderMessages(false);
 }
 
+function boundedChatPayload(systemParts) {
+  const fullHistory = messages
+    .filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"))
+    .map((message) => ({ role: message.role, content: String(message.content || "") }));
+  const contextWindow = getModelContextWindow();
+  const systemTokens = estimateTokens(systemParts.join("\n\n"));
+  const safetyTokens = Math.max(1024, Math.ceil(contextWindow * 0.01));
+  const latestTokens = estimateTokens(fullHistory.at(-1)?.content || "") + 8;
+  const availableAfterSystem = Math.max(512, contextWindow - systemTokens - safetyTokens);
+  const requestedWebTokens = els.webSearch.checked ? Number(els.webBudget.value || 10000) : 0;
+  const webTokens = Math.max(0, Math.min(requestedWebTokens, availableAfterSystem - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)) - 256));
+  const requestedOutput = Number(els.maxTokens.value || 20000);
+  const maximumOutput = Math.max(256, availableAfterSystem - webTokens - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)));
+  const outputTokens = Math.max(256, Math.min(requestedOutput, maximumOutput));
+  let remaining = Math.max(256, availableAfterSystem - webTokens - outputTokens);
+  const selected = [];
+
+  for (let index = fullHistory.length - 1; index >= 0; index -= 1) {
+    const message = fullHistory[index];
+    const tokens = estimateTokens(message.content) + 8;
+    if (tokens <= remaining) {
+      selected.unshift(message);
+      remaining -= tokens;
+      continue;
+    }
+    if (!selected.length && remaining > 32) {
+      selected.unshift({ ...message, content: message.content.slice(0, Math.max(1, remaining * TOKEN_CHARS)) });
+    }
+    break;
+  }
+
+  return { history: selected, maxTokens: outputTokens, webTokens };
+}
+
 function buildPayload(userId) {
   const system = els.system.value.trim();
   const documentContext = buildDocumentContextMessage();
@@ -1016,25 +1504,23 @@ function buildPayload(userId) {
     ...(system ? [system] : []),
     ...(documentContext?.content ? [documentContext.content] : []),
   ];
-  const history = messages
-    .filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"))
-    .map((message) => ({ role: message.role, content: message.content }));
+  const bounded = boundedChatPayload(systemParts);
 
   return {
     model: els.model.value,
     messages: [
       ...(systemParts.length ? [{ role: "system", content: systemParts.join("\n\n") }] : []),
-      ...history,
+      ...bounded.history,
     ],
     temperature: Number(els.temperature.value || 0.3),
-    max_tokens: Number(els.maxTokens.value || 20000),
+    max_tokens: bounded.maxTokens,
     enable_thinking: els.reasoning.checked,
     web_search: {
       enabled: Boolean(els.webSearch.checked),
       tavily_api_key: els.webApiKey.value.trim() || undefined,
       fetch_mode: els.webFetchMode.value,
       max_results: Number(els.webResults.value || 5),
-      context_token_budget: Number(els.webBudget.value || 10000),
+      context_token_budget: bounded.webTokens,
     },
     metadata: {
       source: "token_gen_chat",
@@ -1170,8 +1656,9 @@ async function sendMessage(content) {
     setStatus("Document context is over budget", "bad");
     return;
   }
-  messages.push({ role: "user", content });
+  messages.push(createMessage("user", content));
   renderMessages(true);
+  scheduleConversationSave(0);
   els.send.disabled = true;
   els.input.disabled = true;
   setStatus(els.webSearch.checked ? "Gathering web context..." : "Generating response...", "busy");
@@ -1244,13 +1731,14 @@ async function sendMessage(content) {
     }
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
-    messages.push({ role: "assistant", content: `Request failed: ${error.message}` });
+    messages.push(createMessage("assistant", `Request failed: ${error.message}`));
     setStatus("Chat request failed", "bad");
   } finally {
     updateSendState();
     els.input.disabled = !chatReady;
     els.input.focus();
     renderMessages(false);
+    scheduleConversationSave(0);
   }
 }
 
@@ -1649,7 +2137,7 @@ async function sendImageMessage(content) {
   if (activeImageAbortController) return;
   activeImageAbortController = new AbortController();
   const signal = activeImageAbortController.signal;
-  messages.push({ role: "user", content });
+  messages.push(createMessage("user", content));
   const assistantIndex = appendAssistantMessage("");
   updateAssistantImageMessage(assistantIndex, {
     imagePrompt: content,
@@ -1658,6 +2146,7 @@ async function sendImageMessage(content) {
   });
   updateSendState();
   els.input.disabled = true;
+  scheduleConversationSave(0);
 
   try {
     const sourceMode = els.imageSourceMode.value;
@@ -1689,6 +2178,7 @@ async function sendImageMessage(content) {
     els.input.disabled = false;
     els.input.focus();
     renderMessages(false);
+    scheduleConversationSave(0);
   }
 }
 
@@ -1848,6 +2338,51 @@ els.webQuickToggle.addEventListener("click", () => {
 });
 
 els.webSearch.addEventListener("change", syncWebUI);
+
+els.historyList.addEventListener("click", (event) => {
+  const openButton = event.target.closest("[data-history-open]");
+  if (openButton) {
+    openStoredConversation(openButton.dataset.historyOpen);
+    return;
+  }
+  const deleteButton = event.target.closest("[data-history-delete]");
+  if (deleteButton) deleteStoredConversation(deleteButton.dataset.historyDelete);
+});
+
+els.historyRetention.addEventListener("change", async () => {
+  const retention = els.historyRetention.value;
+  historyState.defaultRetention = retention;
+  historyState.currentRetention = retention;
+  const preferenceSaved = await saveHistoryPreference(retention);
+  if (retention === "none") {
+    if (historyState.saveTimer) {
+      clearTimeout(historyState.saveTimer);
+      historyState.saveTimer = null;
+    }
+    await waitForConversationSave();
+    const existingCopyDeleted = historyState.currentId
+      ? await deleteStoredConversation(historyState.currentId, false)
+      : true;
+    if (existingCopyDeleted && preferenceSaved) {
+      setHistoryStatus("Not saved", "good", "This chat stays only in this browser tab.");
+    } else if (existingCopyDeleted) {
+      setHistoryStatus("Not saved", "bad", "This chat stays in this tab, but the default preference could not be updated.");
+    } else {
+      setHistoryStatus("Delete failed", "bad", "New messages will not be saved, but the previous saved copy could not be deleted.");
+    }
+  } else {
+    setHistoryStatus("Saving...", "neutral", retention === "forever"
+      ? "This chat will be encrypted and kept until you delete it."
+      : "This chat will be encrypted and kept for 30 days after its latest update.");
+    scheduleConversationSave(0);
+  }
+  updateHistoryControls();
+});
+
+els.historyExport.addEventListener("click", exportCurrentConversation);
+els.historyDelete.addEventListener("click", () => {
+  if (historyState.currentId) deleteStoredConversation(historyState.currentId);
+});
 
 document.addEventListener("click", (event) => {
   if (!event.target.closest(".chat-attach-wrap")) setAttachMenu(false);
@@ -2047,8 +2582,15 @@ els.imageMaskPreview.addEventListener("click", (event) => {
   updateSendState();
 });
 
-els.clear.addEventListener("click", () => {
+els.clear.addEventListener("click", async () => {
+  if (historyState.available && historyState.currentRetention !== "none") {
+    await flushConversationSave();
+  }
   messages = [welcomeMessage()];
+  historyState.currentId = null;
+  historyState.currentVersion = null;
+  historyState.currentRetention = historyState.defaultRetention;
+  els.historyRetention.value = historyState.currentRetention;
   uploadedDocuments = [];
   renderDocuments();
   clearActiveImageSource();
@@ -2060,6 +2602,11 @@ els.clear.addEventListener("click", () => {
   setRailOpen(false);
   setStatus(chatReady ? `Connected to ${modelLabel(getSelectedModel().id)}` : "Connecting to Token Gen...", chatReady ? "good" : "neutral");
   renderMessages(false);
+  renderConversationHistory();
+  setHistoryStatus(historyState.currentRetention === "none" ? "Not saved" : "New private chat", "good",
+    historyState.currentRetention === "none"
+      ? "This chat stays only in this browser tab."
+      : "This chat will be saved privately after you send a message.");
   els.input.focus();
 });
 
@@ -2070,8 +2617,13 @@ renderImageMaskPreview();
 syncImageEditStrengthValue();
 syncModeUI();
 syncWebUI();
+loadConversationHistory();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
 loadWebSearchCapability();
 loadImageCapability();
+
+window.addEventListener("focus", () => {
+  if (!historyState.available && !historyState.loading) loadConversationHistory();
+});

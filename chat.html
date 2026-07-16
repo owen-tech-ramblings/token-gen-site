@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-workspace-20260716-2" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-workspace-20260716-3" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -43,6 +43,17 @@
             <span>Games</span>
           </a>
         </nav>
+
+        <section class="chat-history" aria-labelledby="chatHistoryHeading">
+          <div class="chat-history-head">
+            <strong id="chatHistoryHeading">Recent</strong>
+            <span id="chatHistoryCount"></span>
+          </div>
+          <div class="chat-history-list" id="chatHistoryList" aria-live="polite">
+            <p class="chat-history-empty">Loading chats...</p>
+          </div>
+          <p class="chat-history-status" id="chatHistoryStatus">Connecting private history...</p>
+        </section>
 
         <div class="chat-rail-spacer"></div>
 
@@ -369,6 +380,32 @@
           </details>
         </section>
 
+        <section class="chat-settings-section" aria-label="History and privacy settings">
+          <div class="chat-settings-title">
+            <span>History and privacy</span>
+            <small>Choose whether this chat is saved for your signed-in account.</small>
+          </div>
+          <label class="chat-field" for="chatHistoryRetention">
+            <span>Save chats</span>
+            <select id="chatHistoryRetention">
+              <option value="none">Don't save</option>
+              <option value="30_days" selected>For 30 days</option>
+              <option value="forever">Until I delete them</option>
+            </select>
+          </label>
+          <p class="chat-privacy-note" id="chatPrivacyStatus">Saved chats are encrypted and private to your account.</p>
+          <div class="chat-history-actions">
+            <button class="chat-secondary-button" id="chatHistoryExport" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+              Export chat
+            </button>
+            <button class="chat-secondary-button chat-danger-button" id="chatHistoryDelete" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
+              Delete saved chat
+            </button>
+          </div>
+        </section>
+
         <details class="chat-settings-section chat-settings-details">
           <summary>Advanced chat controls</summary>
           <div class="chat-details-body">
@@ -399,6 +436,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-workspace-20260716-2"></script>
+    <script type="module" src="./chat.js?v=token-chat-workspace-20260716-3"></script>
   </body>
 </html>
