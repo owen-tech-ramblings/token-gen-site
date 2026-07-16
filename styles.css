@@ -657,6 +657,37 @@ body.chat-page {
   gap: 10px;
 }
 
+.chat-jobs-button {
+  position: relative;
+}
+
+.chat-jobs-button.has-active-jobs {
+  border-color: rgba(215, 181, 109, 0.52);
+  color: var(--chat-gold);
+}
+
+.chat-job-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--chat-bg);
+  border-radius: 9px;
+  background: var(--chat-gold);
+  color: #17120a;
+  font-size: 0.6rem;
+  font-weight: 750;
+  line-height: 1;
+}
+
+.chat-job-badge[hidden] {
+  display: none;
+}
+
 .chat-mode-control {
   height: 40px;
   display: grid;
@@ -1458,6 +1489,189 @@ body.chat-page {
   padding: 6px 18px 28px;
 }
 
+.chat-drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-drawer-actions .chat-icon-button {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+
+.chat-jobs-body {
+  padding-top: 18px;
+}
+
+.chat-jobs-status {
+  margin: 0 0 14px;
+  color: var(--chat-muted);
+  font-size: 0.72rem;
+}
+
+.chat-jobs-status[data-state="good"] {
+  color: #76cdbb;
+}
+
+.chat-jobs-status[data-state="busy"] {
+  color: var(--chat-gold);
+}
+
+.chat-jobs-status[data-state="bad"] {
+  color: #e88b96;
+}
+
+.chat-job-list {
+  display: grid;
+  gap: 10px;
+}
+
+.chat-jobs-empty {
+  margin: 0;
+  padding: 28px 12px;
+  border-top: 1px solid var(--chat-border);
+  border-bottom: 1px solid var(--chat-border);
+  color: var(--chat-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.chat-job-item {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--chat-border);
+  border-radius: 7px;
+  background: #0e1116;
+}
+
+.chat-job-thumbnail,
+.chat-job-placeholder {
+  width: 96px;
+  aspect-ratio: 1;
+  display: block;
+  border: 1px solid var(--chat-border);
+  border-radius: 5px;
+  background: var(--chat-panel-2);
+  object-fit: cover;
+}
+
+.chat-job-placeholder {
+  display: grid;
+  place-items: center;
+  color: var(--chat-muted);
+}
+
+.chat-job-placeholder.is-running {
+  color: var(--chat-gold);
+}
+
+.chat-job-placeholder.is-running svg {
+  animation: chat-job-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chat-job-pulse {
+  50% { opacity: 0.42; }
+}
+
+.chat-job-copy {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+
+.chat-job-heading {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.chat-job-heading strong {
+  min-width: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--chat-text);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.chat-job-heading span {
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: var(--chat-panel-2);
+  color: var(--chat-muted);
+  font-size: 0.58rem;
+  font-weight: 650;
+}
+
+.chat-job-heading span[data-state="completed"] {
+  color: #76cdbb;
+}
+
+.chat-job-heading span[data-state="submitting"],
+.chat-job-heading span[data-state="queued_or_running"] {
+  color: var(--chat-gold);
+}
+
+.chat-job-heading span[data-state="failed"] {
+  color: #e88b96;
+}
+
+.chat-job-copy > small,
+.chat-job-copy > p {
+  margin: 0;
+  color: var(--chat-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.chat-job-copy > p {
+  color: #e88b96;
+}
+
+.chat-job-actions {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-job-actions:empty {
+  min-height: 0;
+}
+
+.chat-job-actions .chat-secondary-button {
+  min-height: 36px;
+  padding: 0 9px;
+}
+
+.chat-job-actions .chat-icon-button {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+}
+
+.chat-job-dismiss {
+  margin-left: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-job-placeholder.is-running svg {
+    animation: none;
+  }
+}
+
 .chat-settings-section {
   padding: 18px 0;
   display: grid;
@@ -2092,6 +2306,30 @@ body.chat-page {
 
   .chat-attach-menu {
     width: min(260px, calc(100vw - 28px));
+  }
+
+  .chat-job-item {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .chat-job-thumbnail,
+  .chat-job-placeholder {
+    width: 76px;
+  }
+}
+
+@media (max-width: 430px) {
+  .chat-runtime {
+    display: none;
+  }
+
+  .chat-topbar-actions {
+    margin-left: auto;
+    gap: 6px;
+  }
+
+  .chat-mode-control {
+    grid-template-columns: repeat(3, 38px);
   }
 }
 .bg-glow { position: fixed; width: 800px; height: 800px; top: -300px; right: -200px; background: radial-gradient(circle, rgba(77, 226, 197, 0.22), transparent 70%); pointer-events: none; }

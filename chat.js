@@ -95,6 +95,14 @@ const els = {
   projectStatus: $("#chatProjectStatus"),
   attachProjectDocument: $("#chatAttachProjectDocument"),
   attachProjectHint: $("#chatAttachProjectHint"),
+  jobsOpen: $("#chatJobsOpen"),
+  jobsClose: $("#chatJobsClose"),
+  jobsRefresh: $("#chatJobsRefresh"),
+  jobsDrawer: $("#chatJobsDrawer"),
+  jobsBackdrop: $("#chatJobsBackdrop"),
+  jobsBadge: $("#chatJobsBadge"),
+  jobsStatus: $("#chatJobsStatus"),
+  jobsList: $("#chatJobsList"),
 };
 
 function welcomeMessage() {
@@ -147,13 +155,23 @@ let projectState = {
   etag: null,
   busy: false,
 };
+let jobState = {
+  available: false,
+  loading: true,
+  loadingRequest: false,
+  refreshing: false,
+  jobs: [],
+  refreshTimer: null,
+};
 
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const HISTORY_API_PATH = `${API_BASE}/api/conversations`;
 const PROJECTS_API_PATH = `${API_BASE}/api/projects`;
+const JOBS_API_PATH = `${API_BASE}/api/jobs`;
 const HISTORY_SAVE_DELAY_MS = 450;
+const JOB_REFRESH_INTERVAL_MS = 2800;
 const PROJECT_MAX_FILE_BYTES = 30 * 1024 * 1024;
 const DEFAULT_VISION_MAX_IMAGES = 4;
 const DEFAULT_VISION_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
@@ -382,10 +400,20 @@ function setAttachMenu(open) {
 }
 
 function setSettingsOpen(open) {
+  if (open) setJobsOpen(false);
   els.settingsDrawer?.classList.toggle("is-open", open);
   els.settingsDrawer?.setAttribute("aria-hidden", String(!open));
   if (els.settingsBackdrop) els.settingsBackdrop.hidden = !open;
   document.body.classList.toggle("chat-settings-open", open);
+}
+
+function setJobsOpen(open) {
+  if (open && els.settingsDrawer?.classList.contains("is-open")) setSettingsOpen(false);
+  els.jobsDrawer?.classList.toggle("is-open", open);
+  els.jobsDrawer?.setAttribute("aria-hidden", String(!open));
+  if (els.jobsBackdrop) els.jobsBackdrop.hidden = !open;
+  document.body.classList.toggle("chat-jobs-open", open);
+  if (open && jobState.available) refreshActiveJobs({ immediate: true });
 }
 
 function setRailOpen(open) {
@@ -912,6 +940,190 @@ async function historyRequest(path = "", options = {}) {
     throw error;
   }
   return { response, json, etag: response.headers.get("etag") };
+}
+
+function jobStatusLabel(status) {
+  if (status === "completed") return "Complete";
+  if (status === "failed") return "Failed";
+  if (status === "submitting") return "Submitting";
+  return "Running";
+}
+
+function renderBackgroundJobs() {
+  if (!els.jobsList) return;
+  const jobs = jobState.jobs;
+  const activeCount = jobs.filter((job) => ["submitting", "queued_or_running"].includes(job.status)).length;
+  if (els.jobsBadge) {
+    els.jobsBadge.textContent = String(activeCount);
+    els.jobsBadge.hidden = activeCount === 0;
+  }
+  if (els.jobsOpen) els.jobsOpen.classList.toggle("has-active-jobs", activeCount > 0);
+  if (els.jobsStatus) {
+    els.jobsStatus.textContent = jobState.loading
+      ? "Refreshing jobs..."
+      : !jobState.available
+        ? "Background jobs are unavailable. Image tools still work in this tab."
+        : activeCount
+          ? `${activeCount} image job${activeCount === 1 ? "" : "s"} running`
+          : jobs.length ? "All image jobs are complete" : "No background jobs yet";
+    els.jobsStatus.dataset.state = !jobState.available && !jobState.loading ? "bad" : activeCount ? "busy" : "good";
+  }
+  if (jobState.loading) {
+    els.jobsList.innerHTML = '<p class="chat-jobs-empty">Loading jobs...</p>';
+    return;
+  }
+  if (!jobState.available || !jobs.length) {
+    els.jobsList.innerHTML = `<p class="chat-jobs-empty">${jobState.available ? "Long-running image work will appear here." : "The current image routes remain available."}</p>`;
+    return;
+  }
+  els.jobsList.innerHTML = jobs.map((job) => {
+    const output = Array.isArray(job.outputs) ? job.outputs[0] : null;
+    const outputUrl = output?.url ? absoluteImageUrl(output.url) : "";
+    const isActive = ["submitting", "queued_or_running"].includes(job.status);
+    const isComplete = job.status === "completed" && outputUrl;
+    const title = job.title || job.prompt || "Image job";
+    const sample = Number(job.sample_total || 1) > 1 ? ` / sample ${job.sample_index} of ${job.sample_total}` : "";
+    return `
+      <article class="chat-job-item" data-job-id="${escapeHtml(job.id)}">
+        ${isComplete ? `<img class="chat-job-thumbnail" src="${escapeHtml(outputUrl)}" alt="" loading="lazy" />` : `<div class="chat-job-placeholder${isActive ? " is-running" : ""}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4Z" /><path d="m4 16 5-5 4 4 3-3 4 4" /></svg></div>`}
+        <div class="chat-job-copy">
+          <div class="chat-job-heading">
+            <strong>${escapeHtml(title)}</strong>
+            <span data-state="${escapeHtml(job.status)}">${escapeHtml(jobStatusLabel(job.status))}</span>
+          </div>
+          <small>${escapeHtml(job.kind || "image")}${escapeHtml(sample)} / ${escapeHtml(historyTimeLabel(job.updated_at))}</small>
+          ${job.error ? `<p>${escapeHtml(job.error)}</p>` : ""}
+          <div class="chat-job-actions">
+            ${isComplete ? `
+              <button class="chat-secondary-button" type="button" data-job-add="${escapeHtml(job.id)}">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                Add to chat
+              </button>
+              <button class="chat-icon-button" type="button" data-job-download="${escapeHtml(job.id)}" title="Download result" aria-label="Download result">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+              </button>
+              <a class="chat-icon-button" href="${escapeHtml(outputUrl)}" target="_blank" rel="noopener noreferrer" title="Open result in new tab" aria-label="Open result in new tab">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9" /><path d="M18 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h6" /></svg>
+              </a>` : ""}
+            ${!isActive ? `<button class="chat-icon-button chat-job-dismiss" type="button" data-job-dismiss="${escapeHtml(job.id)}" title="Dismiss job" aria-label="Dismiss ${escapeHtml(title)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg></button>` : ""}
+          </div>
+        </div>
+      </article>`;
+  }).join("");
+}
+
+async function jobRequest(path = "", options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  let response;
+  try {
+    response = await fetch(`${JOBS_API_PATH}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch (cause) {
+    if (cause?.name === "AbortError") throw cause;
+    const error = new Error("The private job queue could not be reached.");
+    error.cause = cause;
+    error.status = 0;
+    throw error;
+  }
+  const raw = response.status === 204 ? "" : await response.text();
+  let json = {};
+  if (raw) {
+    try { json = JSON.parse(raw); } catch { json = {}; }
+  }
+  if (!response.ok) {
+    const error = new Error(json.error?.message || `Background job request failed: HTTP ${response.status}`);
+    error.status = response.status;
+    error.code = json.error?.code;
+    error.job = json.job;
+    throw error;
+  }
+  return { response, json };
+}
+
+function upsertBackgroundJob(job) {
+  if (!job?.id) return;
+  jobState.jobs = [job, ...jobState.jobs.filter((item) => item.id !== job.id)]
+    .sort((a, b) => String(b.updated_at || b.created_at).localeCompare(String(a.updated_at || a.created_at)));
+  renderBackgroundJobs();
+}
+
+function scheduleActiveJobRefresh() {
+  if (jobState.refreshTimer) clearTimeout(jobState.refreshTimer);
+  jobState.refreshTimer = null;
+  if (!jobState.available || !jobState.jobs.some((job) => ["submitting", "queued_or_running"].includes(job.status))) return;
+  jobState.refreshTimer = setTimeout(() => refreshActiveJobs(), JOB_REFRESH_INTERVAL_MS);
+}
+
+async function refreshActiveJobs({ immediate = false } = {}) {
+  if (!jobState.available || jobState.refreshing) return;
+  if (jobState.refreshTimer) clearTimeout(jobState.refreshTimer);
+  jobState.refreshTimer = null;
+  if (!immediate) await new Promise((resolve) => setTimeout(resolve, 0));
+  const active = jobState.jobs.filter((job) => ["submitting", "queued_or_running"].includes(job.status)).slice(0, 4);
+  if (!active.length) {
+    renderBackgroundJobs();
+    return;
+  }
+  jobState.refreshing = true;
+  try {
+    const results = await Promise.allSettled(active.map((job) => jobRequest(`/${encodeURIComponent(job.id)}`)));
+    results.forEach((result) => {
+      if (result.status === "fulfilled" && result.value.json?.job) upsertBackgroundJob(result.value.json.job);
+    });
+  } finally {
+    jobState.refreshing = false;
+    scheduleActiveJobRefresh();
+  }
+}
+
+async function loadBackgroundJobs() {
+  if (jobState.loadingRequest) return;
+  jobState.loadingRequest = true;
+  jobState.loading = true;
+  renderBackgroundJobs();
+  try {
+    const { json } = await jobRequest();
+    if (!json.ok || !Array.isArray(json.jobs)) throw new Error("The private job queue returned an invalid response.");
+    jobState.available = true;
+    jobState.jobs = json.jobs;
+  } catch {
+    jobState.available = false;
+    jobState.jobs = [];
+  } finally {
+    jobState.loadingRequest = false;
+    jobState.loading = false;
+    renderBackgroundJobs();
+    scheduleActiveJobRefresh();
+  }
+}
+
+async function createBackgroundJob(kind, request, title, sampleIndex, sampleTotal, signal) {
+  if (!jobState.available) return null;
+  try {
+    const { json } = await jobRequest("", {
+      method: "POST",
+      body: JSON.stringify({
+        kind,
+        request,
+        title,
+        sample_index: sampleIndex + 1,
+        sample_total: sampleTotal,
+      }),
+      signal,
+    });
+    if (!json.job?.id) throw new Error("The background job queue returned an invalid response.");
+    upsertBackgroundJob(json.job);
+    scheduleActiveJobRefresh();
+    return json.job;
+  } catch (error) {
+    if (error.job) upsertBackgroundJob(error.job);
+    throw error;
+  }
 }
 
 async function projectRequest(path = "", options = {}) {
@@ -2577,17 +2789,20 @@ function buildImagePayload(prompt, settings, sampleIndex) {
 
 async function submitImageGeneration(prompt, settings, sampleIndex, signal) {
   throwIfImageStopped(signal);
+  const payload = buildImagePayload(prompt, settings, sampleIndex);
+  const job = await createBackgroundJob("generation", payload, prompt, sampleIndex, settings.samples, signal);
+  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
   const res = await fetch(`${API_BASE}/api/image/generations`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(buildImagePayload(prompt, settings, sampleIndex)),
+    body: JSON.stringify(payload),
     signal,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok || json.ok === false || !json.prompt_id) {
     throw new Error(json.error || json.message || `Image generation failed: HTTP ${res.status}`);
   }
-  return json.prompt_id;
+  return { promptId: json.prompt_id, managed: false };
 }
 
 async function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
@@ -2692,6 +2907,8 @@ function waitForImagePoll(signal) {
 async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode, signal) {
   const payload = await buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode);
   throwIfImageStopped(signal);
+  const job = await createBackgroundJob("edit", payload, prompt, sampleIndex, settings.samples, signal);
+  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
   const res = await fetch(`${API_BASE}/api/image/edits`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -2702,12 +2919,14 @@ async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode
   if (!res.ok || json.ok === false || !json.prompt_id) {
     throw new Error(json.error || json.message || `Image edit failed: HTTP ${res.status}`);
   }
-  return json.prompt_id;
+  return { promptId: json.prompt_id, managed: false };
 }
 
-async function submitImageUpscale(settings, sampleIndex, source, signal) {
+async function submitImageUpscale(prompt, settings, sampleIndex, source, signal) {
   const payload = await buildImageUpscalePayload(settings, sampleIndex, source);
   throwIfImageStopped(signal);
+  const job = await createBackgroundJob("upscale", payload, prompt, sampleIndex, settings.samples, signal);
+  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
   const res = await fetch(`${API_BASE}/api/image/upscale`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -2718,7 +2937,7 @@ async function submitImageUpscale(settings, sampleIndex, source, signal) {
   if (!res.ok || json.ok === false || !json.prompt_id) {
     throw new Error(json.error || json.message || `Image upscale failed: HTTP ${res.status}`);
   }
-  return json.prompt_id;
+  return { promptId: json.prompt_id, managed: false };
 }
 
 function historyExecutionError(json) {
@@ -2738,10 +2957,21 @@ function historyExecutionError(json) {
   return "";
 }
 
-async function pollImageGeneration(promptId, signal) {
+async function pollImageGeneration(handle, signal) {
+  const jobId = typeof handle === "object" ? handle.jobId : null;
+  const promptId = typeof handle === "object" ? handle.promptId : handle;
   while (true) {
     await waitForImagePoll(signal);
     throwIfImageStopped(signal);
+    if (jobId) {
+      const { json } = await jobRequest(`/${encodeURIComponent(jobId)}`, { signal });
+      const job = json.job;
+      if (!job?.id) throw new Error("The background job queue returned an invalid response.");
+      upsertBackgroundJob(job);
+      if (job.status === "completed" && Array.isArray(job.outputs) && job.outputs.length) return job.outputs;
+      if (job.status === "failed") throw new Error(job.error || "Image generation failed.");
+      continue;
+    }
     const res = await fetch(`${API_BASE}/api/image/history/${encodeURIComponent(promptId)}`, {
       cache: "no-store",
       signal,
@@ -2762,6 +2992,15 @@ async function pollImageGeneration(promptId, signal) {
 async function generateImageSamplesSequentially(prompt, assistantIndex, signal) {
   const settings = imageSettings();
   const outputs = [];
+  const handles = [];
+  for (let index = 0; index < settings.samples; index += 1) {
+    throwIfImageStopped(signal);
+    updateAssistantImageMessage(assistantIndex, {
+      imageProgress: `Queueing sample ${index + 1} of ${settings.samples}...`,
+      content: "",
+    });
+    handles.push(await submitImageGeneration(prompt, settings, index, signal));
+  }
   for (let index = 0; index < settings.samples; index += 1) {
     throwIfImageStopped(signal);
     const label = `sample ${index + 1} of ${settings.samples}`;
@@ -2770,9 +3009,8 @@ async function generateImageSamplesSequentially(prompt, assistantIndex, signal) 
       content: outputs.length ? "Still generating the remaining samples." : "",
     });
     setStatus(`Generating image ${index + 1} of ${settings.samples}...`, "busy");
-    const promptId = await submitImageGeneration(prompt, settings, index, signal);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
-    const sampleOutputs = await pollImageGeneration(promptId, signal);
+    const sampleOutputs = await pollImageGeneration(handles[index], signal);
     for (const output of sampleOutputs) {
       const imageRef = outputImageReference(output);
       outputs.push({
@@ -2797,6 +3035,15 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
   const settings = imageSettings();
   const source = activeImageSource;
   const outputs = [];
+  const handles = [];
+  for (let index = 0; index < settings.samples; index += 1) {
+    throwIfImageStopped(signal);
+    updateAssistantImageMessage(assistantIndex, {
+      imageProgress: `Queueing sample ${index + 1} of ${settings.samples}...`,
+      content: "",
+    });
+    handles.push(await submitImageEdit(prompt, settings, index, source, sourceMode, signal));
+  }
   for (let index = 0; index < settings.samples; index += 1) {
     throwIfImageStopped(signal);
     const label = `sample ${index + 1} of ${settings.samples}`;
@@ -2805,9 +3052,8 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
       content: outputs.length ? "Still generating the remaining samples." : "",
     });
     setStatus(`${sourceMode === "style" ? "Generating style reference image" : sourceMode === "restyle" ? "Restyling image" : "Editing image"} ${index + 1} of ${settings.samples}...`, "busy");
-    const promptId = await submitImageEdit(prompt, settings, index, source, sourceMode, signal);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering ${label}...` });
-    const sampleOutputs = await pollImageGeneration(promptId, signal);
+    const sampleOutputs = await pollImageGeneration(handles[index], signal);
     for (const output of sampleOutputs) {
       const imageRef = outputImageReference(output);
       outputs.push({
@@ -2832,6 +3078,15 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
   const settings = imageSettings();
   const source = activeImageSource;
   const outputs = [];
+  const handles = [];
+  for (let index = 0; index < settings.samples; index += 1) {
+    throwIfImageStopped(signal);
+    updateAssistantImageMessage(assistantIndex, {
+      imageProgress: `Queueing sample ${index + 1} of ${settings.samples}...`,
+      content: "",
+    });
+    handles.push(await submitImageUpscale(prompt, settings, index, source, signal));
+  }
   for (let index = 0; index < settings.samples; index += 1) {
     throwIfImageStopped(signal);
     const label = `sample ${index + 1} of ${settings.samples}`;
@@ -2840,9 +3095,8 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
       content: outputs.length ? "Still enhancing the remaining samples." : "",
     });
     setStatus(`Enhancing image ${index + 1} of ${settings.samples}...`, "busy");
-    const promptId = await submitImageUpscale(settings, index, source, signal);
     updateAssistantImageMessage(assistantIndex, { imageProgress: `Rendering enhanced ${label}...` });
-    const sampleOutputs = await pollImageGeneration(promptId, signal);
+    const sampleOutputs = await pollImageGeneration(handles[index], signal);
     for (const output of sampleOutputs) {
       const imageRef = outputImageReference(output);
       outputs.push({
@@ -2903,7 +3157,11 @@ async function sendImageMessage(content, sourceVisionImages = []) {
   } catch (error) {
     const stopped = error.name === "AbortError" || signal.aborted;
     updateAssistantImageMessage(assistantIndex, {
-      content: stopped ? "Image generation stopped." : `Image request failed: ${error.message}`,
+      content: stopped
+        ? jobState.available
+          ? "Stopped watching. Submitted images continue in Background jobs."
+          : "Image generation stopped."
+        : `Image request failed: ${error.message}`,
       imageProgress: "",
     });
     setStatus(stopped ? "Image generation stopped" : "Image request failed", stopped ? "good" : "bad");
@@ -3083,6 +3341,10 @@ els.modeButtons.forEach((button) => {
 els.settingsOpen.addEventListener("click", () => setSettingsOpen(true));
 els.settingsClose.addEventListener("click", () => setSettingsOpen(false));
 els.settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
+els.jobsOpen.addEventListener("click", () => setJobsOpen(true));
+els.jobsClose.addEventListener("click", () => setJobsOpen(false));
+els.jobsBackdrop.addEventListener("click", () => setJobsOpen(false));
+els.jobsRefresh.addEventListener("click", () => loadBackgroundJobs());
 els.railOpen.addEventListener("click", () => setRailOpen(true));
 els.railClose.addEventListener("click", () => setRailOpen(false));
 
@@ -3317,6 +3579,57 @@ els.docClear.addEventListener("click", () => {
   renderDocuments();
 });
 
+els.jobsList.addEventListener("click", async (event) => {
+  const action = event.target.closest("[data-job-add], [data-job-download], [data-job-dismiss]");
+  if (!action) return;
+  const jobId = action.dataset.jobAdd || action.dataset.jobDownload || action.dataset.jobDismiss;
+  const job = jobState.jobs.find((item) => item.id === jobId);
+  if (!job) return;
+  const outputs = Array.isArray(job.outputs) ? job.outputs : [];
+  try {
+    if (action.dataset.jobAdd) {
+      if (!outputs.length) throw new Error("This job does not have an image result.");
+      const title = job.title || job.prompt || "Generated image";
+      messages.push(createMessage("assistant", "Background image complete.", {
+        imagePrompt: title,
+        imageOutputs: outputs.map((output) => ({
+          ...output,
+          ...(outputImageReference(output) || {}),
+          prompt: title,
+          alt: title,
+          quality: job.controls?.quality || "Background job",
+          size: job.controls?.width && job.controls?.height ? `${job.controls.width} x ${job.controls.height}` : "",
+          url: absoluteImageUrl(output.url),
+        })),
+      }));
+      renderMessages();
+      scheduleConversationSave(0);
+      setJobsOpen(false);
+      setStatus("Image added to this chat", "good");
+      return;
+    }
+    if (action.dataset.jobDownload) {
+      const output = outputs[0];
+      if (!output?.url) throw new Error("This job does not have an image result.");
+      action.disabled = true;
+      await downloadImage(output.url, output.filename || "token-gen-image.png");
+      setStatus("Image download started", "good");
+      action.disabled = false;
+      return;
+    }
+    if (action.dataset.jobDismiss) {
+      const confirmed = window.confirm("Dismiss this completed job from the list? The generated image file is not deleted.");
+      if (!confirmed) return;
+      await jobRequest(`/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+      jobState.jobs = jobState.jobs.filter((item) => item.id !== job.id);
+      renderBackgroundJobs();
+    }
+  } catch (error) {
+    action.disabled = false;
+    setStatus(error.message, "bad");
+  }
+});
+
 els.thread.addEventListener("click", (event) => {
   const attachAction = event.target.closest('[data-chat-action="attach-document"]');
   if (attachAction) {
@@ -3481,11 +3794,13 @@ renderVisionPreview();
 renderImageSourcePreview();
 renderImageMaskPreview();
 renderProjectState();
+renderBackgroundJobs();
 syncImageEditStrengthValue();
 syncModeUI();
 syncWebUI();
 loadConversationHistory();
 loadProjects();
+loadBackgroundJobs();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
@@ -3494,4 +3809,6 @@ loadImageCapability();
 
 window.addEventListener("focus", () => {
   if (!historyState.available && !historyState.loading) loadConversationHistory();
+  if (!jobState.available && !jobState.loading) loadBackgroundJobs();
+  else refreshActiveJobs({ immediate: true });
 });
