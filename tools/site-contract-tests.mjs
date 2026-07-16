@@ -148,6 +148,7 @@ assert.match(privateBridgeWorker, /new Set\(\["conversations", "projects", "jobs
 assert.match(privateBridgeWorker, /request\.headers\.get\("Cf-Access-Jwt-Assertion"\)/, "The Worker bridge must require the signed Cloudflare Access assertion.");
 assert.match(privateBridgeWorker, /headers\.delete\("authorization"\)/, "The Worker bridge must not forward browser authorization credentials.");
 assert.match(privateBridgeWorker, /headers\.delete\("cookie"\)/, "The Worker bridge must not forward browser cookies to the API origin.");
+assert.match(privateBridgeWorker, /headers\.set\("cookie", `CF_Authorization=\$\{assertion\}`\)/, "The Worker bridge must re-present only the signed Access assertion to the API Access application.");
 assert.match(privateBridgeWorker, /headers\.set\("X-Token-Gen-Site-Access-JWT", assertion\)/, "The Worker bridge must forward the signed assertion through the dedicated origin header.");
 assert.match(privateBridgeConfig, /token-gen\.owenonthenet\.com\/api\/private\/\*/, "The Worker route must remain narrowly scoped to private API paths.");
 

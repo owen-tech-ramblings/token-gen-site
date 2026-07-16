@@ -41,6 +41,7 @@ export default {
     headers.delete("cookie");
     headers.delete("cf-access-jwt-assertion");
     headers.delete("host");
+    headers.set("cookie", `CF_Authorization=${assertion}`);
     headers.set("X-Token-Gen-Site-Access-JWT", assertion);
 
     const init = { method: request.method, headers, redirect: "manual" };
