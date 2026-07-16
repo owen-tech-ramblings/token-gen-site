@@ -46,6 +46,25 @@ const els = {
   imageMaskUpload: $("#chatImageMaskUpload"),
   imageSourcePreview: $("#chatImageSourcePreview"),
   imageMaskPreview: $("#chatImageMaskPreview"),
+  imageEditorOpen: $("#chatImageEditorOpen"),
+  imageEditorBackdrop: $("#chatImageEditorBackdrop"),
+  imageEditor: $("#chatImageEditor"),
+  imageEditorClose: $("#chatImageEditorClose"),
+  imageEditorCancel: $("#chatImageEditorCancel"),
+  imageEditorApply: $("#chatImageEditorApply"),
+  imageEditorSourceName: $("#chatImageEditorSourceName"),
+  imageEditorStatus: $("#chatImageEditorStatus"),
+  imageEditorStage: $("#chatImageEditorStage"),
+  imageEditorCanvas: $("#chatImageEditorCanvas"),
+  imageEditorBase: $("#chatImageEditorBase"),
+  imageEditorMask: $("#chatImageEditorMask"),
+  imageEditorBrush: $("#chatImageEditorBrush"),
+  imageEditorEraser: $("#chatImageEditorEraser"),
+  imageEditorSize: $("#chatImageEditorSize"),
+  imageEditorSizeValue: $("#chatImageEditorSizeValue"),
+  imageEditorUndo: $("#chatImageEditorUndo"),
+  imageEditorRedo: $("#chatImageEditorRedo"),
+  imageEditorClear: $("#chatImageEditorClear"),
   imageStatus: $("#chatImageStatus"),
   clear: $("#chatClear"),
   thread: $("#chatThread"),
@@ -129,6 +148,15 @@ let uploadedDocuments = [];
 let attachedVisionImages = [];
 let activeImageSource = null;
 let activeImageMask = null;
+let imageEditorState = {
+  tool: "paint",
+  drawing: false,
+  lastPoint: null,
+  undo: [],
+  redo: [],
+  hasMask: false,
+  returnFocus: null,
+};
 let activeImageAbortController = null;
 let mammothLoader = null;
 let chatReady = false;
@@ -167,6 +195,8 @@ let jobState = {
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
+const IMAGE_EDITOR_MAX_DIMENSION = 2048;
+const IMAGE_EDITOR_HISTORY_LIMIT = 12;
 const HISTORY_API_PATH = "/api/private/conversations";
 const PROJECTS_API_PATH = "/api/private/projects";
 const JOBS_API_PATH = "/api/private/jobs";
@@ -534,10 +564,16 @@ function releaseImagePreviewUrl(source) {
   if (source?.previewObjectUrl) URL.revokeObjectURL(source.previewObjectUrl);
 }
 
+function syncImageEditorAvailability() {
+  if (els.imageEditorOpen) els.imageEditorOpen.disabled = !activeImageSource;
+}
+
 function setActiveImageSource(source) {
   releaseImagePreviewUrl(activeImageSource);
+  if (activeImageMask) clearActiveImageMask();
   activeImageSource = source;
   renderImageSourcePreview();
+  syncImageEditorAvailability();
   syncModeUI();
 }
 
@@ -545,6 +581,7 @@ function clearActiveImageSource() {
   releaseImagePreviewUrl(activeImageSource);
   activeImageSource = null;
   renderImageSourcePreview();
+  syncImageEditorAvailability();
   syncModeUI();
 }
 
@@ -574,7 +611,12 @@ function renderImageSourcePreview() {
         <strong>${escapeHtml(activeImageSource.name || "Source image")}</strong>
         <span>${escapeHtml(activeImageSource.kind === "url" ? "Generated image" : "Uploaded image")}</span>
       </div>
-      <button class="chat-doc-remove" type="button" data-image-source-clear aria-label="Clear source image">x</button>
+      <div class="chat-image-source-actions">
+        <button class="chat-icon-button" type="button" data-image-source-edit title="Open image editor" aria-label="Open image editor">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.5 16 4 20Z" /><path d="m14.8 6.7 2.5 2.5" /></svg>
+        </button>
+        <button class="chat-doc-remove" type="button" data-image-source-clear aria-label="Clear source image">x</button>
+      </div>
     </div>
   `;
 }
@@ -596,6 +638,281 @@ function renderImageMaskPreview() {
       <button class="chat-doc-remove" type="button" data-image-mask-clear aria-label="Clear edit mask">x</button>
     </div>
   `;
+}
+
+function setImageEditorVisible(open) {
+  if (!els.imageEditor || !els.imageEditorBackdrop) return;
+  els.imageEditor.hidden = !open;
+  els.imageEditorBackdrop.hidden = !open;
+  els.imageEditor.setAttribute("aria-hidden", String(!open));
+  document.body.classList.toggle("chat-image-editor-open", open);
+  if (open) {
+    requestAnimationFrame(fitImageEditorCanvas);
+    els.imageEditorClose.focus();
+  } else {
+    imageEditorState.drawing = false;
+    imageEditorState.lastPoint = null;
+    imageEditorState.returnFocus?.focus?.();
+    imageEditorState.returnFocus = null;
+  }
+}
+
+function keepImageEditorFocus(event) {
+  if (event.key !== "Tab" || els.imageEditor.hidden) return false;
+  const focusable = [...els.imageEditor.querySelectorAll(
+    'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+  )].filter((element) => !element.hidden && element.getClientRects().length > 0);
+  if (!focusable.length) return false;
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+    return true;
+  }
+  if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+    return true;
+  }
+  return false;
+}
+
+function fitImageEditorCanvas() {
+  if (els.imageEditor?.hidden || !els.imageEditorBase.width || !els.imageEditorStage) return;
+  const bounds = els.imageEditorStage.getBoundingClientRect();
+  const availableWidth = Math.max(1, bounds.width - 32);
+  const availableHeight = Math.max(1, bounds.height - 32);
+  const ratio = els.imageEditorBase.width / els.imageEditorBase.height;
+  let width = Math.min(availableWidth, availableHeight * ratio);
+  let height = width / ratio;
+  if (height > availableHeight) {
+    height = availableHeight;
+    width = height * ratio;
+  }
+  els.imageEditorCanvas.style.width = `${Math.max(1, Math.round(width))}px`;
+  els.imageEditorCanvas.style.height = `${Math.max(1, Math.round(height))}px`;
+}
+
+function imageEditorMaskContext() {
+  return els.imageEditorMask.getContext("2d", { willReadFrequently: true });
+}
+
+function imageEditorHasSelection() {
+  const data = imageEditorMaskContext().getImageData(0, 0, els.imageEditorMask.width, els.imageEditorMask.height).data;
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] > 8) return true;
+  }
+  return false;
+}
+
+function updateImageEditorControls(status) {
+  if (els.imageEditorSizeValue) els.imageEditorSizeValue.value = els.imageEditorSize.value;
+  els.imageEditorUndo.disabled = imageEditorState.undo.length === 0;
+  els.imageEditorRedo.disabled = imageEditorState.redo.length === 0;
+  els.imageEditorClear.disabled = !imageEditorState.hasMask;
+  els.imageEditorApply.disabled = !imageEditorState.hasMask;
+  els.imageEditorBrush.classList.toggle("is-active", imageEditorState.tool === "paint");
+  els.imageEditorEraser.classList.toggle("is-active", imageEditorState.tool === "erase");
+  els.imageEditorBrush.setAttribute("aria-pressed", String(imageEditorState.tool === "paint"));
+  els.imageEditorEraser.setAttribute("aria-pressed", String(imageEditorState.tool === "erase"));
+  els.imageEditorStatus.textContent = status || (imageEditorState.hasMask ? "Mask ready" : "No areas selected");
+}
+
+function setImageEditorTool(tool) {
+  imageEditorState.tool = tool === "erase" ? "erase" : "paint";
+  updateImageEditorControls();
+}
+
+function rememberImageEditorMask() {
+  imageEditorState.undo.push(els.imageEditorMask.toDataURL("image/png"));
+  if (imageEditorState.undo.length > IMAGE_EDITOR_HISTORY_LIMIT) imageEditorState.undo.shift();
+  imageEditorState.redo = [];
+}
+
+async function restoreImageEditorMask(snapshot) {
+  const context = imageEditorMaskContext();
+  context.clearRect(0, 0, els.imageEditorMask.width, els.imageEditorMask.height);
+  if (snapshot) {
+    const image = await loadImageElement(snapshot);
+    context.drawImage(image, 0, 0, els.imageEditorMask.width, els.imageEditorMask.height);
+  }
+  imageEditorState.hasMask = imageEditorHasSelection();
+  updateImageEditorControls();
+}
+
+async function loadImageEditorMask(mask) {
+  const maskDataUrl = await sourceImageDataUrl(mask);
+  const image = await loadImageElement(maskDataUrl);
+  const work = document.createElement("canvas");
+  work.width = els.imageEditorMask.width;
+  work.height = els.imageEditorMask.height;
+  const workContext = work.getContext("2d", { willReadFrequently: true });
+  workContext.drawImage(image, 0, 0, work.width, work.height);
+  const source = workContext.getImageData(0, 0, work.width, work.height);
+  const overlay = imageEditorMaskContext().createImageData(work.width, work.height);
+  let hasMask = false;
+  for (let index = 0; index < source.data.length; index += 4) {
+    const luminance = Math.round((source.data[index] * 0.2126 + source.data[index + 1] * 0.7152 + source.data[index + 2] * 0.0722) * (source.data[index + 3] / 255));
+    overlay.data[index] = 255;
+    overlay.data[index + 1] = 72;
+    overlay.data[index + 2] = 104;
+    overlay.data[index + 3] = luminance;
+    if (luminance > 8) hasMask = true;
+  }
+  imageEditorMaskContext().putImageData(overlay, 0, 0);
+  imageEditorState.hasMask = hasMask;
+}
+
+async function openImageEditor() {
+  if (!activeImageSource) {
+    setStatus("Choose a source image before opening the editor", "bad");
+    return;
+  }
+  setSettingsOpen(false);
+  setJobsOpen(false);
+  imageEditorState.returnFocus = document.activeElement;
+  imageEditorState.undo = [];
+  imageEditorState.redo = [];
+  imageEditorState.hasMask = false;
+  setImageEditorTool("paint");
+  els.imageEditorSourceName.textContent = activeImageSource.name || "Source image";
+  setImageEditorVisible(true);
+  updateImageEditorControls("Loading image...");
+  try {
+    const dataUrl = await sourceImageDataUrl(activeImageSource);
+    const image = await loadImageElement(dataUrl);
+    const scale = Math.min(1, IMAGE_EDITOR_MAX_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    [els.imageEditorBase, els.imageEditorMask].forEach((canvas) => {
+      canvas.width = width;
+      canvas.height = height;
+    });
+    const baseContext = els.imageEditorBase.getContext("2d");
+    baseContext.clearRect(0, 0, width, height);
+    baseContext.drawImage(image, 0, 0, width, height);
+    imageEditorMaskContext().clearRect(0, 0, width, height);
+    if (activeImageMask) await loadImageEditorMask(activeImageMask);
+    fitImageEditorCanvas();
+    updateImageEditorControls();
+  } catch (error) {
+    setImageEditorVisible(false);
+    setStatus(`Image editor could not load the source: ${error.message}`, "bad");
+  }
+}
+
+function imageEditorPoint(event) {
+  const bounds = els.imageEditorMask.getBoundingClientRect();
+  return {
+    x: (event.clientX - bounds.left) * (els.imageEditorMask.width / bounds.width),
+    y: (event.clientY - bounds.top) * (els.imageEditorMask.height / bounds.height),
+  };
+}
+
+function drawImageEditorStroke(from, to) {
+  const context = imageEditorMaskContext();
+  const brushSize = Number(els.imageEditorSize.value) * (els.imageEditorMask.width / 1024);
+  context.save();
+  context.globalCompositeOperation = imageEditorState.tool === "erase" ? "destination-out" : "source-over";
+  context.strokeStyle = "#ff4868";
+  context.fillStyle = "#ff4868";
+  context.lineWidth = Math.max(2, brushSize);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.beginPath();
+  context.moveTo(from.x, from.y);
+  context.lineTo(to.x, to.y);
+  context.stroke();
+  if (from.x === to.x && from.y === to.y) {
+    context.beginPath();
+    context.arc(to.x, to.y, Math.max(1, brushSize / 2), 0, Math.PI * 2);
+    context.fill();
+  }
+  context.restore();
+}
+
+function beginImageEditorStroke(event) {
+  if (imageEditorState.tool === "erase" && !imageEditorState.hasMask) return;
+  event.preventDefault();
+  rememberImageEditorMask();
+  imageEditorState.drawing = true;
+  imageEditorState.lastPoint = imageEditorPoint(event);
+  els.imageEditorMask.setPointerCapture?.(event.pointerId);
+  drawImageEditorStroke(imageEditorState.lastPoint, imageEditorState.lastPoint);
+  if (imageEditorState.tool === "paint") imageEditorState.hasMask = true;
+  updateImageEditorControls();
+}
+
+function continueImageEditorStroke(event) {
+  if (!imageEditorState.drawing) return;
+  event.preventDefault();
+  const point = imageEditorPoint(event);
+  drawImageEditorStroke(imageEditorState.lastPoint, point);
+  imageEditorState.lastPoint = point;
+}
+
+function endImageEditorStroke(event) {
+  if (!imageEditorState.drawing) return;
+  event.preventDefault();
+  imageEditorState.drawing = false;
+  imageEditorState.lastPoint = null;
+  imageEditorState.hasMask = imageEditorHasSelection();
+  updateImageEditorControls();
+}
+
+async function undoImageEditorMask() {
+  if (!imageEditorState.undo.length) return;
+  imageEditorState.redo.push(els.imageEditorMask.toDataURL("image/png"));
+  await restoreImageEditorMask(imageEditorState.undo.pop());
+}
+
+async function redoImageEditorMask() {
+  if (!imageEditorState.redo.length) return;
+  imageEditorState.undo.push(els.imageEditorMask.toDataURL("image/png"));
+  await restoreImageEditorMask(imageEditorState.redo.pop());
+}
+
+function clearImageEditorMask() {
+  if (!imageEditorState.hasMask) return;
+  rememberImageEditorMask();
+  imageEditorMaskContext().clearRect(0, 0, els.imageEditorMask.width, els.imageEditorMask.height);
+  imageEditorState.hasMask = false;
+  updateImageEditorControls();
+}
+
+function applyImageEditorMask() {
+  if (!imageEditorState.hasMask) return;
+  const overlay = imageEditorMaskContext().getImageData(0, 0, els.imageEditorMask.width, els.imageEditorMask.height);
+  const maskCanvas = document.createElement("canvas");
+  maskCanvas.width = els.imageEditorMask.width;
+  maskCanvas.height = els.imageEditorMask.height;
+  const maskContext = maskCanvas.getContext("2d");
+  const mask = maskContext.createImageData(maskCanvas.width, maskCanvas.height);
+  for (let index = 0; index < overlay.data.length; index += 4) {
+    const value = overlay.data[index + 3];
+    mask.data[index] = value;
+    mask.data[index + 1] = value;
+    mask.data[index + 2] = value;
+    mask.data[index + 3] = 255;
+  }
+  maskContext.putImageData(mask, 0, 0);
+  const dataUrl = maskCanvas.toDataURL("image/png");
+  const stem = String(activeImageSource?.name || "source-image").replace(/\.[^.]+$/, "");
+  setActiveImageMask({
+    kind: "base64",
+    name: `${stem}-mask.png`,
+    mimeType: "image/png",
+    image_base64: dataUrl,
+    previewUrl: dataUrl,
+  });
+  els.mode.value = "image";
+  els.imageSourceMode.value = "edit";
+  syncModeUI();
+  setImageEditorVisible(false);
+  setStatus("Edit mask ready", "good");
+  updateSendState();
+  els.input.focus();
 }
 
 function readUploadedImage(file) {
@@ -2232,6 +2549,19 @@ function renderImageOutputs(message) {
                   data-image-analyze-name="${escapeHtml(output.filename || `Sample ${index + 1}`)}"
                 >Ask about</button>
                 <button
+                  class="btn btn-icon"
+                  type="button"
+                  data-image-edit="${escapeHtml(output.url || "")}"
+                  data-image-edit-prompt="${escapeHtml(output.prompt || message.imagePrompt || "")}"
+                  data-image-edit-filename="${escapeHtml(output.filename || `Sample ${index + 1}`)}"
+                  data-image-edit-subfolder="${escapeHtml(output.subfolder || "")}"
+                  data-image-edit-type="${escapeHtml(output.type || "output")}"
+                  title="Open image editor"
+                  aria-label="Open image editor"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 20 4.5-1 10.8-10.8a2.1 2.1 0 0 0-3-3L5.5 16 4 20Z" /><path d="m14.8 6.7 2.5 2.5" /></svg>
+                </button>
+                <button
                   class="btn"
                   type="button"
                   data-image-iterate="${escapeHtml(output.prompt || message.imagePrompt || "")}"
@@ -3313,6 +3643,23 @@ els.imageMaskUploadButton.addEventListener("click", () => {
   els.imageMaskUpload.click();
 });
 
+els.imageEditorOpen.addEventListener("click", () => openImageEditor());
+els.imageEditorClose.addEventListener("click", () => setImageEditorVisible(false));
+els.imageEditorCancel.addEventListener("click", () => setImageEditorVisible(false));
+els.imageEditorBackdrop.addEventListener("click", () => setImageEditorVisible(false));
+els.imageEditorApply.addEventListener("click", applyImageEditorMask);
+els.imageEditorBrush.addEventListener("click", () => setImageEditorTool("paint"));
+els.imageEditorEraser.addEventListener("click", () => setImageEditorTool("erase"));
+els.imageEditorSize.addEventListener("input", () => updateImageEditorControls());
+els.imageEditorUndo.addEventListener("click", () => undoImageEditorMask());
+els.imageEditorRedo.addEventListener("click", () => redoImageEditorMask());
+els.imageEditorClear.addEventListener("click", clearImageEditorMask);
+els.imageEditorMask.addEventListener("pointerdown", beginImageEditorStroke);
+els.imageEditorMask.addEventListener("pointermove", continueImageEditorStroke);
+els.imageEditorMask.addEventListener("pointerup", endImageEditorStroke);
+els.imageEditorMask.addEventListener("pointercancel", endImageEditorStroke);
+window.addEventListener("resize", fitImageEditorCanvas);
+
 els.documentsButton.addEventListener("click", () => {
   setAttachMenu(els.attachMenu.hidden);
 });
@@ -3450,7 +3797,12 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (keepImageEditorFocus(event)) return;
   if (event.key !== "Escape") return;
+  if (!els.imageEditor.hidden) {
+    setImageEditorVisible(false);
+    return;
+  }
   setAttachMenu(false);
   setSettingsOpen(false);
   setRailOpen(false);
@@ -3697,6 +4049,27 @@ els.thread.addEventListener("click", (event) => {
       });
     return;
   }
+  const editButton = event.target.closest("[data-image-edit]");
+  if (editButton) {
+    const filename = editButton.dataset.imageEditFilename || "Generated image";
+    setActiveImageSource({
+      kind: "url",
+      name: filename,
+      prompt: editButton.dataset.imageEditPrompt || "",
+      previewUrl: editButton.dataset.imageEdit || "",
+      url: editButton.dataset.imageEdit || "",
+      image: {
+        filename,
+        subfolder: editButton.dataset.imageEditSubfolder || "",
+        type: editButton.dataset.imageEditType || "output",
+      },
+    });
+    els.mode.value = "image";
+    els.imageSourceMode.value = "edit";
+    syncModeUI();
+    openImageEditor();
+    return;
+  }
   const analyzeButton = event.target.closest("[data-image-analyze]");
   if (analyzeButton) {
     const limits = getVisionLimits();
@@ -3751,6 +4124,11 @@ els.thread.addEventListener("click", (event) => {
 });
 
 els.imageSourcePreview.addEventListener("click", (event) => {
+  const editButton = event.target.closest("[data-image-source-edit]");
+  if (editButton) {
+    openImageEditor();
+    return;
+  }
   const button = event.target.closest("[data-image-source-clear]");
   if (!button) return;
   clearActiveImageSource();
@@ -3800,6 +4178,8 @@ renderDocuments();
 renderVisionPreview();
 renderImageSourcePreview();
 renderImageMaskPreview();
+syncImageEditorAvailability();
+updateImageEditorControls();
 renderProjectState();
 renderBackgroundJobs();
 syncImageEditStrengthValue();
