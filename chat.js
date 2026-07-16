@@ -140,6 +140,8 @@ function createMessage(role, content, extra = {}) {
 
 let messages = [welcomeMessage()];
 let webSearchSupported = false;
+let researchSupported = false;
+let webFetchModes = { direct: true, tor: false, proxy: false };
 let imageGenerationSupported = false;
 let visionSupported = false;
 let visionCapabilities = {};
@@ -288,6 +290,10 @@ const IMAGE_ORIENTATION_LABELS = {
 const IMAGE_INTENT_PATTERN = /\b(create|generate|make|draw|render|paint|illustrate|design)\b[^.?!\n]{0,80}\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b|\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b[^.?!\n]{0,80}\b(create|generate|make|draw|render|paint|illustrate|design)\b/i;
 const DIRECT_IMAGE_COMMAND_PATTERN = /^\s*(draw|paint|illustrate|render)\b/i;
 const IMAGE_EDIT_INTENT_PATTERN = /\b(edit|change|modify|remove|replace|add|restyle|transform|enhance|upscale|improve|retouch|recolour|recolor|make this|turn this)\b/i;
+const CURRENT_WEB_INTENT_PATTERN = /\b(latest|current|currently|today|tonight|right now|live|recent|news|weather|forecast|price|score|standings|results?|release|version|updated?|this week|this month|as of)\b/i;
+const EXPLICIT_WEB_INTENT_PATTERN = /\b(search (?:the )?web|search online|browse|look (?:this )?up|on the internet|online sources?|web sources?|cite (?:your )?sources?|with citations?|fact[- ]?check|research)\b|https?:\/\//i;
+const RESEARCH_INTENT_PATTERN = /\b(deep research|research (?:this|the|into|about)|investigate|literature review|source-backed|evidence-based|compare (?:the )?(?:sources|evidence)|fact[- ]?check|with citations?|cite (?:your )?sources?)\b/i;
+const LOCAL_RUNTIME_INTENT_PATTERN = /\b(token[- ]?gen|vllm|comfyui|active model|runtime gpus?|this (?:chat|server|model|system))\b/i;
 const SUPPORTED_TEXT_EXTENSIONS = new Set([
   "txt", "md", "markdown", "csv", "json", "jsonl", "html", "htm", "xml", "yaml", "yml", "log",
   "js", "ts", "tsx", "jsx", "py", "ps1", "sh", "sql", "css", "rtf",
@@ -370,14 +376,56 @@ function getMode() {
 function isImageModeForPrompt(prompt) {
   const mode = getMode();
   if (mode === "image") return true;
-  if (mode === "chat") return false;
+  if (mode === "chat" || mode === "research") return false;
   if (attachedVisionImages.length && IMAGE_EDIT_INTENT_PATTERN.test(prompt)) return true;
   return IMAGE_INTENT_PATTERN.test(prompt) || DIRECT_IMAGE_COMMAND_PATTERN.test(prompt);
+}
+
+function promptNeedsResearch(prompt) {
+  return RESEARCH_INTENT_PATTERN.test(prompt);
+}
+
+function promptNeedsFreshWeb(prompt) {
+  if (EXPLICIT_WEB_INTENT_PATTERN.test(prompt)) return true;
+  if (!CURRENT_WEB_INTENT_PATTERN.test(prompt)) return false;
+  return !LOCAL_RUNTIME_INTENT_PATTERN.test(prompt);
+}
+
+function inferWebTimeRange(prompt) {
+  if (/\b(today|tonight|right now|live|weather|forecast|score|standings)\b/i.test(prompt)) return "day";
+  if (/\b(latest|recent|news|this week)\b/i.test(prompt)) return "week";
+  if (/\b(this month|current release|current version)\b/i.test(prompt)) return "month";
+  return "year";
+}
+
+function routeRequest(prompt) {
+  const mode = getMode();
+  const image = isImageModeForPrompt(prompt);
+  const research = !image && (mode === "research" || (mode === "auto" && promptNeedsResearch(prompt)));
+  const automaticWeb = !image && mode === "auto" && promptNeedsFreshWeb(prompt);
+  const web = !image && (research || automaticWeb || Boolean(els.webSearch.checked));
+  return {
+    kind: image ? "image" : "chat",
+    mode,
+    web,
+    research,
+    project: !image && Boolean(projectState.active),
+    vision: !image && attachedVisionImages.length > 0,
+    enableThinking: research || Boolean(els.reasoning.checked),
+    maxResults: research
+      ? Math.max(6, Number(els.webResults.value || 5))
+      : Number(els.webResults.value || 5),
+    contextTokenBudget: research
+      ? Math.max(16000, Number(els.webBudget.value || 10000))
+      : Number(els.webBudget.value || 10000),
+    timeRange: inferWebTimeRange(prompt),
+  };
 }
 
 function canSendCurrentMode() {
   const mode = getMode();
   if (mode === "image") return imageGenerationSupported;
+  if (mode === "research") return chatReady && webSearchSupported && researchSupported;
   if (mode === "auto") return chatReady || imageGenerationSupported;
   return chatReady;
 }
@@ -394,10 +442,12 @@ function syncModeUI() {
   document.body.classList.toggle("chat-image-active", mode === "image" || Boolean(activeImageSource));
   if (els.modeHint) {
     els.modeHint.textContent = mode === "auto"
-      ? "Auto chooses chat or image from your request"
+      ? "Auto routes current questions, local vision, chat, and images"
       : mode === "image"
         ? "Create, edit, restyle, or enhance an image"
-        : "Answer with the active local language model";
+        : mode === "research"
+          ? "Search, extract, rank, and answer locally with citations"
+          : "Answer with the active local language model";
   }
 }
 
@@ -406,7 +456,7 @@ function syncWebUI() {
   const enabled = Boolean(els.webSearch.checked);
   els.webQuickToggle.setAttribute("aria-pressed", String(enabled));
   els.webQuickToggle.disabled = els.webSearch.disabled;
-  els.webQuickToggle.title = enabled ? "Web context is on" : "Use current web information";
+  els.webQuickToggle.title = enabled ? "Always use web is on" : "Always use web for this chat";
 }
 
 function syncVisionCapability() {
@@ -2583,24 +2633,30 @@ function renderImageOutputs(message) {
 function renderWebContext(context) {
   if (!context) return "";
   const sources = Array.isArray(context.sources) ? context.sources.slice(0, 6) : [];
+  const research = context.research?.enabled ? context.research : null;
+  const warnings = Array.isArray(context.warnings) ? context.warnings.slice(0, 2) : [];
   return `
     <details class="chat-web-context">
       <summary>
-        <span>Web context</span>
+        <span>${research ? "Research evidence" : "Web context"}</span>
         <span class="chat-web-mode">${escapeHtml(context.provider || context.search_route?.provider || "web")} / ${escapeHtml(context.fetch_mode || context.fetchMode || "direct")} / ${sources.length} source${sources.length === 1 ? "" : "s"}</span>
       </summary>
       <div class="chat-web-context-body">
       ${context.query ? `<p class="chat-web-query">Query: ${escapeHtml(context.query)}</p>` : ""}
+      ${research ? `<p class="chat-web-query">${research.pages_with_full_text || 0} full page${research.pages_with_full_text === 1 ? "" : "s"}, ${research.chunks_selected || 0} ranked passage${research.chunks_selected === 1 ? "" : "s"}${research.locally_compacted ? ", locally compacted" : ""}.</p>` : ""}
       ${sources.length ? `
         <div class="chat-web-sources">
           ${sources.map((source) => `
             <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">
               <strong>[${escapeHtml(source.index)}] ${escapeHtml(source.title || "Untitled")}</strong>
-              <span>${escapeHtml(source.fetched ? source.extraction_method || "fetched" : "snippet only")}</span>
+              <span>${escapeHtml(source.fetched
+                ? `${source.extraction_method || "extracted"}${source.fetch_route ? ` via ${source.fetch_route}` : ""}`
+                : "search snippet")}</span>
             </a>
           `).join("")}
         </div>
       ` : ""}
+      ${warnings.length ? `<p class="chat-web-query">${escapeHtml(warnings.join(" "))}</p>` : ""}
       </div>
     </details>
   `;
@@ -2661,7 +2717,7 @@ function attachWebContext(index, context) {
   renderMessages(false);
 }
 
-function boundedChatPayload(systemParts) {
+function boundedChatPayload(systemParts, route) {
   const fullHistory = messages
     .filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"))
     .map((message) => ({
@@ -2675,7 +2731,7 @@ function boundedChatPayload(systemParts) {
   const messageTokens = (message) => estimateTokens(message?.content || "") + 8 + (message?.visionImages?.length || 0) * 1400;
   const latestTokens = messageTokens(fullHistory.at(-1));
   const availableAfterSystem = Math.max(512, contextWindow - systemTokens - safetyTokens);
-  const requestedWebTokens = els.webSearch.checked ? Number(els.webBudget.value || 10000) : 0;
+  const requestedWebTokens = route.web ? route.contextTokenBudget : 0;
   const webTokens = Math.max(0, Math.min(requestedWebTokens, availableAfterSystem - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)) - 256));
   const requestedOutput = Number(els.maxTokens.value || 20000);
   const maximumOutput = Math.max(256, availableAfterSystem - webTokens - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)));
@@ -2758,7 +2814,7 @@ async function retrieveActiveProjectContext(query) {
   };
 }
 
-async function buildPayload(userId, projectContext = null) {
+async function buildPayload(userId, projectContext = null, route = routeRequest("")) {
   const system = els.system.value.trim();
   const documentContext = buildDocumentContextMessage();
   const systemParts = [
@@ -2766,7 +2822,7 @@ async function buildPayload(userId, projectContext = null) {
     ...(documentContext?.content ? [documentContext.content] : []),
     ...(projectContext?.system ? [projectContext.system] : []),
   ];
-  const bounded = boundedChatPayload(systemParts);
+  const bounded = boundedChatPayload(systemParts, route);
   const history = await Promise.all(bounded.history.map(chatPayloadMessage));
 
   return {
@@ -2777,18 +2833,22 @@ async function buildPayload(userId, projectContext = null) {
     ],
     temperature: Number(els.temperature.value || 0.3),
     max_tokens: bounded.maxTokens,
-    enable_thinking: els.reasoning.checked,
+    enable_thinking: route.enableThinking,
     web_search: {
-      enabled: Boolean(els.webSearch.checked),
+      enabled: route.web,
+      research: route.research,
       tavily_api_key: els.webApiKey.value.trim() || undefined,
       fetch_mode: els.webFetchMode.value,
-      max_results: Number(els.webResults.value || 5),
+      max_results: route.maxResults,
       context_token_budget: bounded.webTokens,
+      time_range: route.timeRange,
     },
     metadata: {
       source: "token_gen_chat",
       user_id: userId,
       project_id: projectState.active?.id || undefined,
+      requested_mode: route.mode,
+      resolved_route: route.research ? "research" : route.web ? "web" : route.vision ? "vision" : "chat",
     },
   };
 }
@@ -2881,17 +2941,34 @@ async function loadWebSearchCapability() {
     const res = await fetch(`${API_BASE}/api/web-search/health`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
     const health = json.data || json;
+    webFetchModes = {
+      direct: health.fetch_modes?.direct !== false,
+      tor: Boolean(health.fetch_modes?.tor),
+      proxy: Boolean(health.fetch_modes?.proxy),
+    };
+    Array.from(els.webFetchMode.options).forEach((option) => {
+      option.disabled = webFetchModes[option.value] === false;
+    });
+    if (!webFetchModes[els.webFetchMode.value]) {
+      els.webFetchMode.value = ["tor", "proxy", "direct"].find((mode) => webFetchModes[mode]) || "direct";
+    }
     webSearchSupported = Boolean(
       res.ok
       && json.ok !== false
       && health.available !== false
       && (health.tavily_configured || health.searxng_available),
     );
+    researchSupported = Boolean(webSearchSupported && health.research_available);
     if (webSearchSupported) {
-      els.webStatus.textContent = "Web context is available: Tavily first, then balanced SearXNG if Tavily credits are exhausted.";
+      const routeLabel = webFetchModes.tor ? "Tor page fetching is available." : "Tor page fetching is unavailable.";
+      els.webStatus.textContent = researchSupported
+        ? `Web and local research are available: Tavily first, then balanced SearXNG. ${routeLabel}`
+        : `Web context is available: Tavily first, then balanced SearXNG. ${routeLabel}`;
       els.webStatus.dataset.state = "good";
       els.webSearch.disabled = false;
       syncWebUI();
+      syncModeUI();
+      updateSendState();
       return;
     }
     if (res.ok && health.tavily_configured === false && health.searxng_available === false) {
@@ -2899,23 +2976,37 @@ async function loadWebSearchCapability() {
       els.webStatus.dataset.state = "bad";
       els.webSearch.checked = false;
       els.webSearch.disabled = true;
+      researchSupported = false;
       syncWebUI();
+      updateSendState();
       return;
     }
     throw new Error(json.error || "Web-search API is not available yet.");
   } catch (error) {
     webSearchSupported = false;
+    researchSupported = false;
+    webFetchModes = { direct: true, tor: false, proxy: false };
     els.webSearch.checked = false;
     els.webSearch.disabled = true;
     els.webStatus.textContent = "Web context service is not configured or unavailable.";
     els.webStatus.dataset.state = "bad";
     syncWebUI();
+    syncModeUI();
+    updateSendState();
   }
 }
 
-async function sendMessage(content) {
+async function sendMessage(content, route = routeRequest(content)) {
   if (!chatReady) {
     setStatus("Token Gen API model discovery is unavailable", "bad");
+    return;
+  }
+  if (route.research && !researchSupported) {
+    setStatus("Local Research mode is currently unavailable", "bad");
+    return;
+  }
+  if (route.web && !webSearchSupported) {
+    setStatus("This question needs current web context, but web search is unavailable", "bad");
     return;
   }
   if (documentTokenTotal() > getDocumentBudgetTokens()) {
@@ -2937,19 +3028,30 @@ async function sendMessage(content) {
   scheduleConversationSave(0);
   els.send.disabled = true;
   els.input.disabled = true;
-  setStatus(els.webSearch.checked ? "Gathering web context..." : "Generating response...", "busy");
+  setStatus(
+    route.research
+      ? "Researching sources and preparing local evidence..."
+      : route.web
+        ? "Gathering web context..."
+        : route.project
+          ? `Searching ${projectState.active?.name || "project"}...`
+          : "Generating response...",
+    "busy",
+  );
 
   try {
     const chatUserId = await getChatUserId();
-    if (els.webSearch.checked && !webSearchSupported) {
-      throw new Error("Web context is enabled, but Tavily web context is not available yet.");
-    }
-    const projectContext = projectState.active
+    const projectContext = route.project
       ? await (async () => {
           setStatus(`Searching ${projectState.active.name}...`, "busy");
           return retrieveActiveProjectContext(content);
         })()
       : null;
+    if (route.research) {
+      setStatus("Researching sources and preparing local evidence...", "busy");
+    } else if (route.web) {
+      setStatus("Gathering web context...", "busy");
+    }
 
     const res = await fetch(`${API_BASE}/api/chat/stream`, {
       method: "POST",
@@ -2958,7 +3060,7 @@ async function sendMessage(content) {
         "x-token-gen-user": chatUserId,
         "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
       },
-      body: JSON.stringify(await buildPayload(chatUserId, projectContext)),
+      body: JSON.stringify(await buildPayload(chatUserId, projectContext, route)),
     });
     if (!res.ok || !res.body) {
       const text = await res.text();
@@ -2997,7 +3099,12 @@ async function sendMessage(content) {
         const webContext = chunk.web_context || chunk.webContext || (chunk.type === "web_context" ? chunk.data : null);
         if (webContext) {
           attachWebContext(assistantIndex, webContext);
-          setStatus("Web context attached; generating response...", "busy");
+          setStatus(
+            webContext.research?.enabled
+              ? "Research evidence prepared; generating local answer..."
+              : "Web context attached; generating response...",
+            "busy",
+          );
           continue;
         }
         const delta = chunk.choices?.[0]?.delta || {};
@@ -3541,9 +3648,10 @@ els.form.addEventListener("submit", (event) => {
   }
   const content = els.input.value.trim();
   if (!content || els.send.disabled) return;
+  const route = routeRequest(content);
   els.input.value = "";
   autosizeInput();
-  if (isImageModeForPrompt(content)) {
+  if (route.kind === "image") {
     const sourceVisionImages = [...attachedVisionImages];
     if (sourceVisionImages.length) {
       const source = sourceVisionImages[0];
@@ -3562,7 +3670,7 @@ els.form.addEventListener("submit", (event) => {
     }
     sendImageMessage(content, sourceVisionImages);
   } else {
-    sendMessage(content);
+    sendMessage(content, route);
   }
 });
 
@@ -3588,6 +3696,10 @@ els.mode.addEventListener("change", () => {
   updateSendState();
   if (getMode() === "image" && !imageGenerationSupported) {
     setStatus("Image generation is unavailable", "bad");
+  } else if (getMode() === "research" && !researchSupported) {
+    setStatus("Local Research mode is currently unavailable", "bad");
+  } else if (getMode() === "research") {
+    setStatus("Research mode will search, extract, rank, and answer locally", "good");
   } else if (getMode() === "chat" && chatReady) {
     setStatus(`Connected to ${modelLabel(getSelectedModel().id)}`, "good");
   }
@@ -3741,7 +3853,7 @@ els.webQuickToggle.addEventListener("click", () => {
   if (els.webSearch.disabled) return;
   els.webSearch.checked = !els.webSearch.checked;
   syncWebUI();
-  setStatus(els.webSearch.checked ? "Web context enabled for the next message" : "Web context disabled", "good");
+  setStatus(els.webSearch.checked ? "Web will be used for every chat turn" : "Auto will use web only when the question needs it", "good");
   els.input.focus();
 });
 

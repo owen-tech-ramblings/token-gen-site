@@ -691,7 +691,7 @@ body.chat-page {
 .chat-mode-control {
   height: 40px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(54px, auto));
+  grid-template-columns: repeat(4, minmax(54px, auto));
   gap: 3px;
   padding: 3px;
   border: 1px solid var(--chat-border);
@@ -2422,7 +2422,7 @@ body.chat-image-editor-open {
 
   .chat-mode-control {
     height: 36px;
-    grid-template-columns: repeat(3, 44px);
+    grid-template-columns: repeat(4, 44px);
   }
 
   .chat-mode-control button {
@@ -2527,7 +2527,7 @@ body.chat-image-editor-open {
   }
 
   .chat-mode-control {
-    grid-template-columns: repeat(3, 42px);
+    grid-template-columns: repeat(4, 42px);
   }
 
   .chat-welcome-visual img {
@@ -2567,7 +2567,7 @@ body.chat-image-editor-open {
   }
 
   .chat-mode-control {
-    grid-template-columns: repeat(3, 38px);
+    grid-template-columns: repeat(4, 38px);
   }
 }
 .bg-glow { position: fixed; width: 800px; height: 800px; top: -300px; right: -200px; background: radial-gradient(circle, rgba(77, 226, 197, 0.22), transparent 70%); pointer-events: none; }

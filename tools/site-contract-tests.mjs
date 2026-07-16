@@ -33,6 +33,14 @@ assert.doesNotMatch(chatJs, /localStorage[^\n]+chatWebApiKey|chatWebApiKey[^\n]+
 assert.match(chatJs, /health\.searxng_available/, "Chat must require a live balanced SearXNG fallback.");
 assert.match(chatJs, /Tavily first, then balanced SearXNG/, "Chat must explain the provider fallback order.");
 assert.match(chatHtml, /id="chatMode"/, "Chat HTML must include a mode selector.");
+assert.match(chatHtml, /data-chat-mode="research"/, "Chat must expose an explicit Research response mode.");
+assert.match(chatJs, /function routeRequest\(prompt\)/, "Chat must resolve one immutable route for each submitted turn.");
+assert.match(chatJs, /promptNeedsFreshWeb/, "Auto mode must detect questions that need current web information.");
+assert.match(chatJs, /promptNeedsResearch/, "Auto mode must detect explicit source-backed research intent.");
+assert.match(chatJs, /research:\s*route\.research/, "Research routing must be sent through the web-search contract.");
+assert.match(chatJs, /enable_thinking:\s*route\.enableThinking/, "Research mode must opt into local model reasoning without mutating saved settings.");
+assert.match(chatJs, /time_range:\s*route\.timeRange/, "Automatic web routing must send a bounded freshness window.");
+assert.match(chatHtml, /never silently changes Tor or Proxy to Direct/, "Web privacy copy must explain that selected private routes never fall back to direct fetching.");
 assert.match(chatHtml, /id="chatImageSize"/, "Chat HTML must include image size settings.");
 assert.match(chatHtml, /id="chatImageQuality"/, "Chat HTML must include image quality settings.");
 assert.match(chatHtml, /id="chatImageSamples"/, "Chat HTML must include image sample count settings.");
@@ -59,8 +67,8 @@ assert.match(chatHtml, /value="adult_ok"/, "Chat image content rating must use t
 assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include the API flexible value.");
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-canvas-20260716-1/, "Chat HTML must use the current image-canvas CSS cache key.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-canvas-20260716-1/, "Chat HTML must cache-bust the image-canvas script.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-research-20260716-1/, "Chat HTML must use the current research-routing CSS cache key.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-research-20260716-1/, "Chat HTML must cache-bust the research-routing script.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");

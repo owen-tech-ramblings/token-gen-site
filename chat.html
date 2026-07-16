@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-canvas-20260716-1" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-research-20260716-1" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -97,11 +97,13 @@
             <div class="chat-mode-control" role="group" aria-label="Response mode">
               <button type="button" data-chat-mode="auto" aria-pressed="true">Auto</button>
               <button type="button" data-chat-mode="chat" aria-pressed="false">Chat</button>
+              <button type="button" data-chat-mode="research" aria-pressed="false">Research</button>
               <button type="button" data-chat-mode="image" aria-pressed="false">Image</button>
             </div>
             <select id="chatMode" class="chat-visually-hidden" aria-hidden="true" tabindex="-1">
               <option value="chat">Chat</option>
               <option value="auto" selected>Auto</option>
+              <option value="research">Research</option>
               <option value="image">Image</option>
             </select>
             <button class="chat-icon-button chat-jobs-button" id="chatJobsOpen" type="button" title="Background jobs" aria-label="Open background jobs">
@@ -212,8 +214,8 @@
           </div>
           <label class="chat-toggle-row">
             <span>
-              <strong>Use web context</strong>
-              <small id="chatWebStatus">Checking web-search support...</small>
+              <strong>Always use web</strong>
+              <small id="chatWebStatus">Checking web and research support...</small>
             </span>
             <input id="chatWebSearch" type="checkbox" />
           </label>
@@ -249,10 +251,10 @@
                 </label>
                 <label class="chat-field" for="chatWebBudget">
                   <span>Token budget</span>
-                  <input id="chatWebBudget" type="number" min="500" max="10000" step="500" value="10000" />
+                  <input id="chatWebBudget" type="number" min="500" max="24000" step="500" value="10000" />
                 </label>
               </div>
-              <p class="chat-web-note">Web queries use the selected route. A supplied Tavily key remains in this tab and is sent only with the request.</p>
+              <p class="chat-web-note">The search provider receives the query. Destination pages use the selected fetch route; Token Gen never silently changes Tor or Proxy to Direct. A supplied Tavily key remains in this tab and is sent only with the request.</p>
             </div>
           </details>
         </section>
@@ -587,6 +589,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-canvas-20260716-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-research-20260716-1"></script>
   </body>
 </html>
