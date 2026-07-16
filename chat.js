@@ -73,6 +73,25 @@ const els = {
   privacyStatus: $("#chatPrivacyStatus"),
   historyExport: $("#chatHistoryExport"),
   historyDelete: $("#chatHistoryDelete"),
+  projectSelect: $("#chatProjectSelect"),
+  projectRailStatus: $("#chatProjectRailStatus"),
+  projectManage: $("#chatProjectManage"),
+  projectSettings: $("#chatProjectSettings"),
+  projectSettingsSelect: $("#chatProjectSettingsSelect"),
+  projectCreateName: $("#chatProjectCreateName"),
+  projectCreate: $("#chatProjectCreate"),
+  projectEditor: $("#chatProjectEditor"),
+  projectName: $("#chatProjectName"),
+  projectInstructions: $("#chatProjectInstructions"),
+  projectSave: $("#chatProjectSave"),
+  projectDelete: $("#chatProjectDelete"),
+  projectUpload: $("#chatProjectUpload"),
+  projectDocuments: $("#chatProjectDocuments"),
+  projectDocumentList: $("#chatProjectDocumentList"),
+  projectDocumentCount: $("#chatProjectDocumentCount"),
+  projectStatus: $("#chatProjectStatus"),
+  attachProjectDocument: $("#chatAttachProjectDocument"),
+  attachProjectHint: $("#chatAttachProjectHint"),
 };
 
 function welcomeMessage() {
@@ -112,12 +131,24 @@ let historyState = {
   saving: false,
   saveQueued: false,
 };
+let projectState = {
+  available: false,
+  loading: true,
+  projects: [],
+  activeId: null,
+  active: null,
+  documents: [],
+  etag: null,
+  busy: false,
+};
 
 const DEFAULT_CONTEXT_WINDOW = 131072;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const HISTORY_API_PATH = `${API_BASE}/api/conversations`;
+const PROJECTS_API_PATH = `${API_BASE}/api/projects`;
 const HISTORY_SAVE_DELAY_MS = 450;
+const PROJECT_MAX_FILE_BYTES = 30 * 1024 * 1024;
 const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", steps: 8, cfg: 5.0, prompt: "quick clean preview" },
   standard: { label: "Standard", steps: 20, cfg: 5.0, prompt: "balanced detail and prompt fidelity" },
@@ -659,7 +690,7 @@ function renderConversationHistory() {
     <div class="chat-history-item${conversation.id === historyState.currentId ? " is-current" : ""}">
       <button class="chat-history-open" type="button" data-history-open="${escapeHtml(conversation.id)}">
         <strong>${escapeHtml(conversation.title || "Untitled chat")}</strong>
-        <small>${escapeHtml(historyTimeLabel(conversation.updated_at))}</small>
+        <small>${conversation.project_name ? `${escapeHtml(conversation.project_name)} / ` : ""}${escapeHtml(historyTimeLabel(conversation.updated_at))}</small>
       </button>
       <button class="chat-history-remove" type="button" data-history-delete="${escapeHtml(conversation.id)}" title="Delete saved chat" aria-label="Delete ${escapeHtml(conversation.title || "saved chat")}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" /></svg>
@@ -697,6 +728,328 @@ async function historyRequest(path = "", options = {}) {
     throw error;
   }
   return { response, json, etag: response.headers.get("etag") };
+}
+
+async function projectRequest(path = "", options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (options.body && !(options.body instanceof FormData) && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+  let response;
+  try {
+    response = await fetch(`${PROJECTS_API_PATH}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+      cache: "no-store",
+    });
+  } catch (cause) {
+    const error = new Error("The private project library could not be reached.");
+    error.cause = cause;
+    error.status = 0;
+    throw error;
+  }
+  const raw = response.status === 204 ? "" : await response.text();
+  let json = {};
+  if (raw) {
+    try { json = JSON.parse(raw); } catch { json = {}; }
+  }
+  if (!response.ok) {
+    const error = new Error(json.error?.message || `Project request failed: HTTP ${response.status}`);
+    error.status = response.status;
+    error.code = json.error?.code;
+    throw error;
+  }
+  return { response, json, etag: response.headers.get("etag") };
+}
+
+function setProjectStatus(text, state = "neutral") {
+  [els.projectRailStatus, els.projectStatus].forEach((element) => {
+    if (!element) return;
+    element.textContent = text;
+    element.dataset.state = state;
+  });
+}
+
+function projectOptionsMarkup() {
+  return [
+    '<option value="">No project</option>',
+    ...projectState.projects.map((project) => (
+      `<option value="${escapeHtml(project.id)}">${escapeHtml(project.name)}</option>`
+    )),
+  ].join("");
+}
+
+function formatProjectBytes(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
+function renderProjectDocuments() {
+  if (!els.projectDocumentList) return;
+  const documents = projectState.documents;
+  els.projectDocumentCount.textContent = String(documents.length);
+  if (!documents.length) {
+    els.projectDocumentList.innerHTML = '<p class="chat-project-empty">No reusable documents yet.</p>';
+    return;
+  }
+  els.projectDocumentList.innerHTML = documents.map((document) => `
+    <div class="chat-project-document">
+      <div class="chat-project-document-icon" aria-hidden="true">${escapeHtml((document.extension || "file").slice(0, 4).toUpperCase())}</div>
+      <div class="chat-project-document-copy">
+        <strong title="${escapeHtml(document.name)}">${escapeHtml(document.name)}</strong>
+        <small>${formatProjectBytes(document.original_bytes)} / ${formatNumber(document.estimated_token_count || 0)} tokens / ${formatNumber(document.chunk_count || 0)} passages</small>
+      </div>
+      <div class="chat-project-document-actions">
+        <button type="button" data-project-document-download="${escapeHtml(document.id)}" title="Download document" aria-label="Download ${escapeHtml(document.name)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
+        </button>
+        <button type="button" data-project-document-delete="${escapeHtml(document.id)}" title="Delete document" aria-label="Delete ${escapeHtml(document.name)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></svg>
+        </button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function renderProjectState() {
+  const options = projectOptionsMarkup();
+  [els.projectSelect, els.projectSettingsSelect].forEach((select) => {
+    if (!select) return;
+    select.innerHTML = options;
+    select.value = projectState.activeId || "";
+    select.disabled = !projectState.available || projectState.loading || projectState.busy;
+  });
+  const active = projectState.active;
+  els.projectEditor.hidden = !active;
+  els.projectName.value = active?.name || "";
+  els.projectInstructions.value = active?.instructions || "";
+  els.projectSave.disabled = !active || !projectState.available || projectState.busy;
+  els.projectDelete.disabled = !active || !projectState.available || projectState.busy;
+  els.projectUpload.disabled = !active || !projectState.available || projectState.busy;
+  els.projectCreate.disabled = !projectState.available || projectState.busy;
+  els.attachProjectDocument.hidden = !active || !projectState.available;
+  if (active) els.attachProjectHint.textContent = `Save for reuse in ${active.name}`;
+  renderProjectDocuments();
+}
+
+async function setActiveProject(id, { quiet = false } = {}) {
+  const nextId = String(id || "");
+  if (!nextId) {
+    projectState.activeId = null;
+    projectState.active = null;
+    projectState.documents = [];
+    projectState.etag = null;
+    renderProjectState();
+    setProjectStatus(projectState.available ? "No project selected" : "Project library unavailable", projectState.available ? "neutral" : "bad");
+    if (!quiet) scheduleConversationSave(0);
+    return;
+  }
+  projectState.busy = true;
+  projectState.activeId = nextId;
+  renderProjectState();
+  setProjectStatus("Opening project...", "neutral");
+  try {
+    const [projectResult, documentsResult] = await Promise.all([
+      projectRequest(`/${encodeURIComponent(nextId)}`),
+      projectRequest(`/${encodeURIComponent(nextId)}/documents`),
+    ]);
+    const project = projectResult.json.project;
+    if (!project?.id || !Array.isArray(documentsResult.json.documents)) throw new Error("Project library returned an invalid response.");
+    projectState.active = project;
+    projectState.documents = documentsResult.json.documents;
+    projectState.etag = projectResult.etag || project.version;
+    projectState.projects = [
+      { ...projectState.projects.find((item) => item.id === project.id), ...project },
+      ...projectState.projects.filter((item) => item.id !== project.id),
+    ].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+    setProjectStatus(`${project.name} / ${projectState.documents.length} document${projectState.documents.length === 1 ? "" : "s"}`, "good");
+    if (!quiet) scheduleConversationSave(0);
+  } catch (error) {
+    projectState.activeId = null;
+    projectState.active = null;
+    projectState.documents = [];
+    projectState.etag = null;
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    renderProjectState();
+  }
+}
+
+async function loadProjects() {
+  projectState.loading = true;
+  renderProjectState();
+  try {
+    const { json } = await projectRequest();
+    if (!json.ok || !Array.isArray(json.projects)) throw new Error("Project library returned an invalid response.");
+    projectState.available = true;
+    projectState.projects = json.projects;
+    if (projectState.activeId && !projectState.projects.some((project) => project.id === projectState.activeId)) {
+      projectState.activeId = null;
+      projectState.active = null;
+      projectState.documents = [];
+      projectState.etag = null;
+    }
+    setProjectStatus(projectState.projects.length ? "Choose a project or continue without one" : "Create a project for reusable documents", "good");
+  } catch (error) {
+    projectState.available = false;
+    projectState.projects = [];
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.loading = false;
+    renderProjectState();
+  }
+}
+
+async function createProject() {
+  const name = els.projectCreateName.value.trim();
+  if (!name) {
+    setProjectStatus("Enter a project name first", "bad");
+    els.projectCreateName.focus();
+    return;
+  }
+  projectState.busy = true;
+  renderProjectState();
+  setProjectStatus("Creating project...", "neutral");
+  try {
+    const { json } = await projectRequest("", { method: "POST", body: JSON.stringify({ name }) });
+    const project = json.project;
+    if (!project?.id) throw new Error("Project library returned an invalid response.");
+    projectState.projects = [project, ...projectState.projects];
+    els.projectCreateName.value = "";
+    projectState.busy = false;
+    await setActiveProject(project.id);
+  } catch (error) {
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    renderProjectState();
+  }
+}
+
+async function saveProjectDetails() {
+  if (!projectState.active) return;
+  const body = { name: els.projectName.value.trim(), instructions: els.projectInstructions.value.trim() };
+  if (!body.name) {
+    setProjectStatus("Project name cannot be empty", "bad");
+    return;
+  }
+  projectState.busy = true;
+  renderProjectState();
+  setProjectStatus("Saving project...", "neutral");
+  try {
+    const result = await projectRequest(`/${encodeURIComponent(projectState.active.id)}`, {
+      method: "PUT",
+      headers: { "if-match": projectState.etag || projectState.active.version },
+      body: JSON.stringify(body),
+    });
+    projectState.active = result.json.project;
+    projectState.etag = result.etag || projectState.active.version;
+    projectState.projects = projectState.projects.map((project) => (
+      project.id === projectState.active.id ? { ...project, ...projectState.active } : project
+    ));
+    setProjectStatus("Project details saved", "good");
+    scheduleConversationSave(0);
+  } catch (error) {
+    setProjectStatus(error.status === 412 ? "Project changed elsewhere. Reopen it and try again." : error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    renderProjectState();
+  }
+}
+
+async function deleteActiveProject() {
+  const project = projectState.active;
+  if (!project || !window.confirm(`Delete "${project.name}" and all its stored documents? This cannot be undone.`)) return;
+  projectState.busy = true;
+  renderProjectState();
+  setProjectStatus("Deleting project...", "neutral");
+  try {
+    await projectRequest(`/${encodeURIComponent(project.id)}`, { method: "DELETE" });
+    projectState.projects = projectState.projects.filter((item) => item.id !== project.id);
+    projectState.activeId = null;
+    projectState.active = null;
+    projectState.documents = [];
+    projectState.etag = null;
+    setProjectStatus("Project deleted", "good");
+    scheduleConversationSave(0);
+  } catch (error) {
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    renderProjectState();
+  }
+}
+
+async function uploadProjectDocuments(files) {
+  if (!projectState.active || !files.length) return;
+  projectState.busy = true;
+  renderProjectState();
+  try {
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+      if (file.size > PROJECT_MAX_FILE_BYTES) throw new Error(`${file.name} is larger than the 30 MB project limit.`);
+      setProjectStatus(`Indexing ${file.name} (${index + 1} of ${files.length})...`, "neutral");
+      const form = new FormData();
+      form.append("file", file, file.name);
+      await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents`, { method: "POST", body: form });
+    }
+    projectState.busy = false;
+    await setActiveProject(projectState.active.id, { quiet: true });
+    setProjectStatus(`${files.length} document${files.length === 1 ? "" : "s"} added to ${projectState.active.name}`, "good");
+  } catch (error) {
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    els.projectDocuments.value = "";
+    renderProjectState();
+  }
+}
+
+async function downloadProjectDocument(documentId) {
+  const storedDocument = projectState.documents.find((item) => item.id === documentId);
+  if (!storedDocument || !projectState.active) return;
+  setProjectStatus(`Preparing ${storedDocument.name}...`, "neutral");
+  try {
+    const response = await fetch(`${PROJECTS_API_PATH}/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(storedDocument.id)}/download`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
+    const url = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = storedDocument.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setProjectStatus(`${storedDocument.name} download started`, "good");
+  } catch (error) {
+    setProjectStatus(error.message, "bad");
+  }
+}
+
+async function deleteProjectDocument(documentId) {
+  const document = projectState.documents.find((item) => item.id === documentId);
+  if (!document || !projectState.active || !window.confirm(`Delete "${document.name}" from this project?`)) return;
+  projectState.busy = true;
+  renderProjectState();
+  setProjectStatus(`Deleting ${document.name}...`, "neutral");
+  try {
+    await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(document.id)}`, { method: "DELETE" });
+    projectState.busy = false;
+    await setActiveProject(projectState.active.id, { quiet: true });
+    setProjectStatus(`${document.name} deleted`, "good");
+  } catch (error) {
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    renderProjectState();
+  }
 }
 
 function currentMessages() {
@@ -749,6 +1102,22 @@ function storedHistoryMessages() {
           : [],
       };
     }
+    if (message.projectContext) {
+      item.project_context = {
+        project_id: message.projectContext.project_id,
+        project_name: message.projectContext.project_name,
+        passages: Array.isArray(message.projectContext.passages)
+          ? message.projectContext.passages.slice(0, 12).map((passage) => ({
+              citation: passage.citation,
+              document_id: passage.document_id,
+              document_name: passage.document_name,
+              page: passage.page,
+              section: passage.section,
+              lines: passage.lines,
+            }))
+          : [],
+      };
+    }
     return item;
   });
 }
@@ -761,6 +1130,7 @@ function restoredHistoryMessage(message) {
     id: message.id,
     createdAt: message.created_at,
     webContext: message.web_context,
+    projectContext: message.project_context,
     imageOutputs: images.map((image) => ({ ...image, url: absoluteImageUrl(image.url) })),
     imagePrompt: images[0]?.prompt || "",
   });
@@ -784,6 +1154,8 @@ function historySummary(conversation) {
     retention: conversation.retention,
     message_count: conversation.message_count,
     version: conversation.version,
+    project_id: conversation.project_id,
+    project_name: conversation.project_name,
   };
 }
 
@@ -853,6 +1225,8 @@ async function saveConversation() {
     title: currentConversationTitle(),
     retention: historyState.currentRetention,
     messages: storedMessages,
+    project_id: projectState.active?.id || null,
+    project_name: projectState.active?.name || null,
   };
   try {
     let result;
@@ -970,6 +1344,7 @@ async function openStoredConversation(id) {
     historyState.currentVersion = etag || conversation.version;
     historyState.currentRetention = conversation.retention;
     els.historyRetention.value = historyState.currentRetention;
+    await setActiveProject(conversation.project_id || "", { quiet: true });
     uploadedDocuments = [];
     renderDocuments();
     clearActiveImageSource();
@@ -1023,6 +1398,14 @@ function exportCurrentConversation() {
     if (sources.length) {
       lines.push("", "Sources:");
       sources.forEach((source) => lines.push(`- [${source.title || source.url}](${source.url})`));
+    }
+    const projectPassages = message.projectContext?.passages || [];
+    if (projectPassages.length) {
+      lines.push("", `Project: ${message.projectContext.project_name || "Project"}`);
+      projectPassages.forEach((passage) => {
+        const location = passage.page ? `, page ${passage.page}` : passage.section ? `, ${passage.section}` : "";
+        lines.push(`- ${passage.citation || "[Project]"} ${passage.document_name || "Document"}${location}`);
+      });
     }
     lines.push("");
   });
@@ -1336,6 +1719,7 @@ function renderMessages(pending = false) {
         <div class="chat-avatar">${message.role === "user" ? "You" : "TG"}</div>
         <div class="chat-bubble">
           <div class="chat-role">${message.role === "user" ? "You" : "Token Gen"}</div>
+          ${renderProjectContext(message.projectContext)}
           ${renderWebContext(message.webContext)}
           ${renderImageOutputs(message)}
           <div class="chat-content">${content}</div>
@@ -1448,6 +1832,40 @@ function appendAssistantMessage(content = "") {
   return messages.length - 1;
 }
 
+function renderProjectContext(context) {
+  if (!context) return "";
+  const passages = Array.isArray(context.passages) ? context.passages.slice(0, 12) : [];
+  return `
+    <details class="chat-web-context chat-project-context">
+      <summary>
+        <span>${escapeHtml(context.project_name || "Project context")}</span>
+        <span class="chat-web-mode">${passages.length} passage${passages.length === 1 ? "" : "s"}</span>
+      </summary>
+      ${passages.length ? `
+        <div class="chat-web-context-body">
+          <div class="chat-project-sources">
+            ${passages.map((passage) => {
+              const location = passage.page
+                ? `Page ${passage.page}`
+                : passage.section
+                  ? passage.section
+                  : Array.isArray(passage.lines)
+                    ? `Lines ${passage.lines.join("-")}`
+                    : "Relevant passage";
+              return `
+                <div>
+                  <strong>${escapeHtml(passage.citation || "[Project]")} ${escapeHtml(passage.document_name || "Document")}</strong>
+                  <span>${escapeHtml(location)}</span>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      ` : ""}
+    </details>
+  `;
+}
+
 function updateAssistantMessage(index, content) {
   messages[index].content = content;
   renderMessages(false);
@@ -1497,12 +1915,59 @@ function boundedChatPayload(systemParts) {
   return { history: selected, maxTokens: outputTokens, webTokens };
 }
 
-function buildPayload(userId) {
+function attachProjectContext(index, context) {
+  messages[index].projectContext = context;
+  renderMessages(false);
+}
+
+async function retrieveActiveProjectContext(query) {
+  const project = projectState.active;
+  if (!project) return null;
+  let retrieval = { project, passages: [], context: "" };
+  if (projectState.documents.length) {
+    const tokenBudget = Math.min(16000, Math.max(1000, Math.floor(getModelContextWindow() * 0.1)));
+    const { json } = await projectRequest(`/${encodeURIComponent(project.id)}/retrieve`, {
+      method: "POST",
+      body: JSON.stringify({ query, top_k: 8, token_budget: tokenBudget }),
+    });
+    if (!json.ok || !json.project || !Array.isArray(json.passages)) {
+      throw new Error("Project retrieval returned an invalid response.");
+    }
+    retrieval = json;
+  }
+  const system = [
+    `Active project: ${retrieval.project.name}`,
+    retrieval.project.instructions
+      ? `<project_instructions>\n${retrieval.project.instructions}\n</project_instructions>`
+      : "",
+    retrieval.context
+      ? `<project_evidence>\n${retrieval.context}\n</project_evidence>`
+      : "",
+  ].filter(Boolean).join("\n\n");
+  return {
+    system,
+    metadata: {
+      project_id: retrieval.project.id,
+      project_name: retrieval.project.name,
+      passages: retrieval.passages.map((passage) => ({
+        citation: passage.citation,
+        document_id: passage.document_id,
+        document_name: passage.document_name,
+        page: passage.page,
+        section: passage.section,
+        lines: passage.lines,
+      })),
+    },
+  };
+}
+
+function buildPayload(userId, projectContext = null) {
   const system = els.system.value.trim();
   const documentContext = buildDocumentContextMessage();
   const systemParts = [
     ...(system ? [system] : []),
     ...(documentContext?.content ? [documentContext.content] : []),
+    ...(projectContext?.system ? [projectContext.system] : []),
   ];
   const bounded = boundedChatPayload(systemParts);
 
@@ -1525,6 +1990,7 @@ function buildPayload(userId) {
     metadata: {
       source: "token_gen_chat",
       user_id: userId,
+      project_id: projectState.active?.id || undefined,
     },
   };
 }
@@ -1668,6 +2134,12 @@ async function sendMessage(content) {
     if (els.webSearch.checked && !webSearchSupported) {
       throw new Error("Web context is enabled, but Tavily web context is not available yet.");
     }
+    const projectContext = projectState.active
+      ? await (async () => {
+          setStatus(`Searching ${projectState.active.name}...`, "busy");
+          return retrieveActiveProjectContext(content);
+        })()
+      : null;
 
     const res = await fetch(`${API_BASE}/api/chat/stream`, {
       method: "POST",
@@ -1676,7 +2148,7 @@ async function sendMessage(content) {
         "x-token-gen-user": chatUserId,
         "x-token-gen-user-source": "cloudflare-access",
       },
-      body: JSON.stringify(buildPayload(chatUserId)),
+      body: JSON.stringify(buildPayload(chatUserId, projectContext)),
     });
     if (!res.ok || !res.body) {
       const text = await res.text();
@@ -1684,6 +2156,7 @@ async function sendMessage(content) {
     }
 
     const assistantIndex = appendAssistantMessage("");
+    if (projectContext?.metadata) attachProjectContext(assistantIndex, projectContext.metadata);
     let assistantText = "";
     let buffer = "";
     const decoder = new TextDecoder();
@@ -2305,6 +2778,11 @@ els.attachDocument.addEventListener("click", () => {
   els.documents.click();
 });
 
+els.attachProjectDocument.addEventListener("click", () => {
+  setAttachMenu(false);
+  if (projectState.active) els.projectDocuments.click();
+});
+
 els.attachImage.addEventListener("click", () => {
   setAttachMenu(false);
   els.imageUpload.click();
@@ -2328,6 +2806,41 @@ els.settingsClose.addEventListener("click", () => setSettingsOpen(false));
 els.settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
 els.railOpen.addEventListener("click", () => setRailOpen(true));
 els.railClose.addEventListener("click", () => setRailOpen(false));
+
+els.projectManage.addEventListener("click", () => {
+  setRailOpen(false);
+  setSettingsOpen(true);
+  requestAnimationFrame(() => els.projectSettings.scrollIntoView({ block: "start", behavior: "smooth" }));
+});
+
+[els.projectSelect, els.projectSettingsSelect].forEach((select) => {
+  select.addEventListener("change", () => setActiveProject(select.value));
+});
+
+els.projectCreate.addEventListener("click", createProject);
+els.projectCreateName.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    createProject();
+  }
+});
+els.projectSave.addEventListener("click", saveProjectDetails);
+els.projectDelete.addEventListener("click", deleteActiveProject);
+els.projectUpload.addEventListener("click", () => {
+  if (projectState.active) els.projectDocuments.click();
+});
+els.projectDocuments.addEventListener("change", () => {
+  uploadProjectDocuments(Array.from(els.projectDocuments.files || []));
+});
+els.projectDocumentList.addEventListener("click", (event) => {
+  const download = event.target.closest("[data-project-document-download]");
+  if (download) {
+    downloadProjectDocument(download.dataset.projectDocumentDownload);
+    return;
+  }
+  const remove = event.target.closest("[data-project-document-delete]");
+  if (remove) deleteProjectDocument(remove.dataset.projectDocumentDelete);
+});
 
 els.webQuickToggle.addEventListener("click", () => {
   if (els.webSearch.disabled) return;
@@ -2614,10 +3127,12 @@ renderMessages(false);
 renderDocuments();
 renderImageSourcePreview();
 renderImageMaskPreview();
+renderProjectState();
 syncImageEditStrengthValue();
 syncModeUI();
 syncWebUI();
 loadConversationHistory();
+loadProjects();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
