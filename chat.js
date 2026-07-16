@@ -10,6 +10,9 @@ const els = {
   maxTokens: $("#chatMaxTokens"),
   reasoning: $("#chatReasoning"),
   documents: $("#chatDocuments"),
+  visionImages: $("#chatVisionImages"),
+  visionPreview: $("#chatVisionPreview"),
+  visionStatus: $("#chatVisionStatus"),
   docBudget: $("#chatDocBudget"),
   docStatus: $("#chatDocStatus"),
   docMeter: $("#chatDocMeter"),
@@ -111,8 +114,11 @@ function createMessage(role, content, extra = {}) {
 let messages = [welcomeMessage()];
 let webSearchSupported = false;
 let imageGenerationSupported = false;
+let visionSupported = false;
+let visionCapabilities = {};
 let availableModels = [];
 let uploadedDocuments = [];
+let attachedVisionImages = [];
 let activeImageSource = null;
 let activeImageMask = null;
 let activeImageAbortController = null;
@@ -149,6 +155,10 @@ const HISTORY_API_PATH = `${API_BASE}/api/conversations`;
 const PROJECTS_API_PATH = `${API_BASE}/api/projects`;
 const HISTORY_SAVE_DELAY_MS = 450;
 const PROJECT_MAX_FILE_BYTES = 30 * 1024 * 1024;
+const DEFAULT_VISION_MAX_IMAGES = 4;
+const DEFAULT_VISION_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const DEFAULT_VISION_MAX_TOTAL_BYTES = 24 * 1024 * 1024;
+const DEFAULT_VISION_MAX_PIXELS = 1280 * 28 * 28;
 const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", steps: 8, cfg: 5.0, prompt: "quick clean preview" },
   standard: { label: "Standard", steps: 20, cfg: 5.0, prompt: "balanced detail and prompt fidelity" },
@@ -229,6 +239,7 @@ const IMAGE_ORIENTATION_LABELS = {
 };
 const IMAGE_INTENT_PATTERN = /\b(create|generate|make|draw|render|paint|illustrate|design)\b[^.?!\n]{0,80}\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b|\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b[^.?!\n]{0,80}\b(create|generate|make|draw|render|paint|illustrate|design)\b/i;
 const DIRECT_IMAGE_COMMAND_PATTERN = /^\s*(draw|paint|illustrate|render)\b/i;
+const IMAGE_EDIT_INTENT_PATTERN = /\b(edit|change|modify|remove|replace|add|restyle|transform|enhance|upscale|improve|retouch|recolour|recolor|make this|turn this)\b/i;
 const SUPPORTED_TEXT_EXTENSIONS = new Set([
   "txt", "md", "markdown", "csv", "json", "jsonl", "html", "htm", "xml", "yaml", "yml", "log",
   "js", "ts", "tsx", "jsx", "py", "ps1", "sh", "sql", "css", "rtf",
@@ -259,6 +270,20 @@ function clampNumber(value, fallback, min, max) {
 
 function getSelectedModel() {
   return availableModels.find((model) => model.id === els.model.value) || availableModels[0] || {};
+}
+
+function getVisionCapabilities(model = getSelectedModel()) {
+  return model.capabilities?.vision || visionCapabilities || {};
+}
+
+function getVisionLimits() {
+  const capability = getVisionCapabilities();
+  return {
+    maxImages: Math.max(1, Math.min(4, Number(capability.max_images || DEFAULT_VISION_MAX_IMAGES))),
+    maxImageBytes: Number(capability.max_image_bytes || DEFAULT_VISION_MAX_IMAGE_BYTES),
+    maxTotalBytes: Number(capability.max_total_bytes || DEFAULT_VISION_MAX_TOTAL_BYTES),
+    maxPixels: Number(capability.max_pixels || DEFAULT_VISION_MAX_PIXELS),
+  };
 }
 
 function getModelContextWindow(model = getSelectedModel()) {
@@ -298,6 +323,7 @@ function isImageModeForPrompt(prompt) {
   const mode = getMode();
   if (mode === "image") return true;
   if (mode === "chat") return false;
+  if (attachedVisionImages.length && IMAGE_EDIT_INTENT_PATTERN.test(prompt)) return true;
   return IMAGE_INTENT_PATTERN.test(prompt) || DIRECT_IMAGE_COMMAND_PATTERN.test(prompt);
 }
 
@@ -333,6 +359,20 @@ function syncWebUI() {
   els.webQuickToggle.setAttribute("aria-pressed", String(enabled));
   els.webQuickToggle.disabled = els.webSearch.disabled;
   els.webQuickToggle.title = enabled ? "Web context is on" : "Use current web information";
+}
+
+function syncVisionCapability() {
+  const capability = getVisionCapabilities();
+  visionSupported = Boolean(capability.available);
+  if (els.visionStatus) {
+    els.visionStatus.textContent = visionSupported
+      ? `Image understanding runs locally with up to ${getVisionLimits().maxImages} images per message.`
+      : capability.model_supports_vision
+        ? "This model supports images, but the current vLLM launch has vision disabled."
+        : "The active language model does not advertise image understanding.";
+    els.visionStatus.dataset.state = visionSupported ? "good" : "neutral";
+  }
+  renderVisionPreview();
 }
 
 function setAttachMenu(open) {
@@ -574,6 +614,143 @@ function loadImageElement(src) {
   });
 }
 
+function dataUrlByteLength(dataUrl) {
+  const base64 = String(dataUrl || "").split(",")[1] || "";
+  return Math.max(0, Math.floor(base64.length * 3 / 4) - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0));
+}
+
+async function readVisionImage(file) {
+  const limits = getVisionLimits();
+  if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    throw new Error("Upload a PNG, JPG, or WebP image.");
+  }
+  if (file.size > limits.maxImageBytes) {
+    throw new Error(`${file.name} is larger than ${Math.floor(limits.maxImageBytes / 1024 / 1024)} MB.`);
+  }
+  const previewObjectUrl = URL.createObjectURL(file);
+  try {
+    const image = await loadImageElement(previewObjectUrl);
+    const sourcePixels = image.naturalWidth * image.naturalHeight;
+    const pixelScale = sourcePixels > limits.maxPixels ? Math.sqrt(limits.maxPixels / sourcePixels) : 1;
+    const scale = Math.min(pixelScale, 1, 2048 / image.naturalWidth, 2048 / image.naturalHeight);
+    let dataUrl;
+    let mimeType = file.type;
+    let width = image.naturalWidth;
+    let height = image.naturalHeight;
+
+    if (scale < 0.999) {
+      width = Math.max(1, Math.floor(image.naturalWidth * scale));
+      height = Math.max(1, Math.floor(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Image preparation is unavailable in this browser.");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      mimeType = "image/jpeg";
+      for (const quality of [0.84, 0.74, 0.64]) {
+        if (dataUrlByteLength(dataUrl) <= limits.maxImageBytes) break;
+        dataUrl = canvas.toDataURL("image/jpeg", quality);
+      }
+    } else {
+      dataUrl = await readBlobAsDataUrl(file);
+    }
+    const sizeBytes = dataUrlByteLength(dataUrl);
+    if (sizeBytes > limits.maxImageBytes) {
+      throw new Error(`${file.name} could not be prepared within the local vision size limit.`);
+    }
+    return {
+      id: globalThis.crypto?.randomUUID?.() || `vision-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      kind: "upload",
+      name: file.name,
+      mimeType,
+      sizeBytes,
+      width,
+      height,
+      dataUrl,
+      previewUrl: previewObjectUrl,
+      previewObjectUrl,
+    };
+  } catch (error) {
+    URL.revokeObjectURL(previewObjectUrl);
+    throw error;
+  }
+}
+
+function renderVisionPreview() {
+  if (!els.visionPreview) return;
+  els.visionPreview.innerHTML = attachedVisionImages.map((image) => `
+    <div class="chat-vision-chip">
+      <img src="${escapeHtml(image.previewUrl || image.url || image.dataUrl || "")}" alt="" />
+      <div>
+        <strong>${escapeHtml(image.name || "Image")}</strong>
+        <span>${visionSupported ? "Ready for local image understanding" : "Ready for image tools"}</span>
+      </div>
+      <button type="button" data-vision-remove="${escapeHtml(image.id)}" title="Remove image" aria-label="Remove ${escapeHtml(image.name || "image")}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+    </div>
+  `).join("");
+}
+
+function clearAttachedVisionImages({ release = true } = {}) {
+  if (release) attachedVisionImages.forEach(releaseImagePreviewUrl);
+  attachedVisionImages = [];
+  renderVisionPreview();
+}
+
+function releaseConversationVisionPreviews(conversationMessages = messages) {
+  conversationMessages.forEach((message) => {
+    if (!Array.isArray(message.visionImages)) return;
+    message.visionImages.forEach(releaseImagePreviewUrl);
+  });
+}
+
+async function uploadVisionAsset(image) {
+  if (image.url || !image.dataUrl || !historyState.available || historyState.currentRetention === "none") return image;
+  const blob = await (await fetch(image.dataUrl)).blob();
+  const form = new FormData();
+  form.append("file", blob, image.name || "image");
+  const { json } = await historyRequest("/assets", { method: "POST", body: form });
+  if (!json.ok || !json.asset?.url) throw new Error("Private image storage returned an invalid response.");
+  return {
+    ...image,
+    assetId: json.asset.asset_id,
+    url: absoluteImageUrl(json.asset.url),
+    mimeType: json.asset.mime_type || image.mimeType,
+    sizeBytes: json.asset.size_bytes || image.sizeBytes,
+  };
+}
+
+async function prepareVisionImagesForSend(images) {
+  const prepared = [];
+  let storageFailed = false;
+  for (const image of images) {
+    try {
+      prepared.push(await uploadVisionAsset(image));
+    } catch {
+      storageFailed = true;
+      prepared.push(image);
+    }
+  }
+  if (storageFailed) {
+    setHistoryStatus("Image not saved", "bad", "The image is available to this local turn, but private image storage could not be reached.");
+  }
+  return prepared;
+}
+
+async function visionImageDataUrl(image) {
+  if (image.dataUrl) return image.dataUrl;
+  const url = absoluteImageUrl(image.url || image.previewUrl);
+  if (!url) throw new Error("An attached image is no longer available.");
+  const response = await fetch(url, { cache: "no-store", credentials: "include" });
+  if (!response.ok) throw new Error(`Attached image could not be loaded: HTTP ${response.status}`);
+  return readBlobAsDataUrl(await response.blob());
+}
+
 async function sourceImageDataUrl(source) {
   if (source?.image_base64) return source.image_base64;
   const url = absoluteImageUrl(source?.previewUrl || source?.url);
@@ -629,7 +806,12 @@ function formatNumber(value) {
   return Math.round(Number(value || 0)).toLocaleString("en-AU");
 }
 
+function isLoopbackHost() {
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+}
+
 async function resolveChatUserId() {
+  if (isLoopbackHost()) return "local-browser";
   try {
     const res = await fetch("/cdn-cgi/access/get-identity", { cache: "no-store", credentials: "include" });
     if (res.ok) {
@@ -701,7 +883,9 @@ function renderConversationHistory() {
 
 async function historyRequest(path = "", options = {}) {
   const headers = new Headers(options.headers || {});
-  if (options.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  if (options.body && !(options.body instanceof FormData) && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
   let response;
   try {
     response = await fetch(`${HISTORY_API_PATH}${path}`, {
@@ -1086,6 +1270,18 @@ function storedHistoryMessages() {
       item.image = images[0];
       item.images = images;
     }
+    const visionImages = Array.isArray(message.visionImages)
+      ? message.visionImages.slice(0, getVisionLimits().maxImages).filter((image) => image.url).map((image) => ({
+          asset_id: image.assetId,
+          name: image.name,
+          mime_type: image.mimeType || "image/png",
+          url: image.url,
+          width: image.width,
+          height: image.height,
+          size_bytes: image.sizeBytes,
+        }))
+      : [];
+    if (visionImages.length) item.vision_images = visionImages;
     if (message.webContext) {
       item.web_context = {
         query: message.webContext.query,
@@ -1133,6 +1329,17 @@ function restoredHistoryMessage(message) {
     projectContext: message.project_context,
     imageOutputs: images.map((image) => ({ ...image, url: absoluteImageUrl(image.url) })),
     imagePrompt: images[0]?.prompt || "",
+    visionImages: (Array.isArray(message.vision_images) ? message.vision_images : []).map((image) => ({
+      id: image.asset_id || globalThis.crypto?.randomUUID?.() || `vision-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      assetId: image.asset_id,
+      name: image.name || "Image",
+      mimeType: image.mime_type || "image/png",
+      url: absoluteImageUrl(image.url),
+      previewUrl: absoluteImageUrl(image.url),
+      width: image.width,
+      height: image.height,
+      sizeBytes: image.size_bytes,
+    })),
   });
 }
 
@@ -1337,6 +1544,7 @@ async function openStoredConversation(id) {
   try {
     const { json, etag } = await historyRequest(`/${encodeURIComponent(id)}`);
     const conversation = json.conversation;
+    releaseConversationVisionPreviews();
     messages = conversation.messages?.length
       ? conversation.messages.map(restoredHistoryMessage)
       : [welcomeMessage()];
@@ -1347,6 +1555,7 @@ async function openStoredConversation(id) {
     await setActiveProject(conversation.project_id || "", { quiet: true });
     uploadedDocuments = [];
     renderDocuments();
+    clearAttachedVisionImages();
     clearActiveImageSource();
     clearActiveImageMask();
     renderMessages(false);
@@ -1700,6 +1909,21 @@ function renderWelcome() {
   `;
 }
 
+function renderVisionMessage(message) {
+  const images = Array.isArray(message.visionImages) ? message.visionImages.slice(0, getVisionLimits().maxImages) : [];
+  if (!images.length) return "";
+  return `
+    <div class="chat-vision-message${images.length > 1 ? " is-multiple" : ""}">
+      ${images.map((image, index) => `
+        <figure>
+          <img src="${escapeHtml(image.url || image.previewUrl || image.dataUrl || "")}" alt="${escapeHtml(image.name || `Attached image ${index + 1}`)}" loading="lazy" />
+          <figcaption>${escapeHtml(image.name || `Image ${index + 1}`)}</figcaption>
+        </figure>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderMessages(pending = false) {
   const visibleMessages = messages.filter((message) => !message.isWelcome);
   if (!visibleMessages.length && !pending) {
@@ -1719,6 +1943,7 @@ function renderMessages(pending = false) {
         <div class="chat-avatar">${message.role === "user" ? "You" : "TG"}</div>
         <div class="chat-bubble">
           <div class="chat-role">${message.role === "user" ? "You" : "Token Gen"}</div>
+          ${renderVisionMessage(message)}
           ${renderProjectContext(message.projectContext)}
           ${renderWebContext(message.webContext)}
           ${renderImageOutputs(message)}
@@ -1781,6 +2006,12 @@ function renderImageOutputs(message) {
                     <path d="M5 5h6v2H7v10h10v-4h2v6H5V5Z"></path>
                   </svg>
                 </a>
+                <button
+                  class="btn"
+                  type="button"
+                  data-image-analyze="${escapeHtml(output.url || "")}"
+                  data-image-analyze-name="${escapeHtml(output.filename || `Sample ${index + 1}`)}"
+                >Ask about</button>
                 <button
                   class="btn"
                   type="button"
@@ -1884,11 +2115,16 @@ function attachWebContext(index, context) {
 function boundedChatPayload(systemParts) {
   const fullHistory = messages
     .filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"))
-    .map((message) => ({ role: message.role, content: String(message.content || "") }));
+    .map((message) => ({
+      role: message.role,
+      content: String(message.content || ""),
+      visionImages: Array.isArray(message.visionImages) ? message.visionImages.slice(0, getVisionLimits().maxImages) : [],
+    }));
   const contextWindow = getModelContextWindow();
   const systemTokens = estimateTokens(systemParts.join("\n\n"));
   const safetyTokens = Math.max(1024, Math.ceil(contextWindow * 0.01));
-  const latestTokens = estimateTokens(fullHistory.at(-1)?.content || "") + 8;
+  const messageTokens = (message) => estimateTokens(message?.content || "") + 8 + (message?.visionImages?.length || 0) * 1400;
+  const latestTokens = messageTokens(fullHistory.at(-1));
   const availableAfterSystem = Math.max(512, contextWindow - systemTokens - safetyTokens);
   const requestedWebTokens = els.webSearch.checked ? Number(els.webBudget.value || 10000) : 0;
   const webTokens = Math.max(0, Math.min(requestedWebTokens, availableAfterSystem - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)) - 256));
@@ -1900,7 +2136,7 @@ function boundedChatPayload(systemParts) {
 
   for (let index = fullHistory.length - 1; index >= 0; index -= 1) {
     const message = fullHistory[index];
-    const tokens = estimateTokens(message.content) + 8;
+    const tokens = messageTokens(message);
     if (tokens <= remaining) {
       selected.unshift(message);
       remaining -= tokens;
@@ -1913,6 +2149,18 @@ function boundedChatPayload(systemParts) {
   }
 
   return { history: selected, maxTokens: outputTokens, webTokens };
+}
+
+async function chatPayloadMessage(message) {
+  const images = Array.isArray(message.visionImages) ? message.visionImages : [];
+  if (!images.length || message.role !== "user") {
+    return { role: message.role, content: message.content };
+  }
+  const content = [{ type: "text", text: message.content }];
+  for (const image of images) {
+    content.push({ type: "image_url", image_url: { url: await visionImageDataUrl(image) } });
+  }
+  return { role: message.role, content };
 }
 
 function attachProjectContext(index, context) {
@@ -1961,7 +2209,7 @@ async function retrieveActiveProjectContext(query) {
   };
 }
 
-function buildPayload(userId, projectContext = null) {
+async function buildPayload(userId, projectContext = null) {
   const system = els.system.value.trim();
   const documentContext = buildDocumentContextMessage();
   const systemParts = [
@@ -1970,12 +2218,13 @@ function buildPayload(userId, projectContext = null) {
     ...(projectContext?.system ? [projectContext.system] : []),
   ];
   const bounded = boundedChatPayload(systemParts);
+  const history = await Promise.all(bounded.history.map(chatPayloadMessage));
 
   return {
     model: els.model.value,
     messages: [
       ...(systemParts.length ? [{ role: "system", content: systemParts.join("\n\n") }] : []),
-      ...bounded.history,
+      ...history,
     ],
     temperature: Number(els.temperature.value || 0.3),
     max_tokens: bounded.maxTokens,
@@ -2045,12 +2294,14 @@ async function loadModels() {
     return;
   }
   availableModels = models;
+  visionCapabilities = json.capabilities?.vision || models[0]?.capabilities?.vision || {};
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
   if (els.activeModel) els.activeModel.textContent = modelLabel(models[0].id);
   const contextWindow = getModelContextWindow(models[0]);
   els.maxTokens.max = String(contextWindow);
   els.input.disabled = false;
   chatReady = true;
+  syncVisionCapability();
   setStatus(`Connected to ${modelLabel(models[0].id)}`, "good");
   renderDocuments();
 }
@@ -2122,7 +2373,17 @@ async function sendMessage(content) {
     setStatus("Document context is over budget", "bad");
     return;
   }
-  messages.push(createMessage("user", content));
+  if (attachedVisionImages.length && !visionSupported) {
+    setStatus("The active local model is not running with image understanding", "bad");
+    return;
+  }
+  let visionImages = [];
+  if (attachedVisionImages.length) {
+    setStatus("Preparing images locally...", "busy");
+    visionImages = await prepareVisionImagesForSend(attachedVisionImages);
+  }
+  messages.push(createMessage("user", content, { visionImages }));
+  clearAttachedVisionImages({ release: false });
   renderMessages(true);
   scheduleConversationSave(0);
   els.send.disabled = true;
@@ -2146,9 +2407,9 @@ async function sendMessage(content) {
       headers: {
         "content-type": "application/json",
         "x-token-gen-user": chatUserId,
-        "x-token-gen-user-source": "cloudflare-access",
+        "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
       },
-      body: JSON.stringify(buildPayload(chatUserId, projectContext)),
+      body: JSON.stringify(await buildPayload(chatUserId, projectContext)),
     });
     if (!res.ok || !res.body) {
       const text = await res.text();
@@ -2602,7 +2863,7 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
   }
 }
 
-async function sendImageMessage(content) {
+async function sendImageMessage(content, sourceVisionImages = []) {
   if (!imageGenerationSupported) {
     setStatus("Image generation is unavailable", "bad");
     return;
@@ -2610,7 +2871,8 @@ async function sendImageMessage(content) {
   if (activeImageAbortController) return;
   activeImageAbortController = new AbortController();
   const signal = activeImageAbortController.signal;
-  messages.push(createMessage("user", content));
+  const visionImages = sourceVisionImages.length ? await prepareVisionImagesForSend(sourceVisionImages) : [];
+  messages.push(createMessage("user", content, { visionImages }));
   const assistantIndex = appendAssistantMessage("");
   updateAssistantImageMessage(assistantIndex, {
     imagePrompt: content,
@@ -2687,7 +2949,23 @@ els.form.addEventListener("submit", (event) => {
   els.input.value = "";
   autosizeInput();
   if (isImageModeForPrompt(content)) {
-    sendImageMessage(content);
+    const sourceVisionImages = [...attachedVisionImages];
+    if (sourceVisionImages.length) {
+      const source = sourceVisionImages[0];
+      setActiveImageSource({
+        kind: source.dataUrl ? "base64" : "url",
+        name: source.name,
+        mimeType: source.mimeType,
+        image_base64: source.dataUrl,
+        previewUrl: source.dataUrl || source.url || source.previewUrl,
+        url: source.url,
+      });
+      if (els.imageSourceMode.value === "new") {
+        els.imageSourceMode.value = IMAGE_EDIT_INTENT_PATTERN.test(content) ? "edit" : "style";
+      }
+      clearAttachedVisionImages({ release: false });
+    }
+    sendImageMessage(content, sourceVisionImages);
   } else {
     sendMessage(content);
   }
@@ -2706,6 +2984,7 @@ els.model.addEventListener("change", () => {
   els.maxTokens.max = String(getModelContextWindow());
   if (els.activeModel) els.activeModel.textContent = modelLabel(getSelectedModel().id);
   if (chatReady) setStatus(`Connected to ${modelLabel(getSelectedModel().id)}`, "good");
+  syncVisionCapability();
   renderDocuments();
 });
 
@@ -2785,7 +3064,7 @@ els.attachProjectDocument.addEventListener("click", () => {
 
 els.attachImage.addEventListener("click", () => {
   setAttachMenu(false);
-  els.imageUpload.click();
+  els.visionImages.click();
 });
 
 els.attachMask.addEventListener("click", () => {
@@ -2932,6 +3211,50 @@ els.imageUpload.addEventListener("change", async () => {
   }
 });
 
+els.visionImages.addEventListener("change", async () => {
+  const files = Array.from(els.visionImages.files || []);
+  if (!files.length) return;
+  const limits = getVisionLimits();
+  els.visionImages.disabled = true;
+  setStatus(`Preparing ${files.length === 1 ? files[0].name : `${files.length} images`} locally...`, "busy");
+  try {
+    if (attachedVisionImages.length + files.length > limits.maxImages) {
+      throw new Error(`Attach up to ${limits.maxImages} images per message.`);
+    }
+    const next = [...attachedVisionImages];
+    for (const file of files) {
+      const image = await readVisionImage(file);
+      const totalBytes = next.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0) + image.sizeBytes;
+      if (totalBytes > limits.maxTotalBytes) {
+        releaseImagePreviewUrl(image);
+        throw new Error(`Attached images may total up to ${Math.floor(limits.maxTotalBytes / 1024 / 1024)} MB.`);
+      }
+      next.push(image);
+    }
+    attachedVisionImages = next;
+    renderVisionPreview();
+    setStatus(visionSupported
+      ? `${attachedVisionImages.length} image${attachedVisionImages.length === 1 ? "" : "s"} ready for local understanding or editing`
+      : `${attachedVisionImages.length} image${attachedVisionImages.length === 1 ? "" : "s"} ready for image tools`, "good");
+  } catch (error) {
+    setStatus(error.message, "bad");
+  } finally {
+    els.visionImages.value = "";
+    els.visionImages.disabled = false;
+    updateSendState();
+  }
+});
+
+els.visionPreview.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-vision-remove]");
+  if (!button) return;
+  const image = attachedVisionImages.find((item) => item.id === button.dataset.visionRemove);
+  if (image) releaseImagePreviewUrl(image);
+  attachedVisionImages = attachedVisionImages.filter((item) => item.id !== button.dataset.visionRemove);
+  renderVisionPreview();
+  updateSendState();
+});
+
 els.imageMaskUpload.addEventListener("change", async () => {
   const file = els.imageMaskUpload.files?.[0];
   if (!file) return;
@@ -3054,6 +3377,33 @@ els.thread.addEventListener("click", (event) => {
       });
     return;
   }
+  const analyzeButton = event.target.closest("[data-image-analyze]");
+  if (analyzeButton) {
+    const limits = getVisionLimits();
+    if (!visionSupported) {
+      setStatus("The active local model is not running with image understanding", "bad");
+      return;
+    }
+    if (attachedVisionImages.length >= limits.maxImages) {
+      setStatus(`Attach up to ${limits.maxImages} images per message`, "bad");
+      return;
+    }
+    const url = analyzeButton.dataset.imageAnalyze || "";
+    attachedVisionImages.push({
+      id: globalThis.crypto?.randomUUID?.() || `vision-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      kind: "generated",
+      name: analyzeButton.dataset.imageAnalyzeName || "Generated image",
+      mimeType: "image/png",
+      url,
+      previewUrl: url,
+    });
+    els.mode.value = "auto";
+    syncModeUI();
+    renderVisionPreview();
+    setStatus("Image attached. Ask a question about it.", "good");
+    els.input.focus();
+    return;
+  }
   const button = event.target.closest("[data-image-iterate]");
   if (!button) return;
   const prompt = button.dataset.imageIterate || "";
@@ -3099,6 +3449,7 @@ els.clear.addEventListener("click", async () => {
   if (historyState.available && historyState.currentRetention !== "none") {
     await flushConversationSave();
   }
+  releaseConversationVisionPreviews();
   messages = [welcomeMessage()];
   historyState.currentId = null;
   historyState.currentVersion = null;
@@ -3106,6 +3457,7 @@ els.clear.addEventListener("click", async () => {
   els.historyRetention.value = historyState.currentRetention;
   uploadedDocuments = [];
   renderDocuments();
+  clearAttachedVisionImages();
   clearActiveImageSource();
   clearActiveImageMask();
   els.mode.value = "auto";
@@ -3125,6 +3477,7 @@ els.clear.addEventListener("click", async () => {
 
 renderMessages(false);
 renderDocuments();
+renderVisionPreview();
 renderImageSourcePreview();
 renderImageMaskPreview();
 renderProjectState();

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-projects-20260716-1" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-vision-20260716-1" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -115,6 +115,7 @@
 
           <form class="chat-composer" id="chatForm">
             <div class="chat-composer-context">
+              <div class="chat-vision-preview" id="chatVisionPreview"></div>
               <div class="chat-doc-list" id="chatDocList"></div>
               <div class="chat-image-source-preview" id="chatImageSourcePreview"></div>
               <div class="chat-image-source-preview" id="chatImageMaskPreview"></div>
@@ -136,7 +137,7 @@
                   </button>
                   <button type="button" id="chatAttachImage">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
-                    <span><strong>Image</strong><small>Edit, restyle, or enhance</small></span>
+                    <span><strong>Image</strong><small>Ask about, compare, or edit</small></span>
                   </button>
                   <button type="button" id="chatAttachMask">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-1.2-.2-2.3-.7-3.3L12 12V3Z" /><path d="M12 3v9l8.3-3.3" /></svg>
@@ -190,6 +191,7 @@
             <span>Language model</span>
             <select id="chatModel"></select>
           </label>
+          <p class="chat-capability-note" id="chatVisionStatus">Checking local image understanding...</p>
           <label class="chat-toggle-row">
             <span>
               <strong>Reasoning</strong>
@@ -495,9 +497,10 @@ Keep responses clear and useful. Match detail to the request, use plain language
 
     <input class="chat-file-input" id="chatDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.pdf,.docx,.rtf,.js,.ts,.tsx,.jsx,.py,.ps1,.sh,.sql,.css" />
     <input class="chat-file-input" id="chatProjectDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.rtf,.pdf,.docx,.xlsx,.pptx,.py,.js,.jsx,.ts,.tsx,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.sh,.bash,.zsh,.sql,.css,.scss,.toml,.ini,.cfg" />
+    <input class="chat-file-input" id="chatVisionImages" type="file" multiple accept="image/png,image/jpeg,image/webp" />
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-projects-20260716-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-vision-20260716-1"></script>
   </body>
 </html>

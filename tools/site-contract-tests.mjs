@@ -57,8 +57,8 @@ assert.match(chatHtml, /value="adult_ok"/, "Chat image content rating must use t
 assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include the API flexible value.");
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-projects-20260716-1/, "Chat HTML must use the current project workspace CSS.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-projects-20260716-1/, "Chat HTML must cache-bust the project workspace script.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-vision-20260716-1/, "Chat HTML must use the current local-vision CSS.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-vision-20260716-1/, "Chat HTML must cache-bust the local-vision script.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
 assert.match(chatJs, /\/api\/image\/generations/, "Chat must submit image generation jobs.");
 assert.match(chatJs, /\/api\/image\/edits/, "Chat must submit image edit jobs.");
@@ -117,6 +117,21 @@ assert.match(chatJs, /<project_evidence>/, "Retrieved project evidence must be i
 assert.match(chatJs, /project_id:\s*projectState\.active\?\.id/, "Chat requests and saved conversations must retain active project association.");
 assert.match(chatJs, /project_context/, "Saved chat messages must retain citation metadata.");
 assert.doesNotMatch(chatJs, /localStorage[^\n]+project|project[^\n]+localStorage/i, "Project identity and documents must not be persisted in browser localStorage.");
+assert.match(chatHtml, /id="chatVisionImages"[^>]+multiple[^>]+image\/webp/, "Chat must accept multiple bounded PNG, JPG, or WebP vision attachments.");
+assert.match(chatHtml, /id="chatVisionPreview"/, "Chat must render vision attachments inside the composer.");
+assert.match(chatHtml, /id="chatVisionStatus"/, "Settings must explain whether local image understanding is available.");
+assert.match(chatJs, /getVisionCapabilities/, "Chat must discover vision support from the active server model.");
+assert.match(chatJs, /readVisionImage/, "Chat must prepare uploaded images locally before inference.");
+assert.match(chatJs, /maxPixels/, "Chat must bound local vision image resolution.");
+assert.match(chatJs, /type:\s*"image_url"/, "Chat must use the OpenAI-compatible multimodal message format.");
+assert.match(chatJs, /prepareVisionImagesForSend/, "Chat must prepare and privately persist image attachments before sending.");
+assert.match(chatJs, /historyRequest\("\/assets"/, "Saved vision attachments must use the encrypted conversation asset route.");
+assert.match(chatJs, /IMAGE_EDIT_INTENT_PATTERN/, "Auto mode must distinguish image questions from image edit requests.");
+assert.match(chatJs, /data-image-analyze/, "Generated images must be reusable as local vision inputs.");
+assert.match(chatJs, /releaseConversationVisionPreviews/, "Starting or opening another chat must release local image previews.");
+assert.match(chatJs, /previewUrl:\s*source\.dataUrl\s*\|\|\s*source\.url\s*\|\|\s*source\.previewUrl/, "An image edit source must not take ownership of the conversation preview URL.");
+assert.match(chatJs, /function isLoopbackHost\(\)/, "Local chat testing must use an explicitly loopback-scoped identity fallback.");
+assert.match(chatJs, /isLoopbackHost\(\)\s*\?\s*"local-development"\s*:\s*"cloudflare-access"/, "Local chat requests must not claim a Cloudflare Access identity source.");
 
 assert.match(monitorJs, /function renderObjectDetails/, "Monitor must include a generic object renderer for all public-status fields.");
 assert.doesNotMatch(monitorJs, /let lastGoodPayload/, "Monitor must not retain old data when the API is broken.");
