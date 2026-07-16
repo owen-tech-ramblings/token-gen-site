@@ -1,6 +1,24 @@
 # Token Gen Current State
 
-Last updated: 2026-07-15 Australia/Sydney
+Last updated: 2026-07-16 Australia/Sydney
+
+## Token Gen Stage 3 - Local Image Understanding - 2026-07-16
+
+- Token Gen chat now accepts up to four PNG, JPEG, or WebP images per message
+  and routes image questions to the local multimodal model automatically.
+- Retained image attachments are encrypted before storage in the private
+  OWENLABSHARE area; conversation history stores asset metadata rather than
+  inline image data. Remote image URLs are rejected by the API.
+- The production model is `Qwen-Qwen3.6-27B-FP8`, serving a 131,072-token
+  context across five vLLM GPUs while the sixth GPU remains dedicated to
+  ComfyUI. The balanced pipeline partition is `14,14,14,14,8`.
+- Published site commit: `a903d23` through successful Pages workflow
+  `29472574465`. API commits: `efe7c51` and `9114736`.
+- Validation passed: 43 API tests, site contracts and syntax, encrypted NAS
+  asset smoke, direct text and vision inference, desktop/mobile browser QA,
+  a browser chat response, and authenticated production inspection. The live
+  site served cache marker `token-chat-vision-20260716-1` with no console
+  warnings or errors.
 
 ## Vampire Survival Iteration 42 - 2026-07-15
 

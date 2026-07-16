@@ -1,6 +1,25 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-15 Australia/Sydney
+Last updated: 2026-07-16 Australia/Sydney
+
+## 2026-07-16 Token Gen Stage 3 Handoff
+
+Local image understanding is published at site commit `a903d23` through
+successful Pages workflow `29472574465`, with API commits `efe7c51` and
+`9114736`. Chat accepts up to four PNG, JPEG, or WebP images, automatically
+uses the local multimodal model for image questions, and can reuse a generated
+image through the Ask about action. Retained assets are encrypted in the
+private OWENLABSHARE store and history keeps metadata rather than base64.
+
+The production `Qwen-Qwen3.6-27B-FP8` runtime is healthy at a 131,072-token
+context across five vLLM GPUs using pipeline partition `14,14,14,14,8`; ComfyUI
+keeps its dedicated sixth GPU. Forty-three API tests, site contracts, encrypted
+NAS asset create/read/delete, text and vision inference, responsive browser QA,
+an actual browser chat turn, and authenticated production inspection pass.
+Production served `token-chat-vision-20260716-1` with no console warnings or
+errors. The system vLLM service is enabled for reboot and uses the versioned
+launch script; the active verified runtime was started as the transient user
+service `vllm-vision-balanced.service` because this session had no sudo access.
 
 ## 2026-07-15 Vampire Survival Iteration 42 Handoff
 
