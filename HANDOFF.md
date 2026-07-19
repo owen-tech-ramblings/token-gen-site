@@ -14,8 +14,14 @@ Token Gen application.
 The directory is deliberately static. Its embedded snapshot was reviewed from
 the existing Cloudflare MCP connection at 2026-07-19 19:50 Australia/Sydney;
 the browser does not call Cloudflare management APIs and no new API token or
-Worker secret exists. Use the page's **Manage in Cloudflare** link to change the
-allow policy, then refresh the embedded snapshot in a normal site release.
+Worker secret exists.
+
+The first release's dashboard link was removed. Cloudflare account
+`017717ec4c34e46041a4bf3dd0873e4a` is owned solely by
+`j_k_owen@yahoo.com.au`; `jesse@owenonthenet.com` is not an account member, so
+that user's dashboard session cannot manage the Access policy. Do not restore
+the link until account membership is deliberately granted. Inline add, rename,
+and remove controls require a separately approved server-side management path.
 
 Verification commands:
 

@@ -7,8 +7,7 @@ Last updated: 2026-07-19 Australia/Sydney
 - `access.html` is a professional owner directory for the five explicit email
   addresses in the Token Gen Cloudflare Access allow policy. It shows the
   latest Cloudflare snapshot of successful and unsuccessful sign-ins, supports
-  directory search and activity filters, and links to the existing Cloudflare
-  dashboard for access changes.
+  directory search and activity filters.
 - A dedicated Cloudflare Access application protects only `access.html*` and
   permits only `jesse@owenonthenet.com`. The established Token Gen application
   and its other authorised users are unchanged.
@@ -16,6 +15,11 @@ Last updated: 2026-07-19 Australia/Sydney
   persist personal data in browser storage, or contain a management credential.
   The snapshot was captured through the existing Cloudflare MCP connection on
   2026-07-19 at 19:50 Australia/Sydney.
+- The initial dashboard link was removed because the Access account is owned by
+  `j_k_owen@yahoo.com.au`; the authenticated `jesse@owenonthenet.com` Cloudflare
+  user is not currently a member of that account. Runtime add, rename, and
+  remove controls remain pending an explicit choice of account membership or a
+  least-privilege Worker credential.
 - Validation passed: `node --check access.js`, Worker syntax, site contracts,
   desktop/mobile browser review, search and activity-filter interactions, zero
   horizontal overflow, and a clean browser console.

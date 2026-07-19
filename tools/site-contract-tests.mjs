@@ -25,8 +25,7 @@ assert.match(accessHtml, /<meta name="robots" content="noindex, nofollow, noarch
 assert.match(accessHtml, /Jesse only/, "Access administration must identify its owner-only boundary.");
 assert.match(accessHtml, /id="activityFilters"/, "Access administration must provide successful and unsuccessful activity filters.");
 assert.match(accessHtml, /id="accessSnapshot" type="application\/json"/, "Access administration must include the reviewed Cloudflare snapshot.");
-assert.match(accessHtml, /Manage in Cloudflare/, "Access administration must use the existing Cloudflare dashboard for changes.");
-assert.match(accessHtml, /jesse@owenonthenet\.com/, "Access administration must explain the exact owner identity.");
+assert.doesNotMatch(accessHtml, /Protected by your existing login|Manage in Cloudflare/, "Access administration must not expose implementation guidance as product copy.");
 assert.match(accessJs, /document\.querySelector\("#accessSnapshot"\)/, "Access administration must read its static reviewed snapshot.");
 assert.doesNotMatch(accessJs, /\bfetch\s*\(/, "The simplified Access page must not require a management backend.");
 assert.doesNotMatch(accessJs, /CLOUDFLARE_API_TOKEN|api\.cloudflare\.com/, "Browser JavaScript must never contain the Cloudflare management credential or call its API directly.");

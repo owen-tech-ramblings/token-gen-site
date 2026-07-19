@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <title>Access | Token Gen</title>
-    <link rel="stylesheet" href="./styles.css?v=token-gen-access-20260719-2" />
-    <script src="./access.js?v=token-gen-access-20260719-2" defer></script>
+    <link rel="stylesheet" href="./styles.css?v=token-gen-access-20260719-3" />
+    <script src="./access.js?v=token-gen-access-20260719-3" defer></script>
   </head>
   <body class="access-page">
     <header class="access-topbar">
@@ -26,46 +26,27 @@
     <main class="access-app" id="accessApp">
       <section class="access-heading" aria-labelledby="accessTitle">
         <div>
-          <p class="access-eyebrow">Cloudflare Access</p>
           <h1 id="accessTitle">Access</h1>
-          <p>See who can sign in to Token Gen and review the latest captured authentication activity.</p>
+          <p>Authorised users and recent sign-ins.</p>
         </div>
-        <a
-          class="access-button access-button-primary"
-          href="https://one.dash.cloudflare.com/017717ec4c34e46041a4bf3dd0873e4a/access/apps"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 13v6H5V6h6" /></svg>
-          Manage in Cloudflare
-        </a>
       </section>
-
-      <div class="access-alert access-alert-info" role="note">
-        <strong>Protected by your existing login</strong>
-        <span>Only jesse@owenonthenet.com can open this page. Access changes are made through your existing Cloudflare dashboard.</span>
-      </div>
 
       <section class="access-metrics" aria-label="Access summary">
         <article class="access-metric">
           <span>Authorised people</span>
           <strong id="authorisedCount">5</strong>
-          <small>Explicit email addresses</small>
         </article>
         <article class="access-metric">
           <span>Have signed in</span>
           <strong id="signedInCount">4</strong>
-          <small>With a successful login</small>
         </article>
         <article class="access-metric access-metric-good">
           <span>Successful attempts</span>
           <strong id="successfulCount">4</strong>
-          <small>In this activity snapshot</small>
         </article>
         <article class="access-metric access-metric-warn">
           <span>Unsuccessful attempts</span>
           <strong id="failedCount">1</strong>
-          <small>In this activity snapshot</small>
         </article>
       </section>
 
@@ -82,9 +63,9 @@
             <label class="access-search" for="peopleSearch">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16 16 4 4" /></svg>
               <span class="access-visually-hidden">Search authorised people</span>
-              <input id="peopleSearch" type="search" placeholder="Search name or email" autocomplete="off" />
+              <input id="peopleSearch" type="search" placeholder="Search users" autocomplete="off" />
             </label>
-            <span class="access-sync" id="syncStatus">Captured from Cloudflare 19 July 2026, 7:50 pm AEST</span>
+            <span class="access-sync" id="syncStatus">Updated 19 July 2026, 7:50 pm</span>
           </div>
 
           <div class="access-table" role="table" aria-label="Authorised Token Gen users">
