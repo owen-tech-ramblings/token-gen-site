@@ -1,6 +1,35 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-16 Australia/Sydney
+Last updated: 2026-07-19 Australia/Sydney
+
+## 2026-07-19 Token Gen Owner Access Directory Handoff
+
+The public-site source now includes `access.html` and `access.js`. Cloudflare
+Access application `650af914-c7b6-48c3-8b57-56be8f2d9d76` protects
+`token-gen.owenonthenet.com/access.html*` with policy
+`d8805b85-be1b-44a1-ba6b-ee28169d57c3`, whose only allowed identity is
+`jesse@owenonthenet.com`. Do not broaden this policy when updating the normal
+Token Gen application.
+
+The directory is deliberately static. Its embedded snapshot was reviewed from
+the existing Cloudflare MCP connection at 2026-07-19 19:50 Australia/Sydney;
+the browser does not call Cloudflare management APIs and no new API token or
+Worker secret exists. Use the page's **Manage in Cloudflare** link to change the
+allow policy, then refresh the embedded snapshot in a normal site release.
+
+Verification commands:
+
+```text
+node --check access.js
+node --check cloudflare/private-api-bridge/worker.js
+node tools/site-contract-tests.mjs
+```
+
+Desktop and 390 x 844 mobile browser checks passed with five directory rows,
+five recent activity entries, no horizontal overflow, and no console warnings
+or errors. The existing private Worker remains limited to conversations,
+projects, and jobs; the temporary Access-management API experiment was removed
+before publication.
 
 ## 2026-07-16 Token Gen Stage 6 Handoff
 

@@ -1,6 +1,24 @@
 # Token Gen Current State
 
-Last updated: 2026-07-16 Australia/Sydney
+Last updated: 2026-07-19 Australia/Sydney
+
+## Token Gen Owner Access Directory - 2026-07-19
+
+- `access.html` is a professional owner directory for the five explicit email
+  addresses in the Token Gen Cloudflare Access allow policy. It shows the
+  latest Cloudflare snapshot of successful and unsuccessful sign-ins, supports
+  directory search and activity filters, and links to the existing Cloudflare
+  dashboard for access changes.
+- A dedicated Cloudflare Access application protects only `access.html*` and
+  permits only `jesse@owenonthenet.com`. The established Token Gen application
+  and its other authorised users are unchanged.
+- The page is a reviewed static snapshot and does not call the Cloudflare API,
+  persist personal data in browser storage, or contain a management credential.
+  The snapshot was captured through the existing Cloudflare MCP connection on
+  2026-07-19 at 19:50 Australia/Sydney.
+- Validation passed: `node --check access.js`, Worker syntax, site contracts,
+  desktop/mobile browser review, search and activity-filter interactions, zero
+  horizontal overflow, and a clean browser console.
 
 ## Token Gen Stage 6 - Automatic Routing and Local Research - 2026-07-16
 

@@ -5,6 +5,8 @@ const root = new URL("../", import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), "utf8");
 
 const index = read("index.html");
+const accessHtml = read("access.html");
+const accessJs = read("access.js");
 const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const privateBridgeWorker = read("cloudflare/private-api-bridge/worker.js");
@@ -16,7 +18,19 @@ const vampireArchive42 = read("games/vampire-survival-iterations/iteration-42-co
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
 assert.match(index, /href="\.\/games\/"/, "Homepage must link to Games.");
+assert.match(index, /href="\.\/access\.html"/, "Homepage must link to owner Access administration.");
 assert.match(index, /Token Gen/i, "Homepage must identify Token Gen clearly.");
+
+assert.match(accessHtml, /<meta name="robots" content="noindex, nofollow, noarchive"/, "Access administration must not be indexed.");
+assert.match(accessHtml, /Jesse only/, "Access administration must identify its owner-only boundary.");
+assert.match(accessHtml, /id="activityFilters"/, "Access administration must provide successful and unsuccessful activity filters.");
+assert.match(accessHtml, /id="accessSnapshot" type="application\/json"/, "Access administration must include the reviewed Cloudflare snapshot.");
+assert.match(accessHtml, /Manage in Cloudflare/, "Access administration must use the existing Cloudflare dashboard for changes.");
+assert.match(accessHtml, /jesse@owenonthenet\.com/, "Access administration must explain the exact owner identity.");
+assert.match(accessJs, /document\.querySelector\("#accessSnapshot"\)/, "Access administration must read its static reviewed snapshot.");
+assert.doesNotMatch(accessJs, /\bfetch\s*\(/, "The simplified Access page must not require a management backend.");
+assert.doesNotMatch(accessJs, /CLOUDFLARE_API_TOKEN|api\.cloudflare\.com/, "Browser JavaScript must never contain the Cloudflare management credential or call its API directly.");
+assert.doesNotMatch(accessJs, /localStorage|sessionStorage/, "Access administration must not persist directory or audit data in browser storage.");
 
 assert.doesNotMatch(chatJs, /applyModelFallback/, "Chat must not silently use fallback model discovery.");
 assert.doesNotMatch(chatJs, /DEFAULT_CHAT_MODEL\s*=\s*"Qwen-Qwen3\.6-27B-FP8"/, "Chat must not hardcode the short vLLM model id fallback.");
@@ -164,7 +178,7 @@ assert.match(chatJs, /previewUrl:\s*source\.dataUrl\s*\|\|\s*source\.url\s*\|\|\
 assert.match(chatJs, /function isLoopbackHost\(\)/, "Local chat testing must use an explicitly loopback-scoped identity fallback.");
 assert.match(chatJs, /isLoopbackHost\(\)\s*\?\s*"local-development"\s*:\s*"cloudflare-access"/, "Local chat requests must not claim a Cloudflare Access identity source.");
 
-assert.match(privateBridgeWorker, /new Set\(\["conversations", "projects", "jobs"\]\)/, "The Worker bridge must expose only approved private resources.");
+assert.match(privateBridgeWorker, /PRIVATE_RESOURCES\s*=\s*new Set\(\["conversations", "projects", "jobs"\]\)/, "The Worker bridge must proxy only approved private API resources.");
 assert.match(privateBridgeWorker, /request\.headers\.get\("Cf-Access-Jwt-Assertion"\)/, "The Worker bridge must require the signed Cloudflare Access assertion.");
 assert.match(privateBridgeWorker, /headers\.delete\("authorization"\)/, "The Worker bridge must not forward browser authorization credentials.");
 assert.match(privateBridgeWorker, /headers\.delete\("cookie"\)/, "The Worker bridge must not forward browser cookies to the API origin.");

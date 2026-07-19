@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <title>Access | Token Gen</title>
+    <link rel="stylesheet" href="./styles.css?v=token-gen-access-20260719-2" />
+    <script src="./access.js?v=token-gen-access-20260719-2" defer></script>
+  </head>
+  <body class="access-page">
+    <header class="access-topbar">
+      <a class="access-brand" href="./index.html" aria-label="Token Gen home">
+        <span class="access-brand-mark" aria-hidden="true">TG</span>
+        <span>
+          <strong>Token Gen</strong>
+          <small>Owner administration</small>
+        </span>
+      </a>
+      <div class="access-owner-badge" aria-label="Restricted to Jesse">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2M5 10h14v10H5z" /></svg>
+        Jesse only
+      </div>
+    </header>
+
+    <main class="access-app" id="accessApp">
+      <section class="access-heading" aria-labelledby="accessTitle">
+        <div>
+          <p class="access-eyebrow">Cloudflare Access</p>
+          <h1 id="accessTitle">Access</h1>
+          <p>See who can sign in to Token Gen and review the latest captured authentication activity.</p>
+        </div>
+        <a
+          class="access-button access-button-primary"
+          href="https://one.dash.cloudflare.com/017717ec4c34e46041a4bf3dd0873e4a/access/apps"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8M18 13v6H5V6h6" /></svg>
+          Manage in Cloudflare
+        </a>
+      </section>
+
+      <div class="access-alert access-alert-info" role="note">
+        <strong>Protected by your existing login</strong>
+        <span>Only jesse@owenonthenet.com can open this page. Access changes are made through your existing Cloudflare dashboard.</span>
+      </div>
+
+      <section class="access-metrics" aria-label="Access summary">
+        <article class="access-metric">
+          <span>Authorised people</span>
+          <strong id="authorisedCount">5</strong>
+          <small>Explicit email addresses</small>
+        </article>
+        <article class="access-metric">
+          <span>Have signed in</span>
+          <strong id="signedInCount">4</strong>
+          <small>With a successful login</small>
+        </article>
+        <article class="access-metric access-metric-good">
+          <span>Successful attempts</span>
+          <strong id="successfulCount">4</strong>
+          <small>In this activity snapshot</small>
+        </article>
+        <article class="access-metric access-metric-warn">
+          <span>Unsuccessful attempts</span>
+          <strong id="failedCount">1</strong>
+          <small>In this activity snapshot</small>
+        </article>
+      </section>
+
+      <div class="access-layout">
+        <section class="access-panel access-directory" aria-labelledby="peopleTitle">
+          <div class="access-panel-header">
+            <div>
+              <p class="access-panel-kicker">Directory</p>
+              <h2 id="peopleTitle">Authorised people</h2>
+            </div>
+          </div>
+
+          <div class="access-toolbar">
+            <label class="access-search" for="peopleSearch">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m16 16 4 4" /></svg>
+              <span class="access-visually-hidden">Search authorised people</span>
+              <input id="peopleSearch" type="search" placeholder="Search name or email" autocomplete="off" />
+            </label>
+            <span class="access-sync" id="syncStatus">Captured from Cloudflare 19 July 2026, 7:50 pm AEST</span>
+          </div>
+
+          <div class="access-table" role="table" aria-label="Authorised Token Gen users">
+            <div class="access-table-head" role="row">
+              <span role="columnheader">Person</span>
+              <span role="columnheader">Last successful login</span>
+              <span role="columnheader">Recent attempts</span>
+              <span role="columnheader"><span class="access-visually-hidden">Status</span></span>
+            </div>
+            <div id="peopleList" class="access-people-list" aria-live="polite"></div>
+          </div>
+          <p class="access-empty" id="peopleEmpty" hidden>No authorised people match this search.</p>
+        </section>
+
+        <aside class="access-panel access-activity" aria-labelledby="activityTitle">
+          <div class="access-panel-header">
+            <div>
+              <p class="access-panel-kicker">Audit trail</p>
+              <h2 id="activityTitle">Recent activity</h2>
+            </div>
+          </div>
+          <div class="access-segmented" id="activityFilters" aria-label="Filter recent activity">
+            <button type="button" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-filter="success" aria-pressed="false">Successful</button>
+            <button type="button" data-filter="failed" aria-pressed="false">Unsuccessful</button>
+          </div>
+          <ol class="access-timeline" id="activityList" aria-live="polite"></ol>
+          <p class="access-empty" id="activityEmpty" hidden>No recent attempts match this filter.</p>
+        </aside>
+      </div>
+    </main>
+
+    <script id="accessSnapshot" type="application/json">
+      {
+        "capturedAt": "2026-07-19T19:50:17+10:00",
+        "people": [
+          {
+            "email": "jesse@owenonthenet.com",
+            "name": "Jesse Owen",
+            "lastSuccessfulLogin": "2026-07-19T00:14:20Z",
+            "recentSuccessCount": 2,
+            "recentFailureCount": 0,
+            "attempts": [
+              { "allowed": true, "at": "2026-07-19T00:14:20Z", "country": "AU", "method": "onetimepin" },
+              { "allowed": true, "at": "2026-07-18T03:21:48Z", "country": "AU", "method": "onetimepin" }
+            ]
+          },
+          {
+            "email": "li-zen@owenonthenet.com",
+            "name": "",
+            "lastSuccessfulLogin": null,
+            "recentSuccessCount": 0,
+            "recentFailureCount": 0,
+            "attempts": []
+          },
+          {
+            "email": "gusulei@gmail.com",
+            "name": "",
+            "lastSuccessfulLogin": "2026-07-16T09:20:51Z",
+            "recentSuccessCount": 0,
+            "recentFailureCount": 0,
+            "attempts": []
+          },
+          {
+            "email": "keegy09@live.com",
+            "name": "",
+            "lastSuccessfulLogin": "2026-07-18T13:34:02Z",
+            "recentSuccessCount": 2,
+            "recentFailureCount": 1,
+            "attempts": [
+              { "allowed": false, "at": "2026-07-18T13:34:44Z", "country": "NZ", "method": "onetimepin" },
+              { "allowed": true, "at": "2026-07-18T13:34:02Z", "country": "NZ", "method": "onetimepin" },
+              { "allowed": true, "at": "2026-07-18T13:33:37Z", "country": "NZ", "method": "onetimepin" }
+            ]
+          },
+          {
+            "email": "lil-zen@owenonthenet.com",
+            "name": "",
+            "lastSuccessfulLogin": "2026-07-15T11:02:38Z",
+            "recentSuccessCount": 0,
+            "recentFailureCount": 0,
+            "attempts": []
+          }
+        ]
+      }
+    </script>
+    <noscript><p class="access-noscript">JavaScript is required to view the access directory.</p></noscript>
+  </body>
+</html>
