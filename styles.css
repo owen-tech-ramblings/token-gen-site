@@ -213,6 +213,17 @@ body.access-page {
   background: rgba(255, 255, 255, 0.045);
 }
 
+.access-button-danger {
+  border: 1px solid rgba(255, 122, 144, 0.42);
+  color: #ffd6dd;
+  background: rgba(255, 122, 144, 0.12);
+}
+
+.access-button-danger:hover {
+  border-color: rgba(255, 122, 144, 0.72);
+  background: rgba(255, 122, 144, 0.2);
+}
+
 .access-button-quiet {
   min-height: 36px;
   padding: 7px 10px;
@@ -416,7 +427,7 @@ body.access-page {
 .access-table-head,
 .access-person-row {
   display: grid;
-  grid-template-columns: minmax(220px, 1.45fr) minmax(180px, 1fr) minmax(180px, 0.9fr) minmax(90px, auto);
+  grid-template-columns: minmax(220px, 1.45fr) minmax(180px, 1fr) minmax(180px, 0.9fr) minmax(136px, auto);
   gap: 16px;
   align-items: center;
 }
@@ -540,6 +551,31 @@ body.access-page {
 .access-row-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 7px;
+}
+
+.access-row-button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--access-border);
+  border-radius: 7px;
+  color: var(--access-text-soft);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.access-row-button:hover {
+  border-color: var(--access-border-strong);
+  color: var(--access-text);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.access-row-button.is-danger:hover {
+  border-color: rgba(255, 122, 144, 0.48);
+  color: #ffabb9;
+  background: rgba(255, 122, 144, 0.07);
 }
 
 .access-policy-status {

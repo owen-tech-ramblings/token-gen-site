@@ -19,7 +19,7 @@
 - [ ] Configure Google as the identity provider if it is not already configured.
 - [ ] Add an allow policy with these emails:
   - `jesse@owenonthenet.com`
-  - `li-zen@owenonthenet.com`
+  - `lil-zen@owenonthenet.com`
   - `gusulei@gmail.com`
 - [ ] Verify unauthenticated access redirects to Cloudflare Access login.
 - [ ] Verify an allowed account can reach the homepage.

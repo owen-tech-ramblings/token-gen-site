@@ -1,6 +1,48 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-19 Australia/Sydney
+Last updated: 2026-07-20 Australia/Sydney
+
+## 2026-07-20 Token Gen Owner Access Management Handoff (not deployed)
+
+The `codex/owner-access-management` review branch has locally verified changes
+that turn the static directory into a live owner console. `access.html`,
+`access.js`, and the
+scoped styles add clean add, edit-name, remove, refresh, search, metrics, and
+activity controls without requirements or implementation copy. The browser
+calls only `/api/private/access` and contains no management credential.
+
+`cloudflare/private-api-bridge/worker.js` keeps the existing conversation,
+project, and job proxy behavior and adds the exact owner route. It verifies the
+dedicated Access JWT signature against the `zen-free` JWKS, the admin audience
+`f485326fa929b7373f7cd46047d3b4848b46c3ee2872f912e58923dfaedacc27`,
+issuer, expiry, and `jesse@owenonthenet.com`. Writes require same origin, retain
+unmanaged policy rules, fail on stale policy timestamps, and never return IP or
+Ray identifiers. The runtime secret name is `CLOUDFLARE_API_TOKEN`.
+
+The implementation is intentionally not merged or deployed yet.
+Account `017717ec4c34e46041a4bf3dd0873e4a` has no existing Worker/Secrets Store
+credential and the GitHub repo has no secrets. Cloudflare MCP can edit Access
+but receives 9109 Unauthorized from token-management endpoints. Jesse's
+Cloudflare session belongs to account `7564333ec9d56ca5ae8707fcbb650e15`
+and is not a member of the Access-owning account. Obtain explicit approval
+before granting Jesse account membership; otherwise the owner account must
+create the restricted token.
+
+Verification commands:
+
+```text
+node --check access.js
+node --check cloudflare/private-api-bridge/worker.js
+node --test tools/private-api-bridge-access.test.mjs
+node tools/site-contract-tests.mjs
+git diff --check
+```
+
+All 10 Worker tests and the site contracts pass. A local mock-backed browser
+pass completed add, edit, and remove interactions at desktop and 390 x 844,
+with no horizontal overflow or console warnings/errors. Do not deploy the site
+page ahead of the Worker secret because it would replace the usable static
+directory with an unavailable live view.
 
 ## 2026-07-19 Token Gen Owner Access Directory Handoff
 

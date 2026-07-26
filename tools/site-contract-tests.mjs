@@ -22,12 +22,15 @@ assert.match(index, /href="\.\/access\.html"/, "Homepage must link to owner Acce
 assert.match(index, /Token Gen/i, "Homepage must identify Token Gen clearly.");
 
 assert.match(accessHtml, /<meta name="robots" content="noindex, nofollow, noarchive"/, "Access administration must not be indexed.");
-assert.match(accessHtml, /Jesse only/, "Access administration must identify its owner-only boundary.");
 assert.match(accessHtml, /id="activityFilters"/, "Access administration must provide successful and unsuccessful activity filters.");
-assert.match(accessHtml, /id="accessSnapshot" type="application\/json"/, "Access administration must include the reviewed Cloudflare snapshot.");
+assert.match(accessHtml, /id="addPersonButton"/, "Access administration must provide an add-person action.");
+assert.match(accessHtml, /id="personDialog"/, "Access administration must provide add and edit controls.");
+assert.match(accessHtml, /id="removeDialog"/, "Access administration must confirm removals.");
 assert.doesNotMatch(accessHtml, /Protected by your existing login|Manage in Cloudflare/, "Access administration must not expose implementation guidance as product copy.");
-assert.match(accessJs, /document\.querySelector\("#accessSnapshot"\)/, "Access administration must read its static reviewed snapshot.");
-assert.doesNotMatch(accessJs, /\bfetch\s*\(/, "The simplified Access page must not require a management backend.");
+assert.match(accessJs, /API_PATH\s*=\s*"\/api\/private\/access"/, "Access administration must use the same-origin owner API.");
+assert.match(accessJs, /apiRequest\("POST"/, "Access administration must add authorised people through the owner API.");
+assert.match(accessJs, /apiRequest\("PATCH"/, "Access administration must update names through the owner API.");
+assert.match(accessJs, /apiRequest\("DELETE"/, "Access administration must remove authorised people through the owner API.");
 assert.doesNotMatch(accessJs, /CLOUDFLARE_API_TOKEN|api\.cloudflare\.com/, "Browser JavaScript must never contain the Cloudflare management credential or call its API directly.");
 assert.doesNotMatch(accessJs, /localStorage|sessionStorage/, "Access administration must not persist directory or audit data in browser storage.");
 
@@ -178,6 +181,12 @@ assert.match(chatJs, /function isLoopbackHost\(\)/, "Local chat testing must use
 assert.match(chatJs, /isLoopbackHost\(\)\s*\?\s*"local-development"\s*:\s*"cloudflare-access"/, "Local chat requests must not claim a Cloudflare Access identity source.");
 
 assert.match(privateBridgeWorker, /PRIVATE_RESOURCES\s*=\s*new Set\(\["conversations", "projects", "jobs"\]\)/, "The Worker bridge must proxy only approved private API resources.");
+assert.match(privateBridgeWorker, /ACCESS_PATH\s*=\s*`\$\{PRIVATE_PREFIX\}\/access`/, "The Worker bridge must expose the narrow owner Access route.");
+assert.match(privateBridgeWorker, /crypto\.subtle\.verify/, "The owner Access route must cryptographically verify its Cloudflare assertion.");
+assert.match(privateBridgeWorker, /email !== ACCESS_OWNER/, "The owner Access route must enforce Jesse's exact email after signature verification.");
+assert.match(privateBridgeWorker, /request\.headers\.get\("origin"\) !== SITE_ORIGIN/, "Access mutations must enforce the same site origin.");
+assert.match(privateBridgeWorker, /env\.CLOUDFLARE_API_TOKEN/, "Cloudflare management credentials must remain in a Worker secret.");
+assert.match(privateBridgeWorker, /sanitizeLogs/, "Access audit results must pass through the redacting sanitizer.");
 assert.match(privateBridgeWorker, /request\.headers\.get\("Cf-Access-Jwt-Assertion"\)/, "The Worker bridge must require the signed Cloudflare Access assertion.");
 assert.match(privateBridgeWorker, /headers\.delete\("authorization"\)/, "The Worker bridge must not forward browser authorization credentials.");
 assert.match(privateBridgeWorker, /headers\.delete\("cookie"\)/, "The Worker bridge must not forward browser cookies to the API origin.");

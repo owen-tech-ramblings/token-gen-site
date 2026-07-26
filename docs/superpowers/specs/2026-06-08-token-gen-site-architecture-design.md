@@ -9,7 +9,7 @@
 Cloudflare Access protects `token-gen.owenonthenet.com/*` with Google authentication. The initial allowed emails are:
 
 - `jesse@owenonthenet.com`
-- `li-zen@owenonthenet.com`
+- `lil-zen@owenonthenet.com`
 - `gusulei@gmail.com`
 
 The allowlist must live in Cloudflare Access policy/configuration so more email addresses can be added later without changing website JavaScript.

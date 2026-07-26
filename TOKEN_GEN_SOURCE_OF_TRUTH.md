@@ -38,13 +38,17 @@ Do not repoint `token-gen-api.owenonthenet.com` to this gateway unless Jesse
 explicitly asks for a routing migration. Treat it as local/runtime reference
 code, not as the live API authority.
 
-The old Windows project copy was removed. Do not recreate or use it as a
-source for this site:
+The Windows project copy is a non-authoritative mirror. It must not be used as
+the source or deployment checkout for this site:
 
 ```text
 C:\Users\User\Documents\New project\token-gen-site
 /mnt/c/Users/User/Documents/New project/token-gen-site
 ```
+
+Public-site commits, releases, and deployment evidence belong to the canonical
+WSL repository at
+`/home/jesse/.openclaw/workspace/token-gen-site-pages`.
 
 ## Required Preflight
 

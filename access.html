@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <title>Access | Token Gen</title>
-    <link rel="stylesheet" href="./styles.css?v=token-gen-access-20260719-3" />
-    <script src="./access.js?v=token-gen-access-20260719-3" defer></script>
+    <link rel="stylesheet" href="./styles.css?v=token-gen-access-20260720-1" />
+    <script src="./access.js?v=token-gen-access-20260720-1" defer></script>
   </head>
   <body class="access-page">
     <header class="access-topbar">
@@ -14,13 +14,9 @@
         <span class="access-brand-mark" aria-hidden="true">TG</span>
         <span>
           <strong>Token Gen</strong>
-          <small>Owner administration</small>
+          <small>Access</small>
         </span>
       </a>
-      <div class="access-owner-badge" aria-label="Restricted to Jesse">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V8a5 5 0 0 1 10 0v2M5 10h14v10H5z" /></svg>
-        Jesse only
-      </div>
     </header>
 
     <main class="access-app" id="accessApp">
@@ -29,24 +25,33 @@
           <h1 id="accessTitle">Access</h1>
           <p>Authorised users and recent sign-ins.</p>
         </div>
+        <button class="access-button access-button-primary" id="addPersonButton" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          Add person
+        </button>
       </section>
+
+      <div class="access-alert" id="pageAlert" role="alert" hidden>
+        <span id="pageAlertText"></span>
+        <button class="access-button access-button-quiet" id="retryButton" type="button">Try again</button>
+      </div>
 
       <section class="access-metrics" aria-label="Access summary">
         <article class="access-metric">
           <span>Authorised people</span>
-          <strong id="authorisedCount">5</strong>
+          <strong id="authorisedCount">—</strong>
         </article>
         <article class="access-metric">
           <span>Have signed in</span>
-          <strong id="signedInCount">4</strong>
+          <strong id="signedInCount">—</strong>
         </article>
         <article class="access-metric access-metric-good">
           <span>Successful attempts</span>
-          <strong id="successfulCount">4</strong>
+          <strong id="successfulCount">—</strong>
         </article>
         <article class="access-metric access-metric-warn">
           <span>Unsuccessful attempts</span>
-          <strong id="failedCount">1</strong>
+          <strong id="failedCount">—</strong>
         </article>
       </section>
 
@@ -57,6 +62,9 @@
               <p class="access-panel-kicker">Directory</p>
               <h2 id="peopleTitle">Authorised people</h2>
             </div>
+            <button class="access-icon-button" id="refreshButton" type="button" aria-label="Refresh">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5" /><path d="M18.5 9A7 7 0 0 0 6.2 6.2L4 9M5.5 15A7 7 0 0 0 17.8 17.8L20 15" /></svg>
+            </button>
           </div>
 
           <div class="access-toolbar">
@@ -65,7 +73,7 @@
               <span class="access-visually-hidden">Search authorised people</span>
               <input id="peopleSearch" type="search" placeholder="Search users" autocomplete="off" />
             </label>
-            <span class="access-sync" id="syncStatus">Updated 19 July 2026, 7:50 pm</span>
+            <span class="access-sync" id="syncStatus">Loading…</span>
           </div>
 
           <div class="access-table" role="table" aria-label="Authorised Token Gen users">
@@ -73,9 +81,11 @@
               <span role="columnheader">Person</span>
               <span role="columnheader">Last successful login</span>
               <span role="columnheader">Recent attempts</span>
-              <span role="columnheader"><span class="access-visually-hidden">Status</span></span>
+              <span role="columnheader"><span class="access-visually-hidden">Actions</span></span>
             </div>
-            <div id="peopleList" class="access-people-list" aria-live="polite"></div>
+            <div id="peopleList" class="access-people-list" aria-live="polite">
+              <div class="access-loading-row" aria-label="Loading authorised people"><span></span><span></span><span></span></div>
+            </div>
           </div>
           <p class="access-empty" id="peopleEmpty" hidden>No authorised people match this search.</p>
         </section>
@@ -92,66 +102,62 @@
             <button type="button" data-filter="success" aria-pressed="false">Successful</button>
             <button type="button" data-filter="failed" aria-pressed="false">Unsuccessful</button>
           </div>
-          <ol class="access-timeline" id="activityList" aria-live="polite"></ol>
+          <ol class="access-timeline" id="activityList" aria-live="polite">
+            <li class="access-activity-loading" aria-label="Loading recent activity"><span></span><span></span></li>
+          </ol>
           <p class="access-empty" id="activityEmpty" hidden>No recent attempts match this filter.</p>
         </aside>
       </div>
     </main>
 
-    <script id="accessSnapshot" type="application/json">
-      {
-        "capturedAt": "2026-07-19T19:50:17+10:00",
-        "people": [
-          {
-            "email": "jesse@owenonthenet.com",
-            "name": "Jesse Owen",
-            "lastSuccessfulLogin": "2026-07-19T00:14:20Z",
-            "recentSuccessCount": 2,
-            "recentFailureCount": 0,
-            "attempts": [
-              { "allowed": true, "at": "2026-07-19T00:14:20Z", "country": "AU", "method": "onetimepin" },
-              { "allowed": true, "at": "2026-07-18T03:21:48Z", "country": "AU", "method": "onetimepin" }
-            ]
-          },
-          {
-            "email": "li-zen@owenonthenet.com",
-            "name": "",
-            "lastSuccessfulLogin": null,
-            "recentSuccessCount": 0,
-            "recentFailureCount": 0,
-            "attempts": []
-          },
-          {
-            "email": "gusulei@gmail.com",
-            "name": "",
-            "lastSuccessfulLogin": "2026-07-16T09:20:51Z",
-            "recentSuccessCount": 0,
-            "recentFailureCount": 0,
-            "attempts": []
-          },
-          {
-            "email": "keegy09@live.com",
-            "name": "",
-            "lastSuccessfulLogin": "2026-07-18T13:34:02Z",
-            "recentSuccessCount": 2,
-            "recentFailureCount": 1,
-            "attempts": [
-              { "allowed": false, "at": "2026-07-18T13:34:44Z", "country": "NZ", "method": "onetimepin" },
-              { "allowed": true, "at": "2026-07-18T13:34:02Z", "country": "NZ", "method": "onetimepin" },
-              { "allowed": true, "at": "2026-07-18T13:33:37Z", "country": "NZ", "method": "onetimepin" }
-            ]
-          },
-          {
-            "email": "lil-zen@owenonthenet.com",
-            "name": "",
-            "lastSuccessfulLogin": "2026-07-15T11:02:38Z",
-            "recentSuccessCount": 0,
-            "recentFailureCount": 0,
-            "attempts": []
-          }
-        ]
-      }
-    </script>
+    <dialog class="access-dialog" id="personDialog">
+      <form id="personForm">
+        <div class="access-dialog-header">
+          <div>
+            <p class="access-panel-kicker" id="personDialogKicker">New person</p>
+            <h2 id="personDialogTitle">Add access</h2>
+          </div>
+          <button class="access-icon-button" type="button" data-close-person aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <label class="access-field">
+          <span>Name <small>Optional</small></span>
+          <input id="personName" name="name" maxlength="80" autocomplete="name" />
+        </label>
+        <label class="access-field">
+          <span>Email</span>
+          <input id="personEmail" name="email" type="email" maxlength="254" autocomplete="email" required />
+        </label>
+        <p class="access-form-error" id="personFormError" role="alert" hidden></p>
+        <div class="access-dialog-actions">
+          <button class="access-button access-button-secondary" type="button" data-close-person>Cancel</button>
+          <button class="access-button access-button-primary" id="personSubmit" type="submit">Add person</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="access-dialog access-confirm-dialog" id="removeDialog">
+      <form id="removeForm">
+        <div class="access-dialog-header">
+          <div>
+            <p class="access-panel-kicker">Remove person</p>
+            <h2>Remove access?</h2>
+          </div>
+          <button class="access-icon-button" type="button" data-close-remove aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
+        </div>
+        <p class="access-dialog-copy" id="removeCopy"></p>
+        <p class="access-form-error" id="removeFormError" role="alert" hidden></p>
+        <div class="access-dialog-actions">
+          <button class="access-button access-button-secondary" type="button" data-close-remove>Cancel</button>
+          <button class="access-button access-button-danger" id="removeSubmit" type="submit">Remove access</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="access-toast" id="toast" role="status" hidden></div>
     <noscript><p class="access-noscript">JavaScript is required to view the access directory.</p></noscript>
   </body>
 </html>

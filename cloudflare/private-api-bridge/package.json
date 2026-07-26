@@ -1,0 +1,5 @@
+{
+  "name": "token-gen-private-api-bridge",
+  "private": true,
+  "type": "module"
+}

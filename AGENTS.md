@@ -2,6 +2,54 @@
 
 This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com`.
 
+## Repository Contract
+
+- Canonical root:
+  `/home/jesse/.openclaw/workspace/token-gen-site-pages`
+- Origin:
+  `https://github.com/owen-tech-ramblings/token-gen-site.git`
+- Release branch: `master`
+- Expected GitHub identity: `owen-tech-ramblings`
+- Approved secret locators: Google Secret Manager project `lil-zen-oc` and
+  `D:\openclaw` (`/mnt/d/openclaw` in WSL) only
+- Release scope: `token-gen-site`
+- Live deployment: legacy GitHub Pages from the root of `origin/master` with
+  the custom domain `token-gen.owenonthenet.com`
+- Rollback: revert the faulty release on `master`, pass the same release gate,
+  register the rollback release, and verify the resulting Pages build plus the
+  Cloudflare Access-protected public route
+
+Keep the canonical root clean on `master` at `origin/master`. Create and retire
+`codex/*` branches only through
+`/home/jesse/.openclaw/workspace/lil-zen-control-plane/platform-ops/scripts/openclaw_managed_worktree.py`.
+Push the branch and use a pull request; never leave feature work only in a
+canonical checkout, stash, similarly named mirror, or chat history. Because
+GitHub Pages currently publishes `master` automatically, do not merge a change
+that is not safe to make live.
+
+Before releasing, run:
+
+```bash
+node --check access.js
+node --check cloudflare/private-api-bridge/worker.js
+node tools/site-contract-tests.mjs
+git diff --check
+python3 /home/jesse/.openclaw/workspace/lil-zen-control-plane/platform-ops/scripts/openclaw_ecosystem_guard.py --release-gate --scope token-gen-site
+python3 /home/jesse/.openclaw/workspace/lil-zen-control-plane/platform-ops/scripts/openclaw_release_registry.py --create --scope token-gen-site
+```
+
+Run feature-specific tests in addition to this baseline. After a merge, verify
+the exact GitHub Pages build SHA, the direct Pages artifact, the expected
+unauthenticated Cloudflare Access redirect, and an authenticated production
+smoke when the change affects protected behavior.
+
+Forbidden actions include direct edits to published/runtime copies, publishing
+from the Windows mirror, committing secrets or personal activity data, silently
+falling back around a missing API or credential, switching global GitHub auth,
+merging from a dirty/noncanonical checkout, bypassing the scoped release gate,
+or deploying the owner Access page before its same-origin Worker and restricted
+server-side credential are ready.
+
 ## Shared Codex Context
 
 Before changing this repo, read:
@@ -67,7 +115,7 @@ Token-Gen Server Codex.
 - `https://token-gen.owenonthenet.com` is the static site.
 - `https://token-gen.owenonthenet.com/*` should be protected by Cloudflare Access.
 - Cloudflare Access allowlist should target `jesse@owenonthenet.com`,
-  `li-zen@owenonthenet.com`, and `gusulei@gmail.com`.
+  `lil-zen@owenonthenet.com`, and `gusulei@gmail.com`.
 - `https://token-gen-api.owenonthenet.com` routes to the token-gen server API.
 - The active public API source is currently
   `token-gen:/home/zenfree/server-details-api/server_details_api.py`.

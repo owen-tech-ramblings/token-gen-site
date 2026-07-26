@@ -1,10 +1,14 @@
 (() => {
   "use strict";
 
-  const snapshotElement = document.querySelector("#accessSnapshot");
+  const API_PATH = "/api/private/access";
+  const OWNER_EMAIL = "jesse@owenonthenet.com";
   const state = {
     activityFilter: "all",
-    data: JSON.parse(snapshotElement?.textContent || '{"people":[]}'),
+    busy: false,
+    data: { capturedAt: null, people: [], policyVersion: "" },
+    editingEmail: "",
+    removingEmail: "",
     search: "",
   };
 
@@ -12,13 +16,33 @@
     activityEmpty: document.querySelector("#activityEmpty"),
     activityFilters: document.querySelector("#activityFilters"),
     activityList: document.querySelector("#activityList"),
+    addPersonButton: document.querySelector("#addPersonButton"),
     authorisedCount: document.querySelector("#authorisedCount"),
     failedCount: document.querySelector("#failedCount"),
+    pageAlert: document.querySelector("#pageAlert"),
+    pageAlertText: document.querySelector("#pageAlertText"),
     peopleEmpty: document.querySelector("#peopleEmpty"),
     peopleList: document.querySelector("#peopleList"),
     peopleSearch: document.querySelector("#peopleSearch"),
+    personDialog: document.querySelector("#personDialog"),
+    personDialogKicker: document.querySelector("#personDialogKicker"),
+    personDialogTitle: document.querySelector("#personDialogTitle"),
+    personEmail: document.querySelector("#personEmail"),
+    personForm: document.querySelector("#personForm"),
+    personFormError: document.querySelector("#personFormError"),
+    personName: document.querySelector("#personName"),
+    personSubmit: document.querySelector("#personSubmit"),
+    refreshButton: document.querySelector("#refreshButton"),
+    removeCopy: document.querySelector("#removeCopy"),
+    removeDialog: document.querySelector("#removeDialog"),
+    removeForm: document.querySelector("#removeForm"),
+    removeFormError: document.querySelector("#removeFormError"),
+    removeSubmit: document.querySelector("#removeSubmit"),
+    retryButton: document.querySelector("#retryButton"),
     signedInCount: document.querySelector("#signedInCount"),
     successfulCount: document.querySelector("#successfulCount"),
+    syncStatus: document.querySelector("#syncStatus"),
+    toast: document.querySelector("#toast"),
   };
 
   const dateFormatter = new Intl.DateTimeFormat("en-AU", {
@@ -26,6 +50,15 @@
     timeStyle: "short",
     timeZone: "Australia/Sydney",
   });
+  let toastTimer;
+
+  class ApiError extends Error {
+    constructor(message, status, code) {
+      super(message);
+      this.status = status;
+      this.code = code;
+    }
+  }
 
   function node(tag, className, text) {
     const element = document.createElement(tag);
@@ -57,12 +90,14 @@
   }
 
   function initials(person) {
-    return displayName(person)
-      .split(/[\s._-]+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() || "")
-      .join("") || "?";
+    return (
+      displayName(person)
+        .split(/[\s._-]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() || "")
+        .join("") || "?"
+    );
   }
 
   function attemptBadge(kind, count) {
@@ -71,6 +106,14 @@
     dot.setAttribute("aria-hidden", "true");
     badge.append(dot, document.createTextNode(`${count} ${kind === "good" ? "successful" : "unsuccessful"}`));
     return badge;
+  }
+
+  function actionButton(label, action, email, danger = false) {
+    const button = node("button", `access-row-button${danger ? " is-danger" : ""}`, label);
+    button.type = "button";
+    button.dataset.action = action;
+    button.dataset.email = email;
+    return button;
   }
 
   function personRow(person) {
@@ -101,11 +144,14 @@
       attemptBadge("bad", person.recentFailureCount || 0),
     );
 
-    const status = node("div", "access-person-cell access-row-actions");
-    status.setAttribute("role", "cell");
-    status.append(node("span", "access-policy-status", "Authorised"));
+    const actions = node("div", "access-person-cell access-row-actions");
+    actions.setAttribute("role", "cell");
+    actions.append(actionButton("Edit", "edit", person.email));
+    if (person.email.toLowerCase() !== OWNER_EMAIL) {
+      actions.append(actionButton("Remove", "remove", person.email, true));
+    }
 
-    row.append(identity, login, attempts, status);
+    row.append(identity, login, attempts, actions);
     return row;
   }
 
@@ -121,7 +167,7 @@
   function allActivity() {
     return state.data.people
       .flatMap((person) =>
-        person.attempts.map((attempt) => ({ ...attempt, email: person.email, name: person.name })),
+        (person.attempts || []).map((attempt) => ({ ...attempt, email: person.email, name: person.name })),
       )
       .sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
   }
@@ -164,9 +210,134 @@
     elements.failedCount.textContent = String(attempts.filter((attempt) => !attempt.allowed).length);
   }
 
+  function render() {
+    renderMetrics();
+    renderPeople();
+    renderActivity();
+    elements.syncStatus.textContent = state.data.capturedAt ? `Updated ${formatDate(state.data.capturedAt)}` : "";
+  }
+
+  function setPageError(message) {
+    elements.pageAlertText.textContent = message;
+    elements.pageAlert.hidden = !message;
+  }
+
+  function setFormError(element, message) {
+    element.textContent = message;
+    element.hidden = !message;
+  }
+
+  function showToast(message) {
+    clearTimeout(toastTimer);
+    elements.toast.textContent = message;
+    elements.toast.hidden = false;
+    toastTimer = window.setTimeout(() => {
+      elements.toast.hidden = true;
+    }, 3600);
+  }
+
+  function setBusy(busy) {
+    state.busy = busy;
+    elements.addPersonButton.disabled = busy;
+    elements.refreshButton.disabled = busy;
+    elements.personSubmit.disabled = busy;
+    elements.removeSubmit.disabled = busy;
+    elements.refreshButton.classList.toggle("is-loading", busy);
+  }
+
+  async function apiRequest(method = "GET", body) {
+    const response = await fetch(API_PATH, {
+      method,
+      credentials: "include",
+      headers: body
+        ? { "content-type": "application/json", "x-token-gen-admin": "1" }
+        : { "x-token-gen-admin": "1" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || payload.ok === false) {
+      throw new ApiError(payload?.error?.message || "Something went wrong.", response.status, payload?.error?.code);
+    }
+    return payload.data;
+  }
+
+  async function loadDirectory({ quiet = false } = {}) {
+    if (state.busy) return;
+    setBusy(true);
+    if (!quiet) setPageError("");
+    try {
+      state.data = await apiRequest();
+      render();
+      setPageError("");
+    } catch (error) {
+      setPageError(error instanceof ApiError ? error.message : "Access could not be loaded.");
+      elements.syncStatus.textContent = "Unable to refresh";
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function openAddDialog() {
+    state.editingEmail = "";
+    elements.personDialogKicker.textContent = "New person";
+    elements.personDialogTitle.textContent = "Add access";
+    elements.personSubmit.textContent = "Add person";
+    elements.personName.value = "";
+    elements.personEmail.value = "";
+    elements.personEmail.readOnly = false;
+    setFormError(elements.personFormError, "");
+    elements.personDialog.showModal();
+    elements.personName.focus();
+  }
+
+  function openEditDialog(email) {
+    const person = state.data.people.find((candidate) => candidate.email === email);
+    if (!person) return;
+    state.editingEmail = person.email;
+    elements.personDialogKicker.textContent = "Person details";
+    elements.personDialogTitle.textContent = "Edit name";
+    elements.personSubmit.textContent = "Save changes";
+    elements.personName.value = person.name || "";
+    elements.personEmail.value = person.email;
+    elements.personEmail.readOnly = true;
+    setFormError(elements.personFormError, "");
+    elements.personDialog.showModal();
+    elements.personName.focus();
+  }
+
+  function openRemoveDialog(email) {
+    const person = state.data.people.find((candidate) => candidate.email === email);
+    if (!person) return;
+    state.removingEmail = person.email;
+    elements.removeCopy.textContent = `Remove access for ${person.email}?`;
+    setFormError(elements.removeFormError, "");
+    elements.removeDialog.showModal();
+    elements.removeSubmit.focus();
+  }
+
+  function closeDialog(dialog) {
+    if (dialog.open && !state.busy) dialog.close();
+  }
+
+  async function refreshAfterConflict() {
+    await loadDirectory({ quiet: true });
+    setPageError("Access changed elsewhere. The list has been refreshed.");
+  }
+
+  elements.addPersonButton.addEventListener("click", openAddDialog);
+  elements.refreshButton.addEventListener("click", () => loadDirectory());
+  elements.retryButton.addEventListener("click", () => loadDirectory());
+
   elements.peopleSearch.addEventListener("input", (event) => {
     state.search = event.target.value;
     renderPeople();
+  });
+
+  elements.peopleList.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action][data-email]");
+    if (!button || state.busy) return;
+    if (button.dataset.action === "edit") openEditDialog(button.dataset.email);
+    if (button.dataset.action === "remove") openRemoveDialog(button.dataset.email);
   });
 
   elements.activityFilters.addEventListener("click", (event) => {
@@ -179,7 +350,64 @@
     renderActivity();
   });
 
-  renderMetrics();
-  renderPeople();
-  renderActivity();
+  for (const button of document.querySelectorAll("[data-close-person]")) {
+    button.addEventListener("click", () => closeDialog(elements.personDialog));
+  }
+  for (const button of document.querySelectorAll("[data-close-remove]")) {
+    button.addEventListener("click", () => closeDialog(elements.removeDialog));
+  }
+
+  elements.personForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (state.busy) return;
+    const name = elements.personName.value.trim();
+    const email = elements.personEmail.value.trim().toLowerCase();
+    setFormError(elements.personFormError, "");
+    setBusy(true);
+    try {
+      if (state.editingEmail) {
+        await apiRequest("PATCH", { email: state.editingEmail, name });
+        elements.personDialog.close();
+        showToast("Name updated.");
+      } else {
+        await apiRequest("POST", { email, name, policyVersion: state.data.policyVersion });
+        elements.personDialog.close();
+        showToast("Access added.");
+      }
+      setBusy(false);
+      await loadDirectory({ quiet: true });
+    } catch (error) {
+      setBusy(false);
+      if (error instanceof ApiError && error.status === 409) {
+        elements.personDialog.close();
+        await refreshAfterConflict();
+        return;
+      }
+      setFormError(elements.personFormError, error instanceof ApiError ? error.message : "Changes could not be saved.");
+    }
+  });
+
+  elements.removeForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (state.busy || !state.removingEmail) return;
+    setFormError(elements.removeFormError, "");
+    setBusy(true);
+    try {
+      await apiRequest("DELETE", { email: state.removingEmail, policyVersion: state.data.policyVersion });
+      elements.removeDialog.close();
+      showToast("Access removed.");
+      setBusy(false);
+      await loadDirectory({ quiet: true });
+    } catch (error) {
+      setBusy(false);
+      if (error instanceof ApiError && error.status === 409) {
+        elements.removeDialog.close();
+        await refreshAfterConflict();
+        return;
+      }
+      setFormError(elements.removeFormError, error instanceof ApiError ? error.message : "Access could not be removed.");
+    }
+  });
+
+  loadDirectory();
 })();

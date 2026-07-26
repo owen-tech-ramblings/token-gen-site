@@ -1,6 +1,32 @@
 # Token Gen Current State
 
-Last updated: 2026-07-19 Australia/Sydney
+Last updated: 2026-07-20 Australia/Sydney
+
+## Token Gen Owner Access Management - 2026-07-20 (prepared, not live)
+
+- The `codex/owner-access-management` review branch contains a complete live
+  Access-management UI
+  and same-origin Worker API for adding email addresses, editing real names,
+  removing access, and refreshing current sign-in activity. These changes are
+  prepared for review but not deployed; the live site remains the static
+  2026-07-19 release until its Worker credential is available.
+- The owner API cryptographically verifies the dedicated Access application's
+  RS256 JWT, issuer, audience, expiry, and exact
+  `jesse@owenonthenet.com` identity. Mutations also require a same-origin
+  request and a custom admin header. Browser code contains no Cloudflare token
+  and stores no directory or audit data.
+- Policy writes preserve non-email rules and use the current policy timestamp
+  to reject stale add/remove requests. Audit responses are limited to the main
+  Token Gen app, deduplicated, and exclude IP addresses and Ray IDs.
+- Validation passed locally: JavaScript and Worker syntax, site contracts, 10
+  real-RSA Worker tests, add/edit/remove browser interactions, desktop and
+  390 x 844 mobile review, zero horizontal overflow, and a clean console.
+- Deployment is blocked on a least-privilege server-side Cloudflare credential.
+  No suitable Worker, Secrets Store, filesystem, or GitHub secret exists. The
+  connected Cloudflare MCP identity can manage Access but cannot create API
+  tokens, while Jesse's Cloudflare user is not a member of account
+  `017717ec4c34e46041a4bf3dd0873e4a`. Do not publish the dynamic page until
+  this credential is installed.
 
 ## Token Gen Owner Access Directory - 2026-07-19
 
