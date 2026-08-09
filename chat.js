@@ -194,7 +194,7 @@ let jobState = {
   refreshTimer: null,
 };
 
-const DEFAULT_CONTEXT_WINDOW = 131072;
+const DEFAULT_CONTEXT_WINDOW = 262144;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const IMAGE_EDITOR_MAX_DIMENSION = 2048;
@@ -1840,7 +1840,7 @@ function historyImageMetadata(output) {
 }
 
 function storedHistoryMessages() {
-  return currentMessages().map((message) => {
+  return currentMessages().filter((message) => !message.excludeFromHistory).map((message) => {
     if (!message.id) message.id = createMessage(message.role, "").id;
     if (!message.createdAt) message.createdAt = new Date().toISOString();
     const item = {
@@ -2719,7 +2719,7 @@ function attachWebContext(index, context) {
 
 function boundedChatPayload(systemParts, route) {
   const fullHistory = messages
-    .filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"))
+    .filter((message) => !message.isWelcome && !message.excludeFromContext && (message.role === "user" || message.role === "assistant"))
     .map((message) => ({
       role: message.role,
       content: String(message.content || ""),
@@ -2729,31 +2729,27 @@ function boundedChatPayload(systemParts, route) {
   const systemTokens = estimateTokens(systemParts.join("\n\n"));
   const safetyTokens = Math.max(1024, Math.ceil(contextWindow * 0.01));
   const messageTokens = (message) => estimateTokens(message?.content || "") + 8 + (message?.visionImages?.length || 0) * 1400;
-  const latestTokens = messageTokens(fullHistory.at(-1));
   const availableAfterSystem = Math.max(512, contextWindow - systemTokens - safetyTokens);
   const requestedWebTokens = route.web ? route.contextTokenBudget : 0;
-  const webTokens = Math.max(0, Math.min(requestedWebTokens, availableAfterSystem - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)) - 256));
+  const webTokens = Math.max(0, Math.min(requestedWebTokens, Math.floor(availableAfterSystem * 0.5)));
+  const historyTokens = fullHistory.reduce((total, message) => total + messageTokens(message), 0);
   const requestedOutput = Number(els.maxTokens.value || 20000);
-  const maximumOutput = Math.max(256, availableAfterSystem - webTokens - Math.min(latestTokens, Math.floor(availableAfterSystem * 0.5)));
-  const outputTokens = Math.max(256, Math.min(requestedOutput, maximumOutput));
-  let remaining = Math.max(256, availableAfterSystem - webTokens - outputTokens);
-  const selected = [];
-
-  for (let index = fullHistory.length - 1; index >= 0; index -= 1) {
-    const message = fullHistory[index];
-    const tokens = messageTokens(message);
-    if (tokens <= remaining) {
-      selected.unshift(message);
-      remaining -= tokens;
-      continue;
-    }
-    if (!selected.length && remaining > 32) {
-      selected.unshift({ ...message, content: message.content.slice(0, Math.max(1, remaining * TOKEN_CHARS)) });
-    }
-    break;
+  const maximumOutput = availableAfterSystem - webTokens - historyTokens;
+  if (maximumOutput < 32) {
+    throw new Error(
+      `This conversation is at the active model's ${contextWindow.toLocaleString("en-AU")}-token physical limit. `
+      + "No turns were discarded. Start a new chat or remove large attachments before continuing.",
+    );
   }
+  const outputTokens = Math.max(32, Math.min(requestedOutput, maximumOutput));
 
-  return { history: selected, maxTokens: outputTokens, webTokens };
+  return {
+    history: fullHistory,
+    maxTokens: outputTokens,
+    webTokens,
+    estimatedInputTokens: systemTokens + historyTokens + webTokens,
+    contextWindow,
+  };
 }
 
 async function chatPayloadMessage(message) {
@@ -2849,6 +2845,9 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
       project_id: projectState.active?.id || undefined,
       requested_mode: route.mode,
       resolved_route: route.research ? "research" : route.web ? "web" : route.vision ? "vision" : "chat",
+      context_window: bounded.contextWindow,
+      estimated_input_tokens: bounded.estimatedInputTokens,
+      history_truncated: false,
     },
   };
 }
@@ -2856,7 +2855,6 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
 function extractAssistantMessage(data) {
   const message = data?.choices?.[0]?.message || {};
   if (typeof message.content === "string" && message.content.trim()) return message.content.trim();
-  if (typeof message.reasoning === "string" && message.reasoning.trim()) return message.reasoning.trim();
   return JSON.stringify(data, null, 2);
 }
 
@@ -2952,20 +2950,19 @@ async function loadWebSearchCapability() {
     if (!webFetchModes[els.webFetchMode.value]) {
       els.webFetchMode.value = ["tor", "proxy", "direct"].find((mode) => webFetchModes[mode]) || "direct";
     }
-    webSearchSupported = Boolean(
-      res.ok
-      && json.ok !== false
-      && health.available !== false
-      && (health.tavily_configured || health.searxng_available),
-    );
+    webSearchSupported = Boolean(res.ok && json.ok !== false && health.available === true);
     researchSupported = Boolean(webSearchSupported && health.research_available);
     if (webSearchSupported) {
       const routeLabel = webFetchModes.tor ? "Tor page fetching is available." : "Tor page fetching is unavailable.";
+      const providerLabel = health.unmetered_available
+        ? "Unmetered SearXNG is primary; Tavily is the metered fallback."
+        : "Metered Tavily is available; unmetered SearXNG is currently offline.";
       els.webStatus.textContent = researchSupported
-        ? `Web and local research are available: Tavily first, then balanced SearXNG. ${routeLabel}`
-        : `Web context is available: Tavily first, then balanced SearXNG. ${routeLabel}`;
-      els.webStatus.dataset.state = "good";
+        ? `Web and local research are available. ${providerLabel} ${routeLabel}`
+        : `Web context is available. ${providerLabel} ${routeLabel}`;
+      els.webStatus.dataset.state = health.unmetered_available ? "good" : "warn";
       els.webSearch.disabled = false;
+      els.webSearch.checked = Boolean(health.default_enabled);
       syncWebUI();
       syncModeUI();
       updateSendState();
@@ -3039,6 +3036,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     "busy",
   );
 
+  let assistantIndex = null;
   try {
     const chatUserId = await getChatUserId();
     const projectContext = route.project
@@ -3067,9 +3065,10 @@ async function sendMessage(content, route = routeRequest(content)) {
       throw new Error(text || "Chat stream request failed");
     }
 
-    const assistantIndex = appendAssistantMessage("");
+    assistantIndex = appendAssistantMessage("");
     if (projectContext?.metadata) attachProjectContext(assistantIndex, projectContext.metadata);
     let assistantText = "";
+    let reasoningSeen = false;
     let buffer = "";
     const decoder = new TextDecoder();
     const reader = res.body.getReader();
@@ -3096,6 +3095,17 @@ async function sendMessage(content, route = routeRequest(content)) {
           continue;
         }
         if (chunk.error) throw new Error(chunk.error);
+        if (chunk.type === "progress") {
+          setStatus(chunk.message || "Token Gen is working...", "busy");
+          continue;
+        }
+        if (chunk.type === "response_replacement") {
+          assistantText = String(chunk.content || "");
+          if (!assistantText.trim()) throw new Error("Token Gen could not repair the incomplete response.");
+          updateAssistantMessage(assistantIndex, assistantText);
+          setStatus("A malformed model response was repaired locally.", "busy");
+          continue;
+        }
         const webContext = chunk.web_context || chunk.webContext || (chunk.type === "web_context" ? chunk.data : null);
         if (webContext) {
           attachWebContext(assistantIndex, webContext);
@@ -3108,21 +3118,35 @@ async function sendMessage(content, route = routeRequest(content)) {
           continue;
         }
         const delta = chunk.choices?.[0]?.delta || {};
-        const token = delta.content || delta.reasoning_content || delta.reasoning || "";
+        const reasoning = delta.reasoning_content || delta.reasoning;
+        if (typeof reasoning === "string" && reasoning) {
+          reasoningSeen = true;
+          setStatus("Thinking through the answer...", "busy");
+        }
+        const token = typeof delta.content === "string" ? delta.content : "";
         if (token) {
           assistantText += token;
-          updateAssistantMessage(assistantIndex, assistantText);
+          if (assistantText.trim().length >= 24) updateAssistantMessage(assistantIndex, assistantText);
         }
       }
     }
 
     if (!assistantText.trim()) {
-      updateAssistantMessage(assistantIndex, "The model returned an empty response.");
+      throw new Error(reasoningSeen
+        ? "The model reasoned but did not return a usable final answer."
+        : "The model returned an empty response.");
     }
+    updateAssistantMessage(assistantIndex, assistantText);
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
-    messages.push(createMessage("assistant", `Request failed: ${error.message}`));
-    setStatus("Chat request failed", "bad");
+    const failure = createMessage("assistant", `Request failed: ${error.message}`, {
+      excludeFromContext: true,
+      excludeFromHistory: true,
+      isError: true,
+    });
+    if (assistantIndex !== null) messages[assistantIndex] = failure;
+    else messages.push(failure);
+    setStatus(`Chat request failed: ${error.message}`, "bad");
   } finally {
     updateSendState();
     els.input.disabled = !chatReady;

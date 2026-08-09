@@ -1,6 +1,31 @@
 # Token Gen Handoff
 
-Last updated: 2026-07-19 Australia/Sydney
+Last updated: 2026-08-09 Australia/Sydney
+
+## 2026-08-09 Multi-turn chat reliability handoff
+
+The browser consumes `unmetered_available` and `default_enabled` from
+`/api/web-search/health`. Do not infer readiness from a configured Tavily key.
+A live unmetered SearXNG route enables the always-on default; metered-only
+availability remains an explicit or automatic per-question route.
+
+The SSE reader recognizes `progress`, `web_context`, and
+`response_replacement`. Raw `reasoning_content` updates status only and must
+never enter `messages[].content`. Transient request errors use
+`excludeFromContext` and `excludeFromHistory`; keep both boundaries when
+changing conversation persistence.
+
+`boundedChatPayload` retains all valid user and assistant messages. It uses the
+model-discovered physical window to size output and web evidence, and raises a
+visible capacity error instead of silently deleting older turns. Production
+assets use `token-chat-frontier-20260809-1`.
+
+Verification:
+
+```text
+node tools/site-contract-tests.mjs
+git diff --check
+```
 
 ## 2026-07-19 Token Gen Owner Access Directory Handoff
 
