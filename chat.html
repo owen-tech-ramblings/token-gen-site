@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-research-20260716-1" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-frontier-20260809-1" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -251,7 +251,7 @@
                 </label>
                 <label class="chat-field" for="chatWebBudget">
                   <span>Token budget</span>
-                  <input id="chatWebBudget" type="number" min="500" max="24000" step="500" value="10000" />
+                  <input id="chatWebBudget" type="number" min="500" max="131072" step="500" value="16000" />
                 </label>
               </div>
               <p class="chat-web-note">The search provider receives the query. Destination pages use the selected fetch route; Token Gen never silently changes Tor or Proxy to Direct. A supplied Tavily key remains in this tab and is sent only with the request.</p>
@@ -488,7 +488,7 @@
               </label>
               <label class="chat-field" for="chatMaxTokens">
                 <span>Maximum tokens</span>
-                <input id="chatMaxTokens" type="number" min="32" max="131000" step="1000" value="20000" />
+                <input id="chatMaxTokens" type="number" min="32" max="262000" step="1000" value="20000" />
               </label>
             </div>
             <label class="chat-field" for="chatSystem">
@@ -589,6 +589,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-research-20260716-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-frontier-20260809-1"></script>
   </body>
 </html>

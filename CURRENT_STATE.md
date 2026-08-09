@@ -1,6 +1,31 @@
 # Token Gen Current State
 
-Last updated: 2026-07-19 Australia/Sydney
+Last updated: 2026-08-09 Australia/Sydney
+
+## Frontier-style multi-turn chat reliability - 2026-08-09
+
+- The chat uses the API's live 262,144-token model window and retains the full
+  conversation. It no longer silently drops old turns using a character-count
+  estimate. If the physical model limit is reached, the UI says so and confirms
+  that no turns were discarded.
+- Internal reasoning is never rendered, saved as the assistant answer, or sent
+  back as ordinary conversation content. Only final answer tokens become the
+  assistant message.
+- Search and generation progress events keep the page responsive during long
+  web work. A same-model repaired final response replaces a malformed fragment
+  without repeating the web search.
+- Request failures are visible but transient. They are excluded from private
+  history and all later model payloads, so one failed turn cannot poison the
+  next prompt.
+- Web defaults on only when API health says the unmetered SearXNG provider is
+  live. SearXNG is described as primary and Tavily as the metered fallback.
+  Metered-only availability remains usable but is not silently made the default.
+- Web evidence can use up to half of the discovered model window rather than a
+  fixed 24,000-token HTML cap. Output and conversation budgeting use the same
+  live model metadata.
+- `node tools/site-contract-tests.mjs` covers the new default, private
+  reasoning, transient errors, repaired responses, complete-history behavior,
+  and cache-busted assets alongside every existing site contract.
 
 ## Token Gen Owner Access Directory - 2026-07-19
 
