@@ -89,7 +89,7 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-frontier-20260809-1/, "Chat HTML must use the current reliability CSS cache key.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-frontier-20260809-1/, "Chat HTML must cache-bust the reliability script.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-image-iteration-20260810-1/, "Chat HTML must cache-bust the current image-iteration script.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");

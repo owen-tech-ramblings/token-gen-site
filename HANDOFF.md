@@ -1,6 +1,25 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-09 Australia/Sydney
+Last updated: 2026-08-10 Australia/Sydney
+
+## 2026-08-10 Attached-image edit and iteration fix
+
+The API and RunPod edit pipeline are healthy: a controlled live edit returned a
+different image digest and the requested red-to-blue pixel change. The browser
+fault was caused by incomplete edit-intent language plus Iterate retaining
+Precise / 0.20 defaults while repeating the original prompt.
+
+`IMAGE_EDIT_INTENT_PATTERN` now covers contextual follow-ups such as “make it”,
+“turn it”, “try again”, “another version”, “iterate”, and “variation”. The
+Iterate action applies Flexible / 0.58 settings and asks for a distinct
+variation. Regression coverage is in
+`tools/chat-image-routing.test.mjs`; retain it when changing automatic routing
+or generated-image actions. Production must serve the
+`token-chat-image-iteration-20260810-1` script key after promotion.
+
+Use only `dev` and `master`: develop and verify on `dev`, fast-forward
+`master`, then push both branch names at the exact same commit before ending the
+cycle.
 
 ## 2026-08-09 Multi-turn chat reliability handoff
 

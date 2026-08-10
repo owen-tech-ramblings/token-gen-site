@@ -1,6 +1,25 @@
 # Token Gen Current State
 
-Last updated: 2026-08-09 Australia/Sydney
+Last updated: 2026-08-10 Australia/Sydney
+
+## Reliable attached-image edits and iteration - 2026-08-10
+
+- The unchanged-image report was isolated to the website rather than the API
+  or RunPod pipeline. A controlled live API edit changed a synthetic red source
+  to a blue result with a different digest and no exact normalized pixel
+  matches.
+- Auto mode now recognizes common contextual edit language including “make
+  it”, “turn it”, “try again”, “another version”, “iterate”, and “variation”.
+  Attached images using those prompts route to image editing rather than local
+  vision chat.
+- Iterate now changes the source settings from Precise / 0.20 to Flexible /
+  0.58 and prepares an explicit request for a distinct variation. It no longer
+  asks FLUX.2 to repeat the same prompt under the most conservative settings.
+- The focused routing regressions, JavaScript syntax check, and complete site
+  contract suite pass. The chat script has a new cache key so browsers do not
+  retain the faulty interaction logic.
+- Repository development now uses only `dev` and `master`, which must point to
+  the same verified commit at the end of every development cycle.
 
 ## Frontier-style multi-turn chat reliability - 2026-08-09
 

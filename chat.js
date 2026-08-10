@@ -289,7 +289,7 @@ const IMAGE_ORIENTATION_LABELS = {
 };
 const IMAGE_INTENT_PATTERN = /\b(create|generate|make|draw|render|paint|illustrate|design)\b[^.?!\n]{0,80}\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b|\b(image|picture|photo|illustration|art|poster|logo|scene|wallpaper|avatar)\b[^.?!\n]{0,80}\b(create|generate|make|draw|render|paint|illustrate|design)\b/i;
 const DIRECT_IMAGE_COMMAND_PATTERN = /^\s*(draw|paint|illustrate|render)\b/i;
-const IMAGE_EDIT_INTENT_PATTERN = /\b(edit|change|modify|remove|replace|add|restyle|transform|enhance|upscale|improve|retouch|recolour|recolor|make this|turn this)\b/i;
+const IMAGE_EDIT_INTENT_PATTERN = /\b(edit|change|modify|remove|replace|add|restyle|transform|enhance|upscale|improve|retouch|recolour|recolor|iterate|variation|another version|try again|make (?:this|it)|turn (?:this|it))\b/i;
 const CURRENT_WEB_INTENT_PATTERN = /\b(latest|current|currently|today|tonight|right now|live|recent|news|weather|forecast|price|score|standings|results?|release|version|updated?|this week|this month|as of)\b/i;
 const EXPLICIT_WEB_INTENT_PATTERN = /\b(search (?:the )?web|search online|browse|look (?:this )?up|on the internet|online sources?|web sources?|cite (?:your )?sources?|with citations?|fact[- ]?check|research)\b|https?:\/\//i;
 const RESEARCH_INTENT_PATTERN = /\b(deep research|research (?:this|the|into|about)|investigate|literature review|source-backed|evidence-based|compare (?:the )?(?:sources|evidence)|fact[- ]?check|with citations?|cite (?:your )?sources?)\b/i;
@@ -3662,6 +3662,13 @@ function applyRestyleDefaults() {
   syncImageEditStrengthValue();
 }
 
+function applyImageIterationDefaults() {
+  els.imageSourceMode.value = "edit";
+  els.imageEditPreservation.value = "flexible";
+  els.imageEditStrength.value = "0.58";
+  syncImageEditStrengthValue();
+}
+
 els.form.addEventListener("submit", (event) => {
   event.preventDefault();
   if (activeImageAbortController) {
@@ -4251,9 +4258,9 @@ els.thread.addEventListener("click", (event) => {
     image,
   });
   els.mode.value = "image";
+  applyImageIterationDefaults();
   syncModeUI();
-  els.imageSourceMode.value = "edit";
-  els.input.value = `Create a variation of this image: ${prompt}`;
+  els.input.value = `Create a distinct variation of this image while preserving the main subject: ${prompt}`;
   autosizeInput();
   updateSendState();
   els.input.focus();

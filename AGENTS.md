@@ -2,6 +2,15 @@
 
 This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com`.
 
+## Branch Workflow
+
+This one-developer repository has exactly two active branches: `dev` and
+`master`. Make changes on `dev`, run the complete site and feature-specific
+verification there, then fast-forward `master` to that verified commit. At the
+end of every development cycle, local `dev`, local `master`, `origin/dev`, and
+`origin/master` must resolve to the same commit. Do not create disposable
+feature or `codex/*` branches.
+
 ## Shared Codex Context
 
 Before changing this repo, read:
