@@ -18,6 +18,9 @@ Last updated: 2026-08-10 Australia/Sydney
 - The focused routing regressions, JavaScript syntax check, and complete site
   contract suite pass. The chat script has a new cache key so browsers do not
   retain the faulty interaction logic.
+- GitHub Pages successfully deployed the promoted `master` commit; the image
+  routing and iteration fix is live behind the existing Cloudflare Access
+  boundary.
 - Repository development now uses only `dev` and `master`, which must point to
   the same verified commit at the end of every development cycle.
 

@@ -15,7 +15,8 @@ Iterate action applies Flexible / 0.58 settings and asks for a distinct
 variation. Regression coverage is in
 `tools/chat-image-routing.test.mjs`; retain it when changing automatic routing
 or generated-image actions. Production must serve the
-`token-chat-image-iteration-20260810-1` script key after promotion.
+`token-chat-image-iteration-20260810-1` script key. The corresponding GitHub
+Pages deployment completed successfully on 2026-08-10.
 
 Use only `dev` and `master`: develop and verify on `dev`, fast-forward
 `master`, then push both branch names at the exact same commit before ending the
