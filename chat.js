@@ -1,3 +1,5 @@
+import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
+
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 
 const $ = (selector) => document.querySelector(selector);
@@ -404,6 +406,11 @@ function routeRequest(prompt) {
   const research = !image && (mode === "research" || (mode === "auto" && promptNeedsResearch(prompt)));
   const automaticWeb = !image && mode === "auto" && promptNeedsFreshWeb(prompt);
   const web = !image && (research || automaticWeb || Boolean(els.webSearch.checked));
+  const webOptions = normalizeWebRouteOptions({
+    research,
+    maxResults: els.webResults.value,
+    contextTokenBudget: els.webBudget.value,
+  });
   return {
     kind: image ? "image" : "chat",
     mode,
@@ -412,12 +419,7 @@ function routeRequest(prompt) {
     project: !image && Boolean(projectState.active),
     vision: !image && attachedVisionImages.length > 0,
     enableThinking: research || Boolean(els.reasoning.checked),
-    maxResults: research
-      ? Math.max(6, Number(els.webResults.value || 5))
-      : Number(els.webResults.value || 5),
-    contextTokenBudget: research
-      ? Math.max(16000, Number(els.webBudget.value || 10000))
-      : Number(els.webBudget.value || 10000),
+    ...webOptions,
     timeRange: inferWebTimeRange(prompt),
   };
 }

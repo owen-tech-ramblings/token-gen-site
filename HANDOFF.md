@@ -1,6 +1,20 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-10 Australia/Sydney
+Last updated: 2026-08-11 Australia/Sydney
+
+## 2026-08-11 Web search result limits
+
+The Sources control now exposes 5 through 20 and initially selects 10. Browser
+routing normalizes empty or malformed values to 10 and clamps numeric values to
+5 through 20 before sending `web_search.max_results`; the API independently
+enforces the same boundary. Ordinary Web and Research modes use the same
+selected result limit.
+
+`chat-web-options.mjs` is the executable browser/Node boundary for result and
+route normalization. `tools/chat-web-result-limits.test.mjs` must exercise that
+real module rather than duplicating its logic. Focused RED produced three
+expected failures; GREEN passed all three tests and the site contract. Retain
+the `token-chat-search-results-20260811-1` cache key for this release.
 
 ## 2026-08-10 Attached-image edit and iteration fix
 
@@ -15,8 +29,9 @@ Iterate action applies Flexible / 0.58 settings and asks for a distinct
 variation. Regression coverage is in
 `tools/chat-image-routing.test.mjs`; retain it when changing automatic routing
 or generated-image actions. Production must serve the
-`token-chat-image-iteration-20260810-1` script key. The corresponding GitHub
-Pages deployment completed successfully on 2026-08-10.
+current cache-busted chat script; the image-edit behavior remains included in
+later chat script releases. The original corresponding GitHub Pages deployment
+completed successfully on 2026-08-10.
 
 Use only `dev` and `master`: develop and verify on `dev`, fast-forward
 `master`, then push both branch names at the exact same commit before ending the

@@ -1,6 +1,20 @@
 # Token Gen Current State
 
-Last updated: 2026-08-10 Australia/Sydney
+Last updated: 2026-08-11 Australia/Sydney
+
+## Web search result limits - 2026-08-11
+
+- The Sources control exposes 5 through 20 and initially selects 10. Browser
+  routing normalizes empty or malformed values to 10 and clamps numeric values
+  to 5 through 20 before sending `web_search.max_results`; the API independently
+  enforces the same boundary.
+- Ordinary Web and Research modes use the same selected result limit. Research
+  retains its 16,000-token minimum evidence budget but no longer silently
+  changes a five-source selection to six.
+- Focused TDD produced three expected RED failures against the prior markup and
+  missing behavior module, then passed all three tests plus the site contract.
+- Production browser assets use `token-chat-search-results-20260811-1` so the
+  prior five-source default is not retained by browser cache.
 
 ## Reliable attached-image edits and iteration - 2026-08-10
 
