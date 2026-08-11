@@ -2,14 +2,43 @@
 
 This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com`.
 
-## Branch Workflow
+## Repository contract
 
-This one-developer repository has exactly two active branches: `dev` and
-`master`. Make changes on `dev`, run the complete site and feature-specific
-verification there, then fast-forward `master` to that verified commit. At the
-end of every development cycle, local `dev`, local `master`, `origin/dev`, and
-`origin/master` must resolve to the same commit. Do not create disposable
-feature or `codex/*` branches.
+- Canonical root: `/home/jesse/.openclaw/workspace/token-gen-site-pages`
+- Canonical remote:
+  `https://github.com/owen-tech-ramblings/token-gen-site.git`
+- Release branch: `master`
+- Expected GitHub identity: `owen-tech-ramblings`, using
+  `/home/jesse/.config/gh`
+- Approved secret locators: GSM project `lil-zen-oc` and `D:\openclaw`
+  (`/mnt/d/openclaw` in WSL) only. Browser source must contain no secret.
+- Branch and review flow: use the receipt-bound managed-worktree tool from the
+  released Lil Zen control plane, publish a `codex/*` branch, pass every
+  required check and exact-commit GitHub review, and merge a clean pull
+  request. Keep the canonical root clean on `master` at `origin/master` until
+  the rollback-protected release transaction owns promotion.
+- Required checks: `npm test` and the exact-commit `quality / site` GitHub
+  check, plus feature-specific browser checks from a local static server. The
+  legacy `services/` examples are not production sources and are not an
+  alternative to the canonical `token-gen-api` suite.
+- Live deployment path: GitHub Pages legacy deployment from the repository
+  root of `master`, serving `https://token-gen.owenonthenet.com` through the
+  checked-in `CNAME`. A release is complete only when the latest Pages build
+  names the exact reviewed commit and the protected public routes pass.
+- Release path: pass the `token-gen-site` ecosystem release gate, promote the
+  exact fetched `origin/master` commit through the rollback-protected site
+  release transaction, verify the immutable release, GitHub Pages build, live
+  asset digests and public API integration, and then mirror the source to the
+  Windows copy when required.
+- Rollback path: restore the prior immutable site release and prior Pages
+  commit through a reviewed revert or corrective pull request, wait for the
+  exact Pages rebuild, and repeat the same live checks.
+- Forbidden actions: direct pushes to `master`, bypassing `quality / site`,
+  `dev` as a parallel release
+  authority, unleased or non-`codex/*` feature worktrees, direct live edits,
+  global GitHub-auth switching, repository-local secrets, deployment from the
+  Windows mirror, PC-hosted production API/search dependencies, silent
+  fallbacks, or a release record that does not match the Pages commit.
 
 ## Shared Codex Context
 
@@ -34,29 +63,9 @@ Token Gen site and API. Do not rely on chat memory as the source of truth.
 `CURRENT_STATE.md`, `HANDOFF.md`, older plans, or a local gateway route, stop
 and verify the live API before editing.
 
-## Development Roles
+## Product boundaries
 
-These roles apply only to development of the Token Gen API and Token Gen web
-pages.
-
-### Token-Gen Server Codex: API Producer
-
-The Codex CLI session running on the Token-Gen server owns the API producer
-side:
-
-- Python `ServerDetailsAPI` runtime and deployment
-- vLLM upstream connectivity
-- Tavily/web-search service connectivity
-- Cloudflare tunnel service target for `token-gen-api.owenonthenet.com`
-- `.well-known/token-gen-api.json` and `/api/agent.json` API contract contents
-- route auth/CORS behavior
-- live API route verification
-
-That Codex should make API behavior true before asking the website to consume it.
-
-### This PC Codex: Web Site Builder
-
-The Codex session on this PC owns the browser/site side:
+This repository owns only the browser/site side:
 
 - static site files for `https://token-gen.owenonthenet.com`
 - monitor and chat page rendering
@@ -66,10 +75,12 @@ The Codex session on this PC owns the browser/site side:
 - frontend Playwright/browser verification
 - cache-busting static assets when needed
 
-This Codex should not add private tokens to browser JavaScript or work around
-missing API behavior by inventing data. If the API contract or live route is
-missing, document it in `CURRENT_STATE.md`/`HANDOFF.md` and hand it to the
-Token-Gen Server Codex.
+The API and server-side SearXNG source is the separate canonical
+`token-gen-api` repository. Any Codex or Codex CLI instance may build either
+product, but it must use that product's current receipt-bound managed worktree,
+repository instructions, review, release and rollback path. Machine location
+does not create ownership. Never patch the Token Gen server runtime directly
+or work around missing API behaviour by inventing browser data.
 
 ## Architecture Rules
 
@@ -78,8 +89,8 @@ Token-Gen Server Codex.
 - Cloudflare Access allowlist should target `jesse@owenonthenet.com`,
   `li-zen@owenonthenet.com`, and `gusulei@gmail.com`.
 - `https://token-gen-api.owenonthenet.com` routes to the token-gen server API.
-- The active public API source is currently
-  `token-gen:/home/zenfree/server-details-api/server_details_api.py`.
+- The active public API is released from the canonical `token-gen-api`
+  repository and installed on the Token Gen server by its versioned installer.
 - The token-gen server API must expose both monitor and chat routes.
 - Browser JavaScript must never include `SERVER_DETAILS_TOKEN` or other secrets.
 - The monitor page uses public API routes only.
@@ -87,15 +98,17 @@ Token-Gen Server Codex.
 - The PC-side Node API proxy is dormant/obsolete unless deliberately
   reintroduced for a specific future feature.
 
-Before changing API behavior, run or verify:
+Before changing API behaviour, switch to the canonical `token-gen-api`
+repository and run its complete governed preflight. For read-only integration
+verification from this repository, check:
 
 ```bash
-curl -sS https://token-gen-api.owenonthenet.com/api/agent.json
-ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_details_api.py'
+curl -fsS https://token-gen-api.owenonthenet.com/api/agent.json
+curl -fsS https://token-gen-api.owenonthenet.com/api/web-search/health
 ```
 
-Do not infer the live runtime from local files. Do not repoint Cloudflare to the
-PC-side Node gateway unless Jesse explicitly asks for a routing migration.
+Do not infer the live runtime from local files. Do not repoint Cloudflare or
+route production chat, search, Tor or page retrieval through a development PC.
 
 Required public API routes:
 
@@ -115,7 +128,7 @@ Required protected Discord bot routes:
 - `/api/discord/chat/completions`
 - `/api/discord/chat/stream`
 
-Before committing:
+Before committing, in the receipt-bound managed worktree:
 
 1. Verify the root with `git rev-parse --show-toplevel`.
 2. Verify the remote with `git remote -v`.
@@ -130,8 +143,10 @@ https://github.com/owen-tech-ramblings/token-gen-site.git
 Related paths:
 
 - Windows source mirror: `/mnt/c/Users/User/Documents/New project/token-gen-site`
-- Dormant PC API proxy: `/home/jesse/.openclaw/workspace/token-gen-api-proxy`
+- Canonical API source: `/home/jesse/.openclaw/workspace/token-gen-api`
+- Deployed local integration proxy source: the Lil Zen control plane; its live
+  path is not an authoring repository
 
-Commit and push public-site changes from this repo unless Jesse explicitly asks
-for a different target. Mirror changes to the Windows source copy when useful,
-but do not treat the mirror as the deploy authority by default.
+Commit and push public-site changes only from the managed worktree created for
+this repository. The Windows source copy is a non-authoritative mirror and may
+never become the deploy source.

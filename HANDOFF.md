@@ -2,6 +2,23 @@
 
 Last updated: 2026-08-11 Australia/Sydney
 
+## 2026-08-11 governed repository handoff
+
+All future changes begin with the released Lil Zen enhancement guide and a
+receipt-bound managed `codex/*` worktree. Merge through a clean pull request;
+do not use `dev`, a direct `master` push, the Windows mirror, the server runtime
+or the local integration proxy as another authoring path. The exact reviewed
+commit must agree across `origin/master`, the canonical root, the immutable
+`token-gen-site` release and the latest successful GitHub Pages build before
+the codebase is described as golden.
+
+Run `npm test` locally and require the exact-commit `quality / site` GitHub
+check. Do not merge or release around it.
+
+API changes belong to the canonical `token-gen-api` repository and its
+rollback-protected installer. The Token Gen server runtime is not patched
+directly, and production chat or SearXNG must never route through this PC.
+
 ## 2026-08-11 Web search result limits
 
 The Sources control now exposes 5 through 20 and initially selects 10. Browser
@@ -33,9 +50,9 @@ current cache-busted chat script; the image-edit behavior remains included in
 later chat script releases. The original corresponding GitHub Pages deployment
 completed successfully on 2026-08-10.
 
-Use only `dev` and `master`: develop and verify on `dev`, fast-forward
-`master`, then push both branch names at the exact same commit before ending the
-cycle.
+Use only the managed-worktree and pull-request path described in `AGENTS.md`.
+The governed site release owns canonical fast-forward, Pages verification and
+rollback.
 
 ## 2026-08-09 Multi-turn chat reliability handoff
 

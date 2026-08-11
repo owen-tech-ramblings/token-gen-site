@@ -1,6 +1,6 @@
 # Token Gen Source Of Truth
 
-Last updated: 2026-06-21
+Last updated: 2026-08-11
 
 This file is the routing and ownership contract for Codex CLI, Codex app, and
 any other agent working on Token Gen. Read it before changing the website, API,
@@ -13,33 +13,39 @@ Cloudflare tunnel, bot integration, or generated client helpers.
 - API contract: `https://token-gen-api.owenonthenet.com/api/agent.json`
 - Well-known API contract: `https://token-gen-api.owenonthenet.com/.well-known/token-gen-api.json`
 
-## Active Runtime
+## Active API source and runtime
 
-The active public API is the Python Server Details API on the Token Gen server:
+The canonical API source is the separate repository at
+`/home/jesse/.openclaw/workspace/token-gen-api`, remote
+`https://github.com/owen-tech-ramblings/token-gen-api.git`. Its
+rollback-protected release transaction installs the reviewed commit on the
+Token Gen server. The runtime path is a deployment target, not an authoring
+source. Never patch it directly.
 
-```text
-ssh token-gen
-/home/zenfree/server-details-api/server_details_api.py
-systemd unit: server-details-api.service
-```
+Production chat and web search remain entirely on the Token Gen server. The
+API calls its pinned loopback-only SearXNG service; this PC is not a production
+API, search, Tor or page-fetch dependency.
 
-Patch API behavior there unless the live contract and process checks prove the
-public hostname has intentionally moved.
+## Deployed and mirror code
 
-## Dormant / Local Code
-
-The PC-side Node gateway is not the live public API source by default:
+The local Node gateway is a deployed integration copy owned by the Lil Zen
+control-plane source. It is not the public API authority or a product commit
+source:
 
 ```text
 /home/jesse/.openclaw/workspace/token-gen-api-proxy/server.js
 ```
 
-Do not repoint `token-gen-api.owenonthenet.com` to this gateway unless Jesse
-explicitly asks for a routing migration. Treat it as local/runtime reference
-code, not as the live API authority.
+Do not repoint `token-gen-api.owenonthenet.com` to this gateway or edit the
+deployed copy. A deliberate routing migration requires a versioned
+control-plane decision and rollback-protected release.
 
-The old Windows project copy was removed. Do not recreate or use it as a
-source for this site:
+The checked-in `services/` examples in this website repository are historical
+reference material. They are not installed by the website release and must not
+be treated as an API, SearXNG or worker deployment source.
+
+The Windows project copy is a non-authoritative mirror. It may be refreshed
+from a verified release, but it is never a source or deployment authority:
 
 ```text
 C:\Users\User\Documents\New project\token-gen-site
@@ -48,15 +54,18 @@ C:\Users\User\Documents\New project\token-gen-site
 
 ## Required Preflight
 
-Before changing Token Gen API behavior, every agent must run or otherwise verify:
+Before changing Token Gen API behaviour, use the enhancement guide, create a
+receipt-bound managed worktree for `token-gen-api`, and run that repository's
+full preflight and checks. This website repository may perform read-only
+integration checks:
 
 ```bash
-curl -sS https://token-gen-api.owenonthenet.com/api/agent.json
-ssh token-gen 'systemctl is-active server-details-api.service; pgrep -af server_details_api.py'
+curl -fsS https://token-gen-api.owenonthenet.com/api/agent.json
+curl -fsS https://token-gen-api.owenonthenet.com/api/web-search/health
 ```
 
-Use the result to decide where to patch. Do not infer the live runtime from a
-local file name, a stale handoff note, or a matching route in a dormant repo.
+Do not use these checks to select an ad hoc patch location. Source ownership is
+fixed by the ecosystem contract even when the live service is unhealthy.
 
 Before changing the public website, verify the canonical repo:
 
@@ -80,8 +89,8 @@ https://github.com/owen-tech-ramblings/token-gen-site.git
   data. Fix or document the API route.
 - Do not make Cloudflare tunnel, DNS, Worker, or Access changes without proving
   which service currently serves the hostname.
-- Do not use the dormant Node gateway as a reason to change the live site unless
-  the live contract says the public hostname is using that gateway.
+- Do not use the deployed Node gateway as a reason to change the live site or
+  public API route.
 - After API changes, verify public routes from `https://token-gen-api.owenonthenet.com`,
   not only localhost or Tailscale routes.
 

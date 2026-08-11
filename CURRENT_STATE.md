@@ -2,6 +2,20 @@
 
 Last updated: 2026-08-11 Australia/Sydney
 
+## Governed source and release alignment - 2026-08-11
+
+- `AGENTS.md` and `TOKEN_GEN_SOURCE_OF_TRUTH.md` now follow the Lil Zen
+  receipt-bound managed-worktree, pull-request, immutable-release, GitHub Pages
+  deployment and rollback contract.
+- The repository no longer defines `dev` or a machine-specific Codex instance
+  as a parallel source or release authority. API source is the canonical
+  `token-gen-api` repository; the Token Gen server and local proxy are deployed
+  targets.
+- `npm test` is the complete local suite and `.github/workflows/quality.yml`
+  enforces the same suite on pull requests and `master`. Feature-specific
+  browser verification remains additional. Historical `services/` examples
+  are not a production or deployment authority.
+
 ## Web search result limits - 2026-08-11
 
 - The Sources control exposes 5 through 20 and initially selects 10. Browser
@@ -35,8 +49,9 @@ Last updated: 2026-08-11 Australia/Sydney
 - GitHub Pages successfully deployed the promoted `master` commit; the image
   routing and iteration fix is live behind the existing Cloudflare Access
   boundary.
-- Repository development now uses only `dev` and `master`, which must point to
-  the same verified commit at the end of every development cycle.
+- Repository development uses a receipt-bound managed `codex/*` branch and a
+  reviewed pull request into `master`; only the governed release transaction
+  advances the canonical root and attests the exact Pages deployment.
 
 ## Frontier-style multi-turn chat reliability - 2026-08-09
 
