@@ -1,5 +1,8 @@
 {
   "name": "token-gen-site",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "test": "node --test tools/*.test.mjs tools/*.test.cjs && node tools/site-contract-tests.mjs"
+  }
 }
