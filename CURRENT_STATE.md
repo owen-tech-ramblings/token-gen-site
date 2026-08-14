@@ -73,9 +73,9 @@ Last updated: 2026-08-15 Australia/Sydney
 - GitHub Pages successfully deployed the promoted `master` commit; the image
   routing and iteration fix is live behind the existing Cloudflare Access
   boundary.
-- Repository development uses a receipt-bound managed `codex/*` branch and a
-  reviewed pull request into `master`; only the governed release transaction
-  advances the canonical root and attests the exact Pages deployment.
+- Repository development uses only `dev` and `master`: work directly on `dev`,
+  verify it, then fast-forward `master`. The exact Pages deployment must match
+  the aligned branch commit.
 
 ## Frontier-style multi-turn chat reliability - 2026-08-09
 

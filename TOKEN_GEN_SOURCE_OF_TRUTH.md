@@ -54,9 +54,10 @@ C:\Users\User\Documents\New project\token-gen-site
 
 ## Required Preflight
 
-Before changing Token Gen API behaviour, use the enhancement guide, create a
-receipt-bound managed worktree for `token-gen-api`, and run that repository's
-full preflight and checks. This website repository may perform read-only
+Before changing Token Gen API behaviour, work directly on the canonical
+`token-gen-api` repository's `dev` branch and run that repository's full
+preflight and checks before fast-forwarding `master`. Do not create temporary
+feature or worktree branches. This website repository may perform read-only
 integration checks:
 
 ```bash

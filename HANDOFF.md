@@ -63,9 +63,8 @@ current cache-busted chat script; the image-edit behavior remains included in
 later chat script releases. The original corresponding GitHub Pages deployment
 completed successfully on 2026-08-10.
 
-Use only the managed-worktree and pull-request path described in `AGENTS.md`.
-The governed site release owns canonical fast-forward, Pages verification and
-rollback.
+Use only the direct `dev` to fast-forwarded `master` path described in
+`AGENTS.md`. The governed site release owns Pages verification and rollback.
 
 ## 2026-08-09 Multi-turn chat reliability handoff
 
