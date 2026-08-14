@@ -23,8 +23,9 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   At stable rest, `master` and `dev` identify the same released commit, the
   canonical root is clean on `master` at `origin/master`, and no dirty,
   unmerged, or additional local or remote branch remains.
-- Complete check command: `npm test`. It is the sole aggregate check and must
-  run unchanged in exact-commit `quality / site` GitHub CI for `dev` and
+- Complete check command: `npm test`
+  It is the sole aggregate check and must run unchanged in exact-commit
+  `quality / site` GitHub CI for `dev` and
   `master`, plus feature-specific browser checks from a local static server. The
   legacy `services/` examples are not production sources and are not an
   alternative to the canonical `token-gen-api` suite.
