@@ -11,9 +11,32 @@ const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const privateBridgeWorker = read("cloudflare/private-api-bridge/worker.js");
 const privateBridgeConfig = read("cloudflare/private-api-bridge/wrangler.jsonc");
+const qualityWorkflow = read(".github/workflows/quality.yml");
+const packageJson = JSON.parse(read("package.json"));
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
 const vampireArchive42 = read("games/vampire-survival-iterations/iteration-42-codex.html");
+
+assert.equal(
+  packageJson.scripts.test,
+  "node --test tools/*.test.mjs tools/*.test.cjs && node tools/site-contract-tests.mjs",
+  "npm test must remain the complete local and CI check.",
+);
+assert.match(
+  qualityWorkflow,
+  /pull_request:\s*\n\s*branches:\s*\n\s*- dev\s*\n\s*- master/,
+  "Quality pull requests must cover dev and master.",
+);
+assert.match(
+  qualityWorkflow,
+  /push:\s*\n\s*branches:\s*\n\s*- dev\s*\n\s*- master/,
+  "Quality pushes must cover dev and master.",
+);
+assert.equal(
+  qualityWorkflow.split("run: npm test").length - 1,
+  1,
+  "GitHub CI must execute the exact aggregate command once.",
+);
 
 assert.match(index, /href="\.\/server-monitor\.html"/, "Homepage must link to Monitor.");
 assert.match(index, /href="\.\/chat\.html"/, "Homepage must link to Chat.");
