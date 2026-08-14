@@ -68,7 +68,11 @@ assert.match(chatJs, /tavily_api_key:\s*els\.webApiKey\.value\.trim\(\) \|\| und
 assert.doesNotMatch(chatJs, /localStorage[^\n]+chatWebApiKey|chatWebApiKey[^\n]+localStorage/, "Chat must never persist the user Tavily key in localStorage.");
 assert.match(chatJs, /health\.default_enabled/, "Chat must consume the API's health-backed web default.");
 assert.match(chatJs, /Unmetered SearXNG is primary/, "Chat must explain the unmetered provider order.");
-assert.match(chatJs, /DEFAULT_CONTEXT_WINDOW = 262144/, "Chat fallback context must match the released model window.");
+assert.match(chatJs, /DEFAULT_CONTEXT_WINDOW = 1000000/, "Chat fallback context must match the released extended model window.");
+assert.match(chatJs, /DEFAULT_MAX_OUTPUT_TOKENS = 393216/, "Chat output control must use Qwen3.8's combined reasoning and response allowance.");
+assert.match(chatHtml, /id="chatReasoning"[^>]+checked/, "Chat must enable maximum model reasoning by default.");
+assert.match(chatHtml, /id="chatTemperature"[^>]+value="1\.0"/, "Chat must default to Qwen3.8's recommended thinking temperature.");
+assert.match(chatHtml, /id="chatMaxTokens"[^>]+max="393216"[^>]+value="393216"/, "Chat must default to the Qwen3.8 maximum reasoning and response allowance.");
 assert.match(chatJs, /excludeFromContext/, "Failed UI messages must never contaminate later model turns.");
 assert.match(chatJs, /chunk\.type === "response_replacement"/, "Chat must accept a same-model repaired final answer.");
 assert.match(chatJs, /chunk\.type === "progress"/, "Chat must render search and generation progress events.");
@@ -112,7 +116,7 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-frontier-20260809-1/, "Chat HTML must use the current reliability CSS cache key.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-search-results-20260811-1/, "Chat HTML must cache-bust the current search-results script.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-qwen38-20260815-1/, "Chat HTML must cache-bust the current Qwen3.8 script.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");

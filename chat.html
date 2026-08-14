@@ -203,7 +203,7 @@
               <strong>Reasoning</strong>
               <small>Allow longer internal reasoning for difficult questions.</small>
             </span>
-            <input id="chatReasoning" type="checkbox" />
+            <input id="chatReasoning" type="checkbox" checked />
           </label>
         </section>
 
@@ -484,11 +484,11 @@
             <div class="chat-field-pair">
               <label class="chat-field" for="chatTemperature">
                 <span>Temperature</span>
-                <input id="chatTemperature" type="number" min="0" max="2" step="0.1" value="0.3" />
+                <input id="chatTemperature" type="number" min="0" max="2" step="0.1" value="1.0" />
               </label>
               <label class="chat-field" for="chatMaxTokens">
                 <span>Maximum tokens</span>
-                <input id="chatMaxTokens" type="number" min="32" max="262000" step="1000" value="20000" />
+                <input id="chatMaxTokens" type="number" min="32" max="393216" step="1000" value="393216" />
               </label>
             </div>
             <label class="chat-field" for="chatSystem">
@@ -589,6 +589,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-search-results-20260811-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-qwen38-20260815-1"></script>
   </body>
 </html>

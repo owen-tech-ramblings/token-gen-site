@@ -1,32 +1,44 @@
 # Token Gen Current State
 
-Last updated: 2026-08-14 Australia/Sydney
+Last updated: 2026-08-15 Australia/Sydney
+
+## Qwen3.8 chat defaults - deployment pending
+
+- The site candidate reads the API's one-million-token Qwen3.8 model window,
+  enables Reasoning by default, and requests a 393,216-token maximum output
+  allowance so the model can use up to 262,144 reasoning tokens plus up to
+  131,072 final-response tokens when capacity permits.
+- The default temperature is 1.0, matching Qwen3.8's thinking generation
+  configuration. A user-entered alternative is still sent unchanged.
+- A user-selected smaller maximum is preserved, and turning Reasoning off is
+  still explicit and supported. The browser continues to send only the one
+  model returned by API discovery.
+- `chat.js` is cache-busted as `token-chat-qwen38-20260815-1`. JavaScript syntax,
+  the full site contract, image-routing regressions, and web-result-limit
+  regressions pass. Publication waits for the API/vLLM cutover; these defaults
+  are not yet claimed live.
 
 ## Two-branch repository governance - 2026-08-14
 
 - `master` is the sole release branch and `dev` is the sole integration branch.
-- Receipt-bound `codex/*` branches are temporary reviewed changes into `dev`
-  and are deleted immediately after merge or abandonment.
-- A reviewed `dev`-to-`master` pull request is the only release promotion.
-  Stable rest means clean, aligned `master` and `dev` branches and no other
-  local or remote branches.
+- This one-developer repository develops directly on `dev`, verifies there,
+  then fast-forwards `master`. Do not create disposable working branches.
+- Stable rest means clean, aligned local and remote `master` and `dev` branches
+  with no other branches.
 - `npm test` remains the single aggregate complete check. GitHub quality CI
   runs that exact command for both `dev` and `master` without changing any site
   behavior or deployment authority.
 
 ## Governed source and release alignment - 2026-08-11
 
-- `AGENTS.md` and `TOKEN_GEN_SOURCE_OF_TRUTH.md` now follow the Lil Zen
-  receipt-bound managed-worktree, pull-request, immutable-release, GitHub Pages
-  deployment and rollback contract.
-- The repository does not define `dev` or a machine-specific Codex instance
-  as a parallel release authority. `dev` is integration-only; API source is the canonical
-  `token-gen-api` repository; the Token Gen server and local proxy are deployed
-  targets.
+- The repository has one development path: direct work on `dev`, followed by
+  complete verification and a fast-forward promotion to `master`.
+- The Token Gen server and local proxy are deployed targets, not parallel
+  release authorities. API source remains the canonical `token-gen-api`
+  repository.
 - `npm test` is the complete local suite and `.github/workflows/quality.yml`
-  enforces the same suite on pull requests and `master`. Feature-specific
-  browser verification remains additional. Historical `services/` examples
-  are not a production or deployment authority.
+  enforces the same suite. Feature-specific browser verification remains
+  additional. Historical `services/` examples are not a production authority.
 
 ## Web search result limits - 2026-08-11
 

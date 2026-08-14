@@ -196,7 +196,8 @@ let jobState = {
   refreshTimer: null,
 };
 
-const DEFAULT_CONTEXT_WINDOW = 262144;
+const DEFAULT_CONTEXT_WINDOW = 1000000;
+const DEFAULT_MAX_OUTPUT_TOKENS = 393216;
 const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const IMAGE_EDITOR_MAX_DIMENSION = 2048;
@@ -361,6 +362,14 @@ function getModelContextWindow(model = getSelectedModel()) {
   );
   const detected = candidates.find((value) => Number.isFinite(Number(value)) && Number(value) > 0);
   return Number(detected || els.maxTokens.max || DEFAULT_CONTEXT_WINDOW);
+}
+
+function syncMaxOutputControl(model = getSelectedModel()) {
+  const maximum = Math.min(getModelContextWindow(model), DEFAULT_MAX_OUTPUT_TOKENS);
+  els.maxTokens.max = String(maximum);
+  if (Number(els.maxTokens.value) > maximum) {
+    els.maxTokens.value = String(maximum);
+  }
 }
 
 function getDocumentBudgetPercent() {
@@ -2735,7 +2744,7 @@ function boundedChatPayload(systemParts, route) {
   const requestedWebTokens = route.web ? route.contextTokenBudget : 0;
   const webTokens = Math.max(0, Math.min(requestedWebTokens, Math.floor(availableAfterSystem * 0.5)));
   const historyTokens = fullHistory.reduce((total, message) => total + messageTokens(message), 0);
-  const requestedOutput = Number(els.maxTokens.value || 20000);
+  const requestedOutput = Number(els.maxTokens.value || 393216);
   const maximumOutput = availableAfterSystem - webTokens - historyTokens;
   if (maximumOutput < 32) {
     throw new Error(
@@ -2829,7 +2838,7 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
       ...(systemParts.length ? [{ role: "system", content: systemParts.join("\n\n") }] : []),
       ...history,
     ],
-    temperature: Number(els.temperature.value || 0.3),
+    temperature: Number(els.temperature.value || 1.0),
     max_tokens: bounded.maxTokens,
     enable_thinking: route.enableThinking,
     web_search: {
@@ -2877,7 +2886,7 @@ function disableChat(reason = "Token Gen API model discovery failed") {
   availableModels = [];
   els.model.innerHTML = `<option value="">API unavailable</option>`;
   if (els.activeModel) els.activeModel.textContent = "API unavailable";
-  els.maxTokens.max = String(DEFAULT_CONTEXT_WINDOW);
+  syncMaxOutputControl({ max_model_len: DEFAULT_CONTEXT_WINDOW });
   els.input.disabled = true;
   els.send.disabled = true;
   setStatus(reason, "bad");
@@ -2906,8 +2915,7 @@ async function loadModels() {
   visionCapabilities = json.capabilities?.vision || models[0]?.capabilities?.vision || {};
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
   if (els.activeModel) els.activeModel.textContent = modelLabel(models[0].id);
-  const contextWindow = getModelContextWindow(models[0]);
-  els.maxTokens.max = String(contextWindow);
+  syncMaxOutputControl(models[0]);
   els.input.disabled = false;
   chatReady = true;
   syncVisionCapability();
@@ -3717,7 +3725,7 @@ els.input.addEventListener("keydown", (event) => {
 els.input.addEventListener("input", autosizeInput);
 
 els.model.addEventListener("change", () => {
-  els.maxTokens.max = String(getModelContextWindow());
+  syncMaxOutputControl();
   if (els.activeModel) els.activeModel.textContent = modelLabel(getSelectedModel().id);
   if (chatReady) setStatus(`Connected to ${modelLabel(getSelectedModel().id)}`, "good");
   syncVisionCapability();

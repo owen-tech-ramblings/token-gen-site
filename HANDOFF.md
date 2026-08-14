@@ -1,36 +1,36 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-14 Australia/Sydney
+Last updated: 2026-08-15 Australia/Sydney
+
+## 2026-08-15 Qwen3.8 chat defaults candidate
+
+The candidate sets `DEFAULT_CONTEXT_WINDOW` to 1,000,000, checks Reasoning by
+default, and sets both the default and output-control ceiling to 393,216. That
+allowance combines Qwen's documented 262,144 reasoning and
+131,072 response capacities; `boundedChatPayload` still lowers it when the
+current conversation leaves less physical capacity, and an explicit smaller
+user value is retained.
+
+The default temperature is 1.0 so the browser does not override Qwen3.8's
+official thinking configuration with the old 0.3 value. User-entered
+temperature values remain supported.
+
+The current cache key is `token-chat-qwen38-20260815-1`. `node --check chat.js`,
+the site contract, the image-routing tests, and the web-result-limit tests pass.
+Do not publish or describe these settings as live before the API discovers the
+single Qwen3.8 vLLM model at a 1,000,000-token context.
 
 ## 2026-08-14 two-branch repository handoff
 
-Keep exactly two permanent branches: integration on `dev` and release on
-`master`. Start receipt-bound temporary `codex/*` branches from `origin/dev`,
-merge reviewed changes into `dev`, and promote with a reviewed
-`dev`-to-`master` release pull request. Automatic deletion removes merged
-temporary branches; delete abandoned ones immediately. At stable rest,
-`dev == master`, all checkouts are clean, and no other branch remains.
+Keep exactly two branches: integration on `dev` and release on `master`.
+Develop and verify directly on `dev`, then fast-forward `master`. At stable
+rest, local and remote `dev == master`, both checkouts are clean, and no other
+branch remains. Do not create disposable `codex/*` or feature branches.
 
 Run the exact complete check `npm test`; GitHub quality CI runs the same command
-for both permanent branches. The release transaction alone advances the
-canonical `master` checkout and verifies the matching GitHub Pages commit.
-
-## 2026-08-11 governed repository handoff
-
-All future changes begin with the released Lil Zen enhancement guide and a
-receipt-bound managed `codex/*` worktree. Merge through a clean pull request
-into `dev`; do not use a direct `master` push, the Windows mirror, the server
-runtime or the local integration proxy as another authoring path. The exact reviewed
-commit must agree across `origin/master`, the canonical root, the immutable
-`token-gen-site` release and the latest successful GitHub Pages build before
-the codebase is described as golden.
-
-Run `npm test` locally and require the exact-commit `quality / site` GitHub
-check. Do not merge or release around it.
-
-API changes belong to the canonical `token-gen-api` repository and its
-rollback-protected installer. The Token Gen server runtime is not patched
-directly, and production chat or SearXNG must never route through this PC.
+for both branches. API changes belong to the canonical `token-gen-api`
+repository and its rollback-protected installer; the Token Gen server runtime
+and local proxy are not separate authoring paths.
 
 ## 2026-08-11 Web search result limits
 
