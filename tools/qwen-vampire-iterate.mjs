@@ -74,7 +74,10 @@ function validateHtml(html) {
 
 async function getModel() {
   const models = await fetchJson(`${modelBase}/v1/models`, {}, 20000);
-  return models.data?.[0]?.id || "/home/zenfree/token_gen_server/vllm/models/Qwen-Qwen3.6-27B-FP8";
+  if (!Array.isArray(models.data) || models.data.length !== 1 || typeof models.data[0]?.id !== "string" || !models.data[0].id.trim()) {
+    throw new Error("vLLM did not report exactly one active model");
+  }
+  return models.data[0].id;
 }
 
 function promptFor(iteration, currentHtml) {

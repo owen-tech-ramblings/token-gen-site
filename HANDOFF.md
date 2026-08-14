@@ -15,6 +15,9 @@ The default temperature is 1.0 so the browser does not override Qwen3.8's
 official thinking configuration with the old 0.3 value. User-entered
 temperature values remain supported.
 
+`tools/qwen-vampire-iterate.mjs` now fails explicitly unless vLLM reports
+exactly one model. Do not restore a hard-coded old-model fallback.
+
 The current cache key is `token-chat-qwen38-20260815-1`. `node --check chat.js`,
 the site contract, the image-routing tests, and the web-result-limit tests pass.
 Do not publish or describe these settings as live before the API discovers the

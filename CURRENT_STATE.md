@@ -13,6 +13,8 @@ Last updated: 2026-08-15 Australia/Sydney
 - A user-selected smaller maximum is preserved, and turning Reasoning off is
   still explicit and supported. The browser continues to send only the one
   model returned by API discovery.
+- The iterative Qwen developer tool also requires exactly one discovered model;
+  its former hard-coded Qwen3.6 fallback has been removed.
 - `chat.js` is cache-busted as `token-chat-qwen38-20260815-1`. JavaScript syntax,
   the full site contract, image-routing regressions, and web-result-limit
   regressions pass. Publication waits for the API/vLLM cutover; these defaults

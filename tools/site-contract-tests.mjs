@@ -16,6 +16,7 @@ const packageJson = JSON.parse(read("package.json"));
 const monitorJs = read("monitor-simple-20260607-token-rates.js");
 const vampireGame = read("games/vampire-survival.html");
 const vampireArchive42 = read("games/vampire-survival-iterations/iteration-42-codex.html");
+const qwenVampireTool = read("tools/qwen-vampire-iterate.mjs");
 
 assert.equal(
   packageJson.scripts.test,
@@ -56,6 +57,8 @@ assert.doesNotMatch(accessJs, /localStorage|sessionStorage/, "Access administrat
 
 assert.doesNotMatch(chatJs, /applyModelFallback/, "Chat must not silently use fallback model discovery.");
 assert.doesNotMatch(chatJs, /DEFAULT_CHAT_MODEL\s*=\s*"Qwen-Qwen3\.6-27B-FP8"/, "Chat must not hardcode the short vLLM model id fallback.");
+assert.doesNotMatch(qwenVampireTool, /Qwen-Qwen3\.6|Qwen3\.6-27B/, "Developer tools must not retain a Qwen3.6 model fallback.");
+assert.match(qwenVampireTool, /throw new Error\("vLLM did not report exactly one active model"\)/, "Developer tools must fail explicitly when sole-model discovery fails.");
 assert.match(chatJs, /disableChat/, "Chat must disable input when model discovery fails.");
 assert.match(chatJs, /web context service is not configured/i, "Chat must explain unavailable web search as service configuration.");
 assert.doesNotMatch(chatHtml, /You are Token Gen, a local vLLM assistant\. Be concise, practical, and direct\./, "Chat must not regress to the original text-only system prompt.");
