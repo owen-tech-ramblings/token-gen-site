@@ -8,17 +8,24 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 - Canonical remote:
   `https://github.com/owen-tech-ramblings/token-gen-site.git`
 - Release branch: `master`
+- Integration branch: `dev`
 - Expected GitHub identity: `owen-tech-ramblings`, using
   `/home/jesse/.config/gh`
 - Approved secret locators: GSM project `lil-zen-oc` and `D:\openclaw`
   (`/mnt/d/openclaw` in WSL) only. Browser source must contain no secret.
-- Branch and review flow: use the receipt-bound managed-worktree tool from the
-  released Lil Zen control plane, publish a `codex/*` branch, pass every
-  required check and exact-commit GitHub review, and merge a clean pull
-  request. Keep the canonical root clean on `master` at `origin/master` until
-  the rollback-protected release transaction owns promotion.
-- Required checks: `npm test` and the exact-commit `quality / site` GitHub
-  check, plus feature-specific browser checks from a local static server. The
+- Branch and review flow: keep only `master` and `dev` as permanent branches.
+  Use the receipt-bound managed-worktree tool from the released Lil Zen control
+  plane to create a temporary `codex/*` branch from current `origin/dev`, push
+  it immediately, pass every required check and exact-commit GitHub review,
+  and merge its pull request into `dev`. Promote `dev` to `master` only through
+  a reviewed release pull request. GitHub automatically deletes the temporary
+  branch after merge; explicitly abandoned work is deleted immediately.
+  At stable rest, `master` and `dev` identify the same released commit, the
+  canonical root is clean on `master` at `origin/master`, and no dirty,
+  unmerged, or additional local or remote branch remains.
+- Complete check command: `npm test`. It is the sole aggregate check and must
+  run unchanged in exact-commit `quality / site` GitHub CI for `dev` and
+  `master`, plus feature-specific browser checks from a local static server. The
   legacy `services/` examples are not production sources and are not an
   alternative to the canonical `token-gen-api` suite.
 - Live deployment path: GitHub Pages legacy deployment from the repository
@@ -34,8 +41,8 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   commit through a reviewed revert or corrective pull request, wait for the
   exact Pages rebuild, and repeat the same live checks.
 - Forbidden actions: direct pushes to `master`, bypassing `quality / site`,
-  `dev` as a parallel release
-  authority, unleased or non-`codex/*` feature worktrees, direct live edits,
+  using `dev` as a release or deployment authority, unleased or non-`codex/*`
+  feature worktrees, long-lived temporary branches, direct live edits,
   global GitHub-auth switching, repository-local secrets, deployment from the
   Windows mirror, PC-hosted production API/search dependencies, silent
   fallbacks, or a release record that does not match the Pages commit.

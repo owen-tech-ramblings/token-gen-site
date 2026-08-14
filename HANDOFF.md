@@ -1,13 +1,26 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-11 Australia/Sydney
+Last updated: 2026-08-14 Australia/Sydney
+
+## 2026-08-14 two-branch repository handoff
+
+Keep exactly two permanent branches: integration on `dev` and release on
+`master`. Start receipt-bound temporary `codex/*` branches from `origin/dev`,
+merge reviewed changes into `dev`, and promote with a reviewed
+`dev`-to-`master` release pull request. Automatic deletion removes merged
+temporary branches; delete abandoned ones immediately. At stable rest,
+`dev == master`, all checkouts are clean, and no other branch remains.
+
+Run the exact complete check `npm test`; GitHub quality CI runs the same command
+for both permanent branches. The release transaction alone advances the
+canonical `master` checkout and verifies the matching GitHub Pages commit.
 
 ## 2026-08-11 governed repository handoff
 
 All future changes begin with the released Lil Zen enhancement guide and a
-receipt-bound managed `codex/*` worktree. Merge through a clean pull request;
-do not use `dev`, a direct `master` push, the Windows mirror, the server runtime
-or the local integration proxy as another authoring path. The exact reviewed
+receipt-bound managed `codex/*` worktree. Merge through a clean pull request
+into `dev`; do not use a direct `master` push, the Windows mirror, the server
+runtime or the local integration proxy as another authoring path. The exact reviewed
 commit must agree across `origin/master`, the canonical root, the immutable
 `token-gen-site` release and the latest successful GitHub Pages build before
 the codebase is described as golden.

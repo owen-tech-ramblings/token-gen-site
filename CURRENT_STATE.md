@@ -1,14 +1,26 @@
 # Token Gen Current State
 
-Last updated: 2026-08-11 Australia/Sydney
+Last updated: 2026-08-14 Australia/Sydney
+
+## Two-branch repository governance - 2026-08-14
+
+- `master` is the sole release branch and `dev` is the sole integration branch.
+- Receipt-bound `codex/*` branches are temporary reviewed changes into `dev`
+  and are deleted immediately after merge or abandonment.
+- A reviewed `dev`-to-`master` pull request is the only release promotion.
+  Stable rest means clean, aligned `master` and `dev` branches and no other
+  local or remote branches.
+- `npm test` remains the single aggregate complete check. GitHub quality CI
+  runs that exact command for both `dev` and `master` without changing any site
+  behavior or deployment authority.
 
 ## Governed source and release alignment - 2026-08-11
 
 - `AGENTS.md` and `TOKEN_GEN_SOURCE_OF_TRUTH.md` now follow the Lil Zen
   receipt-bound managed-worktree, pull-request, immutable-release, GitHub Pages
   deployment and rollback contract.
-- The repository no longer defines `dev` or a machine-specific Codex instance
-  as a parallel source or release authority. API source is the canonical
+- The repository does not define `dev` or a machine-specific Codex instance
+  as a parallel release authority. `dev` is integration-only; API source is the canonical
   `token-gen-api` repository; the Token Gen server and local proxy are deployed
   targets.
 - `npm test` is the complete local suite and `.github/workflows/quality.yml`
