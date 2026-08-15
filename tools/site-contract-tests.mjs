@@ -10,6 +10,7 @@ const accessJs = read("access.js");
 const chatHtml = read("chat.html");
 const chatJs = read("chat.js");
 const chatContextOptionsJs = read("chat-context-options.mjs");
+const chatTransportOptionsJs = read("chat-transport-options.mjs");
 const chatMultimodalOptionsJs = read("chat-multimodal-options.mjs");
 const privateBridgeWorker = read("cloudflare/private-api-bridge/worker.js");
 const privateBridgeConfig = read("cloudflare/private-api-bridge/wrangler.jsonc");
@@ -241,7 +242,7 @@ assert.match(chatJs, /background job\$\{activeCount === 1 \? "" : "s"\} active/,
 assert.match(chatJs, /projectMediaForChat\(retrieval\)/, "Only the current retrieval may shape visual project media.");
 assert.match(chatJs, /project_media: projectMedia/, "Visual references must be sent only in the top-level chat project_media field.");
 assert.match(chatJs, /if \(projectContext\) projectContext\.projectMedia = \[\];/, "Visual references must be cleared after payload construction.");
-assert.match(chatJs, /delete payload\.project_media;/, "Visual references must be removed from the in-memory payload after request serialization.");
+assert.match(chatTransportOptionsJs, /delete payload\.project_media;/, "Visual references must be removed from the in-memory payload after request serialization.");
 assert.doesNotMatch(chatJs, /data-[^"'`]*(?:reference|project-media)/, "Opaque visual references must never be placed in DOM data attributes.");
 assert.match(chatContextOptionsJs, /function projectHistoryMetadata/, "Project history must use a dedicated safe metadata mapper.");
 assert.match(chatContextOptionsJs, /hasOwnProperty\.call\(document, "processing_status"\)/, "Only a genuinely absent processing status may use the legacy Ready fallback.");
@@ -283,7 +284,7 @@ assert.match(chatJs, /data-image-analyze/, "Generated images must be reusable as
 assert.match(chatJs, /releaseConversationVisionPreviews/, "Starting or opening another chat must release local image previews.");
 assert.match(chatJs, /previewUrl:\s*source\.dataUrl\s*\|\|\s*source\.url\s*\|\|\s*source\.previewUrl/, "An image edit source must not take ownership of the conversation preview URL.");
 assert.match(chatJs, /function isLoopbackHost\(\)/, "Local chat testing must use an explicitly loopback-scoped identity fallback.");
-assert.match(chatJs, /isLoopbackHost\(\)\s*\?\s*"local-development"\s*:\s*"cloudflare-access"/, "Local chat requests must not claim a Cloudflare Access identity source.");
+assert.match(chatTransportOptionsJs, /loopback \? "local-development" : "cloudflare-access"/, "Local chat requests must not claim a Cloudflare Access identity source.");
 
 assert.match(privateBridgeWorker, /PRIVATE_RESOURCES\s*=\s*new Set\(\["conversations", "projects", "jobs"\]\)/, "The Worker bridge must proxy only approved private API resources.");
 assert.match(privateBridgeWorker, /request\.headers\.get\("Cf-Access-Jwt-Assertion"\)/, "The Worker bridge must require the signed Cloudflare Access assertion.");

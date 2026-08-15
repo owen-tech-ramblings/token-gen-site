@@ -41,6 +41,8 @@ export default {
     headers.delete("cookie");
     headers.delete("cf-access-jwt-assertion");
     headers.delete("host");
+    headers.delete("x-token-gen-user");
+    headers.delete("x-token-gen-user-source");
     headers.set("cookie", `CF_Authorization=${assertion}`);
     headers.set("X-Token-Gen-Site-Access-JWT", assertion);
 

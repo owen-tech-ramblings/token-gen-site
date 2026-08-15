@@ -1,4 +1,6 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
+import { requestChatStream } from "./chat-transport-options.mjs";
+import { nextVisionAnnouncement } from "./chat-vision-announcements.mjs";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -1181,7 +1183,7 @@ function renderVisionPreview({ focus = null, announcement = "" } = {}) {
     chip.append(preview, details, actions);
     return chip;
   }));
-  if (announcement && els.visionActionStatus) els.visionActionStatus.textContent = announcement;
+  if (announcement && els.visionActionStatus) els.visionActionStatus.textContent = nextVisionAnnouncement(announcement);
   if (focus?.id) {
     const controls = Array.from(els.visionPreview.querySelectorAll("[data-vision-id], [data-vision-edit-target], [data-vision-remove]"));
     const target = controls.find((control) => (
@@ -3251,36 +3253,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     }
 
     const payload = await buildPayload(chatUserId, projectContext, route);
-    const hasProjectMedia = Array.isArray(payload.project_media) && payload.project_media.length > 0;
-    let requestBody = "";
-    try {
-      requestBody = JSON.stringify(payload);
-    } finally {
-      delete payload.project_media;
-    }
-    let res;
-    try {
-      if (hasProjectMedia) {
-        res = await fetch("/api/private/projects/chat/stream", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          credentials: "include",
-          body: requestBody,
-        });
-      } else {
-        res = await fetch(`${API_BASE}/api/chat/stream`, {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-token-gen-user": chatUserId,
-            "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
-          },
-          body: requestBody,
-        });
-      }
-    } finally {
-      requestBody = "";
-    }
+    const res = await requestChatStream(payload, chatUserId, isLoopbackHost());
     if (!res.ok || !res.body) {
       const text = await res.text();
       let errorPayload = text;
