@@ -231,8 +231,11 @@ assert.match(chatJs, /projectJobPresentation\(job\)/, "Visual project jobs must 
 assert.match(chatJs, /if \(json\.job\) trackBackgroundJob\(json\.job\);/, "Visual upload and retry responses must immediately track their returned job.");
 assert.match(chatJs, /refreshActiveProjectFiles\(lifecycle\.refreshProjectId\)/, "A terminal visual job must refresh the active project files.");
 assert.match(chatJs, /filesRefreshPromise/, "Project file refreshes must be coalesced to avoid polling storms.");
-assert.match(chatJs, /reconcileBackgroundJobList\(json\.jobs, jobState\.pendingJobs\)/, "A stale job-list snapshot must merge locally tracked active jobs.");
-assert.match(chatJs, /pendingJobs/, "Returned active jobs must remain pending only until an authoritative list reconciles them.");
+assert.match(chatJs, /const requestGeneration = \+\+jobState\.listRequestGeneration/, "Each private job-list request must carry a monotonic start generation.");
+assert.match(chatJs, /reconcileBackgroundJobList\(\{[\s\S]*requestGeneration/, "A job-list response must reconcile against its request generation and previous display state.");
+assert.match(chatJs, /insertedGeneration: jobState\.listRequestGeneration/, "Returned active jobs must record their local insertion generation.");
+assert.match(chatContextOptionsJs, /requestGeneration <= insertedGeneration/, "Only a request that began before a local job may retain it when its row is absent.");
+assert.match(chatContextOptionsJs, /previousJobs/, "Authoritative job-list updates must compare the prior active visual display.");
 assert.match(chatJs, /reconciliation\.terminalProjectIds/, "An authoritative terminal job-list update must refresh active project files.");
 assert.match(chatJs, /background job\$\{activeCount === 1 \? "" : "s"\} active/, "The jobs drawer must support non-image background work.");
 assert.match(chatJs, /projectMediaForChat\(retrieval\)/, "Only the current retrieval may shape visual project media.");

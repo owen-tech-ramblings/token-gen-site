@@ -138,27 +138,48 @@ export function backgroundJobLifecycle(jobs = [], job = {}) {
   return { jobs: next, activeJobIds, refreshProjectId };
 }
 
-export function reconcileBackgroundJobList(serverJobs = [], pendingJobs = []) {
+export function reconcileBackgroundJobList({
+  serverJobs = [],
+  previousJobs = [],
+  pendingJobs = [],
+  requestGeneration = 0,
+} = {}) {
   const server = Array.isArray(serverJobs) ? serverJobs.filter((job) => job?.id) : [];
   const serverIds = new Set(server.map((job) => job.id));
+  const previous = Array.isArray(previousJobs) ? previousJobs.filter((job) => job?.id) : [];
   const currentPending = Array.isArray(pendingJobs) ? pendingJobs : [];
-  const pendingIds = new Set(currentPending.map((job) => job?.id).filter(Boolean));
   const pending = currentPending
-    .filter((job) => job?.id && ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status) && !serverIds.has(job.id));
-  const jobs = [...server, ...pending]
+    .filter((entry) => {
+      const job = entry?.job;
+      const insertedGeneration = Number(entry?.insertedGeneration);
+      return job?.id
+        && ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status)
+        && !serverIds.has(job.id)
+        // A response can retain only a job inserted after that request began.
+        // The next request is authoritative, preventing permanent local ghosts.
+        && Number.isFinite(insertedGeneration)
+        && requestGeneration <= insertedGeneration;
+    });
+  const jobs = [...server, ...pending.map((entry) => entry.job)]
     .sort((a, b) => String(b?.updated_at || b?.created_at).localeCompare(String(a?.updated_at || a?.created_at)));
   const activeJobIds = jobs
     .filter((job) => ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status))
     .map((job) => job.id);
-  const terminalProjectIds = server
+  const currentIds = new Set(jobs.map((job) => job.id));
+  const serverById = new Map(server.map((job) => [job.id, job]));
+  const terminalProjectIds = previous
     .filter((job) => (
-      pendingIds.has(job.id)
-      && job.kind === "project_visual_analysis"
-      && ["completed", "failed"].includes(job.status)
+      job.kind === "project_visual_analysis"
+      && ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status)
       && typeof job.project_id === "string"
       && job.project_id
     ))
-    .map((job) => job.project_id);
+    .flatMap((job) => {
+      const serverJob = serverById.get(job.id);
+      const terminal = serverJob && ["completed", "failed"].includes(serverJob.status);
+      const disappeared = !serverJob && !currentIds.has(job.id);
+      return terminal || disappeared ? [job.project_id] : [];
+    });
   return { jobs, pendingJobs: pending, activeJobIds, terminalProjectIds };
 }
 

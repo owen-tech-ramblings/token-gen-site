@@ -222,6 +222,7 @@ let jobState = {
   refreshing: false,
   jobs: [],
   pendingJobs: [],
+  listRequestGeneration: 0,
   refreshTimer: null,
 };
 
@@ -1522,7 +1523,7 @@ async function jobRequest(path = "", options = {}) {
 function upsertBackgroundJob(job) {
   if (!job?.id) return;
   if (!backgroundJobIsActive(job)) {
-    jobState.pendingJobs = jobState.pendingJobs.filter((item) => item.id !== job.id);
+    jobState.pendingJobs = jobState.pendingJobs.filter((entry) => entry.job?.id !== job.id);
   }
   const lifecycle = backgroundJobLifecycle(jobState.jobs, job);
   jobState.jobs = lifecycle.jobs;
@@ -1535,7 +1536,11 @@ function upsertBackgroundJob(job) {
 function trackBackgroundJob(job) {
   if (!job?.id) return;
   if (backgroundJobIsActive(job)) {
-    jobState.pendingJobs = [job, ...jobState.pendingJobs.filter((item) => item.id !== job.id)];
+    jobState.pendingJobs = [{
+      job,
+      insertedGeneration: jobState.listRequestGeneration,
+      insertedAt: Date.now(),
+    }, ...jobState.pendingJobs.filter((entry) => entry.job?.id !== job.id)];
   }
   const lifecycle = upsertBackgroundJob(job);
   if (!lifecycle) return;
@@ -1573,6 +1578,7 @@ async function refreshActiveJobs({ immediate = false } = {}) {
 
 async function loadBackgroundJobs() {
   if (jobState.loadingRequest) return;
+  const requestGeneration = ++jobState.listRequestGeneration;
   jobState.loadingRequest = true;
   jobState.loading = true;
   renderBackgroundJobs();
@@ -1580,7 +1586,12 @@ async function loadBackgroundJobs() {
     const { json } = await jobRequest();
     if (!json.ok || !Array.isArray(json.jobs)) throw new Error("The private job queue returned an invalid response.");
     jobState.available = true;
-    const reconciliation = reconcileBackgroundJobList(json.jobs, jobState.pendingJobs);
+    const reconciliation = reconcileBackgroundJobList({
+      serverJobs: json.jobs,
+      previousJobs: jobState.jobs,
+      pendingJobs: jobState.pendingJobs,
+      requestGeneration,
+    });
     jobState.jobs = reconciliation.jobs;
     jobState.pendingJobs = reconciliation.pendingJobs;
     new Set(reconciliation.terminalProjectIds).forEach((projectId) => {
@@ -1588,7 +1599,7 @@ async function loadBackgroundJobs() {
     });
   } catch {
     jobState.available = false;
-    jobState.jobs = jobState.pendingJobs;
+    jobState.jobs = jobState.pendingJobs.map((entry) => entry.job);
   } finally {
     jobState.loadingRequest = false;
     jobState.loading = false;

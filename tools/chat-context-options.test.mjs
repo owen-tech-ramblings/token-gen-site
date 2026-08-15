@@ -206,7 +206,7 @@ test("visual job lifecycle replaces one job, polls active work, and refreshes fi
   assert.equal(image.refreshProjectId, null);
 });
 
-test("a list snapshot cannot erase a returned active visual job and later authority removes its pending copy", async () => {
+test("generation-aware job reconciliation retains only jobs inserted after a list began and refreshes terminal visual work", async () => {
   const { reconcileBackgroundJobList } = await loadContextOptions();
   let resolveList;
   const listRequest = new Promise((resolve) => { resolveList = resolve; });
@@ -217,20 +217,53 @@ test("a list snapshot cannot erase a returned active visual job and later author
     document_id: "file-1",
     status: "queued",
   };
-  const reconciliation = listRequest.then((jobs) => reconcileBackgroundJobList(jobs, [returned]));
+  // Generation 1 began before the upload response arrived, so an empty result
+  // cannot authoritatively erase the returned job.
+  const reconciliation = listRequest.then((jobs) => reconcileBackgroundJobList({
+    serverJobs: jobs,
+    previousJobs: [],
+    pendingJobs: [{ job: returned, insertedGeneration: 1, insertedAt: 100 }],
+    requestGeneration: 1,
+  }));
   resolveList([]);
   const afterStaleList = await reconciliation;
   assert.deepEqual(afterStaleList.jobs.map((job) => job.id), ["job-returned"]);
-  assert.deepEqual(afterStaleList.pendingJobs.map((job) => job.id), ["job-returned"]);
+  assert.deepEqual(afterStaleList.pendingJobs.map((entry) => entry.job.id), ["job-returned"]);
   assert.deepEqual(afterStaleList.activeJobIds, ["job-returned"]);
+  assert.deepEqual(afterStaleList.terminalProjectIds, []);
 
-  const afterTerminalAuthority = reconcileBackgroundJobList([
-    { ...returned, status: "completed", updated_at: "2026-08-15T00:00:01Z" },
-  ], afterStaleList.pendingJobs);
+  // The next request begins after insertion, so an absent row is authoritative:
+  // it stops polling and refreshes the affected project rather than retaining a ghost.
+  const afterAuthoritativeDisappearance = reconcileBackgroundJobList({
+    serverJobs: [],
+    previousJobs: afterStaleList.jobs,
+    pendingJobs: afterStaleList.pendingJobs,
+    requestGeneration: 2,
+  });
+  assert.deepEqual(afterAuthoritativeDisappearance.jobs, []);
+  assert.deepEqual(afterAuthoritativeDisappearance.pendingJobs, []);
+  assert.deepEqual(afterAuthoritativeDisappearance.activeJobIds, []);
+  assert.deepEqual(afterAuthoritativeDisappearance.terminalProjectIds, ["project-1"]);
+
+  // Acknowledging the active row clears the local insertion record. A later
+  // terminal server row still refreshes files by comparing the prior display.
+  const afterServerAcknowledgement = reconcileBackgroundJobList({
+    serverJobs: [{ ...returned, status: "processing" }],
+    previousJobs: afterStaleList.jobs,
+    pendingJobs: afterStaleList.pendingJobs,
+    requestGeneration: 2,
+  });
+  assert.deepEqual(afterServerAcknowledgement.pendingJobs, []);
+  assert.deepEqual(afterServerAcknowledgement.activeJobIds, ["job-returned"]);
+  const afterTerminalAuthority = reconcileBackgroundJobList({
+    serverJobs: [{ ...returned, status: "completed", updated_at: "2026-08-15T00:00:01Z" }],
+    previousJobs: afterServerAcknowledgement.jobs,
+    pendingJobs: afterServerAcknowledgement.pendingJobs,
+    requestGeneration: 3,
+  });
   assert.equal(afterTerminalAuthority.jobs[0].status, "completed");
   assert.deepEqual(afterTerminalAuthority.pendingJobs, []);
   assert.deepEqual(afterTerminalAuthority.terminalProjectIds, ["project-1"]);
-  assert.deepEqual(reconcileBackgroundJobList([], afterTerminalAuthority.pendingJobs).jobs, []);
 });
 
 test("only current visual evidence becomes top-level project media", async () => {
