@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-15 Australia/Sydney
 
-## Preserved reasoning continuity - implemented; deployment pending
+## Preserved reasoning continuity - live 2026-08-15
 
 - Streamed `reasoning_content` (and the legacy `reasoning` alias) is accumulated
   separately from visible answer text and retained only as assistant message
@@ -14,16 +14,21 @@ Last updated: 2026-08-15 Australia/Sydney
 - A repaired response discards reasoning from the rejected answer and retains
   only canonical reasoning supplied with the replacement. Assistant messages
   without reasoning do not gain an empty compatibility field.
-- The focused site contract and JavaScript syntax checks pass. The current
-  cache candidate is `token-chat-reasoning-20260815-1`; full `npm test`, Pages
-  publication, and authenticated save/reload canaries remain release gates.
+- The complete `npm test` suite passed all 63 tests. GitHub Pages built exact
+  commit `a093b7e6fcdf0f895362f85f095f5a0017d28329` with cache key
+  `token-chat-reasoning-20260815-1`; the public hostname remains correctly
+  protected by Cloudflare Access.
+- Live API verification confirmed reasoning-bearing follow-up continuity,
+  thinking-off state preservation, and an encrypted SMB conversation
+  save/reload/update/delete round trip without printing the hidden reasoning.
 
-## Qwen3.8 chat defaults - deployment pending
+## Qwen3.8 chat defaults - live 2026-08-15
 
-- The site candidate reads the API's one-million-token Qwen3.8 model window,
-  enables Reasoning by default, and requests a 393,216-token maximum output
-  allowance so the model can use up to 262,144 reasoning tokens plus up to
-  131,072 final-response tokens when capacity permits.
+- The site uses API model discovery for the live 524,288-token extended
+  Qwen3.8 window, enables Reasoning by default, and requests a 393,216-token
+  maximum output allowance so the model can use up to 262,144 reasoning tokens
+  plus up to 131,072 final-response tokens when capacity permits. The
+  1,000,000-token browser constant is only a pre-discovery fallback.
 - The default temperature is 1.0, matching Qwen3.8's thinking generation
   configuration. A user-entered alternative is still sent unchanged.
 - A user-selected smaller maximum is preserved, and turning Reasoning off is
@@ -31,10 +36,10 @@ Last updated: 2026-08-15 Australia/Sydney
   model returned by API discovery.
 - The iterative Qwen developer tool also requires exactly one discovered model;
   its former hard-coded Qwen3.6 fallback has been removed.
-- `chat.js` is cache-busted as `token-chat-qwen38-20260815-1`. JavaScript syntax,
-  the full site contract, image-routing regressions, and web-result-limit
-  regressions pass. Publication waits for the API/vLLM cutover; these defaults
-  are not yet claimed live.
+- The Qwen3.8 defaults are live against the sole discovered
+  `Qwen-Qwen3.8-27B` model. JavaScript syntax, the full site contract,
+  image-routing regressions, and web-result-limit regressions pass; the later
+  reasoning-continuity release supersedes the old Qwen3.8-only cache key.
 
 ## Two-branch repository governance - 2026-08-14
 

@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-15 Australia/Sydney
 
-## 2026-08-15 preserved reasoning candidate
+## 2026-08-15 preserved reasoning release
 
 `chat.js` now treats model reasoning as opaque assistant-only state. The SSE
 reader accumulates `reasoning_content`/`reasoning` separately from the final
@@ -13,15 +13,20 @@ errors, and console output remain unaware of the reasoning string.
 
 `response_replacement` clears reasoning from the discarded answer and may
 replace it only with canonical replacement reasoning. Empty state is not sent.
-The cache key is `token-chat-reasoning-20260815-1`. Focused syntax and site
-contracts pass; run `npm test`, publish the exact aligned `master`, and complete
-an authenticated encrypted save/reload/re-enable canary before marking live.
+The cache key is `token-chat-reasoning-20260815-1`. All 63 `npm test` checks
+passed and GitHub Pages built exact commit
+`a093b7e6fcdf0f895362f85f095f5a0017d28329`. Live API verification covered a
+reasoning-bearing follow-up, thinking-off state preservation, and an encrypted
+SMB conversation save/reload/update/delete round trip without exposing hidden
+reasoning.
 
-## 2026-08-15 Qwen3.8 chat defaults candidate
+## 2026-08-15 Qwen3.8 chat defaults release
 
-The candidate sets `DEFAULT_CONTEXT_WINDOW` to 1,000,000, checks Reasoning by
-default, and sets both the default and output-control ceiling to 393,216. That
-allowance combines Qwen's documented 262,144 reasoning and
+The browser uses API discovery for the live model's 524,288-token extended
+window; `DEFAULT_CONTEXT_WINDOW` at 1,000,000 is only its pre-discovery
+fallback. Reasoning is checked by default, and both the default and
+output-control ceiling are 393,216. That allowance combines Qwen's documented
+262,144 reasoning and
 131,072 response capacities; `boundedChatPayload` still lowers it when the
 current conversation leaves less physical capacity, and an explicit smaller
 user value is retained.
@@ -33,10 +38,10 @@ temperature values remain supported.
 `tools/qwen-vampire-iterate.mjs` now fails explicitly unless vLLM reports
 exactly one model. Do not restore a hard-coded old-model fallback.
 
-The current cache key is `token-chat-qwen38-20260815-1`. `node --check chat.js`,
-the site contract, the image-routing tests, and the web-result-limit tests pass.
-Do not publish or describe these settings as live before the API discovers the
-single Qwen3.8 vLLM model at a 1,000,000-token context.
+The Qwen3.8 defaults are live against the API's sole discovered
+`Qwen-Qwen3.8-27B` model at 524,288 tokens. The reasoning-continuity release
+supersedes its earlier cache key. `node --check chat.js`, the site contract,
+the image-routing tests, and the web-result-limit tests pass.
 
 ## 2026-08-14 two-branch repository handoff
 
