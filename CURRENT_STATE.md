@@ -2,6 +2,34 @@
 
 Last updated: 2026-08-15 Australia/Sydney
 
+## Dynamic 524,288-token allocation - live 2026-08-15
+
+- The Cycle 3 implementation baseline is
+  `b0b64f254b57381892b93a7d885ce414b66e1e29`. GitHub Pages built that exact
+  code commit before the documentation-only closeout; the custom domain
+  remains correctly protected by Cloudflare Access.
+- Total generation limit is optional and defaults to Automatic, so the API's
+  exact tokenizer allocator supplies Qwen3.8's 393,216-token combined default.
+  The control accepts an explicit positive integer up to the discovered
+  524,288-token physical window and explains the 262,144 thinking plus 131,072
+  visible-answer capacities. A smaller user value is preserved.
+- The browser no longer estimates tokens with characters, reserves one percent,
+  clamps web evidence to half the model window, or silently drops older turns.
+  It sends complete history and the selected evidence budget; the API returns
+  authoritative `context_budget` metadata and readable structured errors.
+- Trusted project instructions remain in the primary system message. Uploaded
+  documents and each retrieved project passage are separate whole untrusted
+  evidence messages before the real latest user turn, allowing server-side
+  relevance/recency selection without making evidence mandatory.
+- The UI retains all API-returned 20 web sources and 48 project passages.
+  Project retrieval requests up to 48 passages/100,000 tokens. Web Sources
+  remains 5 through 20 with default 10; blank evidence budget restores 10,000
+  and numeric values are normalized to 500 through 100,000.
+- Final verification: `npm test` 73/73, JavaScript syntax/site contracts green,
+  and live API automatic, explicit-400K, thinking-off, native/OpenAI stream,
+  five-source SearXNG, and agent canaries passed. Production cache key:
+  `token-chat-dynamic-context-20260815-1`.
+
 ## Preserved reasoning continuity - live 2026-08-15
 
 - Streamed `reasoning_content` (and the legacy `reasoning` alias) is accumulated

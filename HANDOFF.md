@@ -2,6 +2,30 @@
 
 Last updated: 2026-08-15 Australia/Sydney
 
+## 2026-08-15 dynamic context release
+
+The Cycle 3 implementation baseline is
+`b0b64f254b57381892b93a7d885ce414b66e1e29`, with cache key
+`token-chat-dynamic-context-20260815-1`. It passed 73/73 `npm test` checks and
+was built by GitHub Pages before the documentation-only closeout. The custom
+hostname remains behind Cloudflare Access, so anonymous asset requests are
+expected to reach the Access login rather than the JavaScript bytes.
+
+Leave Total generation limit blank for Automatic. Do not reintroduce
+`boundedChatPayload` character estimates, browser-side history deletion, the
+one-percent reserve, or the half-window evidence clamp. The API now renders the
+active Qwen tokenizer exactly and returns `context_budget`. An explicit positive
+integer remains supported up to the discovered 524,288-token window; Qwen's
+automatic combined allowance is 393,216 with up to 262,144 thinking and a
+131,072 visible-answer reserve.
+
+Keep editable/trusted instructions in the primary system message. Uploaded
+documents and project passages must remain separate whole untrusted evidence
+messages before the latest user request. Retain all 20 returned web sources and
+48 project passages. Project retrieval is 48/100,000; Web Sources is 5..20
+default 10 and a blank web budget means 10,000. Structured API errors should be
+rendered through `apiErrorMessage` rather than coerced to `[object Object]`.
+
 ## 2026-08-15 preserved reasoning release
 
 `chat.js` now treats model reasoning as opaque assistant-only state. The SSE
