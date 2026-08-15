@@ -19,6 +19,7 @@ import {
   projectContextPassages,
   projectRetrievalOptions,
   projectUploadAnalysisMode,
+  reconcileBackgroundJobList,
   reasoningCapacity,
   webContextSources,
   withOptionalGenerationLimit,
@@ -220,6 +221,7 @@ let jobState = {
   loadingRequest: false,
   refreshing: false,
   jobs: [],
+  pendingJobs: [],
   refreshTimer: null,
 };
 
@@ -1519,6 +1521,9 @@ async function jobRequest(path = "", options = {}) {
 
 function upsertBackgroundJob(job) {
   if (!job?.id) return;
+  if (!backgroundJobIsActive(job)) {
+    jobState.pendingJobs = jobState.pendingJobs.filter((item) => item.id !== job.id);
+  }
   const lifecycle = backgroundJobLifecycle(jobState.jobs, job);
   jobState.jobs = lifecycle.jobs;
   renderBackgroundJobs();
@@ -1528,6 +1533,10 @@ function upsertBackgroundJob(job) {
 }
 
 function trackBackgroundJob(job) {
+  if (!job?.id) return;
+  if (backgroundJobIsActive(job)) {
+    jobState.pendingJobs = [job, ...jobState.pendingJobs.filter((item) => item.id !== job.id)];
+  }
   const lifecycle = upsertBackgroundJob(job);
   if (!lifecycle) return;
   if (!jobState.available) void loadBackgroundJobs();
@@ -1571,10 +1580,15 @@ async function loadBackgroundJobs() {
     const { json } = await jobRequest();
     if (!json.ok || !Array.isArray(json.jobs)) throw new Error("The private job queue returned an invalid response.");
     jobState.available = true;
-    jobState.jobs = json.jobs;
+    const reconciliation = reconcileBackgroundJobList(json.jobs, jobState.pendingJobs);
+    jobState.jobs = reconciliation.jobs;
+    jobState.pendingJobs = reconciliation.pendingJobs;
+    new Set(reconciliation.terminalProjectIds).forEach((projectId) => {
+      void refreshActiveProjectFiles(projectId);
+    });
   } catch {
     jobState.available = false;
-    jobState.jobs = [];
+    jobState.jobs = jobState.pendingJobs;
   } finally {
     jobState.loadingRequest = false;
     jobState.loading = false;

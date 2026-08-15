@@ -77,8 +77,13 @@ function boundedProgress(value, fallback) {
 }
 
 export function projectFileProcessingState(document = {}) {
-  const suppliedStatus = typeof document.processing_status === "string" && document.processing_status.trim();
-  const status = suppliedStatus || "ready";
+  const hasProcessingStatus = Object.prototype.hasOwnProperty.call(document, "processing_status");
+  if (!hasProcessingStatus) return { status: "ready", label: "Ready", progress: 100 };
+  const suppliedStatus = typeof document.processing_status === "string" ? document.processing_status.trim() : "";
+  if (!suppliedStatus) {
+    return { status: "unknown", label: "Processing state unavailable", progress: boundedProgress(document.processing_progress, 0) };
+  }
+  const status = suppliedStatus;
   if (status === "queued") {
     return { status, label: "Queued for visual analysis", progress: boundedProgress(document.processing_progress, 0) };
   }
@@ -92,7 +97,6 @@ export function projectFileProcessingState(document = {}) {
     return { status, label: "Visual analysis failed", progress: boundedProgress(document.processing_progress, 100) };
   }
   if (status === "ready") return { status, label: "Ready", progress: 100 };
-  if (!suppliedStatus) return { status: "ready", label: "Ready", progress: 100 };
   return { status: "unknown", label: "Processing state unavailable", progress: boundedProgress(document.processing_progress, 0) };
 }
 
@@ -132,6 +136,30 @@ export function backgroundJobLifecycle(jobs = [], job = {}) {
       ? job.project_id
       : null;
   return { jobs: next, activeJobIds, refreshProjectId };
+}
+
+export function reconcileBackgroundJobList(serverJobs = [], pendingJobs = []) {
+  const server = Array.isArray(serverJobs) ? serverJobs.filter((job) => job?.id) : [];
+  const serverIds = new Set(server.map((job) => job.id));
+  const currentPending = Array.isArray(pendingJobs) ? pendingJobs : [];
+  const pendingIds = new Set(currentPending.map((job) => job?.id).filter(Boolean));
+  const pending = currentPending
+    .filter((job) => job?.id && ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status) && !serverIds.has(job.id));
+  const jobs = [...server, ...pending]
+    .sort((a, b) => String(b?.updated_at || b?.created_at).localeCompare(String(a?.updated_at || a?.created_at)));
+  const activeJobIds = jobs
+    .filter((job) => ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status))
+    .map((job) => job.id);
+  const terminalProjectIds = server
+    .filter((job) => (
+      pendingIds.has(job.id)
+      && job.kind === "project_visual_analysis"
+      && ["completed", "failed"].includes(job.status)
+      && typeof job.project_id === "string"
+      && job.project_id
+    ))
+    .map((job) => job.project_id);
+  return { jobs, pendingJobs: pending, activeJobIds, terminalProjectIds };
 }
 
 export function projectMediaForChat(context) {

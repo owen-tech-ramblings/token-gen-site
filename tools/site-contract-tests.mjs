@@ -231,6 +231,9 @@ assert.match(chatJs, /projectJobPresentation\(job\)/, "Visual project jobs must 
 assert.match(chatJs, /if \(json\.job\) trackBackgroundJob\(json\.job\);/, "Visual upload and retry responses must immediately track their returned job.");
 assert.match(chatJs, /refreshActiveProjectFiles\(lifecycle\.refreshProjectId\)/, "A terminal visual job must refresh the active project files.");
 assert.match(chatJs, /filesRefreshPromise/, "Project file refreshes must be coalesced to avoid polling storms.");
+assert.match(chatJs, /reconcileBackgroundJobList\(json\.jobs, jobState\.pendingJobs\)/, "A stale job-list snapshot must merge locally tracked active jobs.");
+assert.match(chatJs, /pendingJobs/, "Returned active jobs must remain pending only until an authoritative list reconciles them.");
+assert.match(chatJs, /reconciliation\.terminalProjectIds/, "An authoritative terminal job-list update must refresh active project files.");
 assert.match(chatJs, /background job\$\{activeCount === 1 \? "" : "s"\} active/, "The jobs drawer must support non-image background work.");
 assert.match(chatJs, /projectMediaForChat\(retrieval\)/, "Only the current retrieval may shape visual project media.");
 assert.match(chatJs, /project_media: projectMedia/, "Visual references must be sent only in the top-level chat project_media field.");
@@ -238,6 +241,7 @@ assert.match(chatJs, /if \(projectContext\) projectContext\.projectMedia = \[\];
 assert.match(chatJs, /delete payload\.project_media;/, "Visual references must be removed from the in-memory payload after request serialization.");
 assert.doesNotMatch(chatJs, /data-[^"'`]*(?:reference|project-media)/, "Opaque visual references must never be placed in DOM data attributes.");
 assert.match(chatContextOptionsJs, /function projectHistoryMetadata/, "Project history must use a dedicated safe metadata mapper.");
+assert.match(chatContextOptionsJs, /hasOwnProperty\.call\(document, "processing_status"\)/, "Only a genuinely absent processing status may use the legacy Ready fallback.");
 assert.match(chatJs, /from "\.\/chat-context-options\.mjs\?v=token-chat-visual-projects-20260815-1"/, "Chat must cache-bust the visual project helper module with its script version.");
 const projectHistoryMetadataSource = chatContextOptionsJs.slice(
   chatContextOptionsJs.indexOf("export function projectHistoryMetadata"),

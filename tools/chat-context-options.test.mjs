@@ -153,6 +153,11 @@ test("project processing states use safe labels and bounded numeric progress", a
   assert.deepEqual(projectFileProcessingState({}), {
     status: "ready", label: "Ready", progress: 100,
   });
+  for (const processing_status of [null, "", 42, { state: "ready" }]) {
+    assert.deepEqual(projectFileProcessingState({ processing_status, processing_progress: 41 }), {
+      status: "unknown", label: "Processing state unavailable", progress: 41,
+    });
+  }
 });
 
 test("project visual jobs use generic labels and safe progress", async () => {
@@ -199,6 +204,33 @@ test("visual job lifecycle replaces one job, polls active work, and refreshes fi
     status: "completed",
   });
   assert.equal(image.refreshProjectId, null);
+});
+
+test("a list snapshot cannot erase a returned active visual job and later authority removes its pending copy", async () => {
+  const { reconcileBackgroundJobList } = await loadContextOptions();
+  let resolveList;
+  const listRequest = new Promise((resolve) => { resolveList = resolve; });
+  const returned = {
+    id: "job-returned",
+    kind: "project_visual_analysis",
+    project_id: "project-1",
+    document_id: "file-1",
+    status: "queued",
+  };
+  const reconciliation = listRequest.then((jobs) => reconcileBackgroundJobList(jobs, [returned]));
+  resolveList([]);
+  const afterStaleList = await reconciliation;
+  assert.deepEqual(afterStaleList.jobs.map((job) => job.id), ["job-returned"]);
+  assert.deepEqual(afterStaleList.pendingJobs.map((job) => job.id), ["job-returned"]);
+  assert.deepEqual(afterStaleList.activeJobIds, ["job-returned"]);
+
+  const afterTerminalAuthority = reconcileBackgroundJobList([
+    { ...returned, status: "completed", updated_at: "2026-08-15T00:00:01Z" },
+  ], afterStaleList.pendingJobs);
+  assert.equal(afterTerminalAuthority.jobs[0].status, "completed");
+  assert.deepEqual(afterTerminalAuthority.pendingJobs, []);
+  assert.deepEqual(afterTerminalAuthority.terminalProjectIds, ["project-1"]);
+  assert.deepEqual(reconcileBackgroundJobList([], afterTerminalAuthority.pendingJobs).jobs, []);
 });
 
 test("only current visual evidence becomes top-level project media", async () => {
