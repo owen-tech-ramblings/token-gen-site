@@ -13,13 +13,16 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   `/home/jesse/.config/gh`
 - Approved secret locators: GSM project `lil-zen-oc` and `D:\openclaw`
   (`/mnt/d/openclaw` in WSL) only. Browser source must contain no secret.
-- Branch and review flow: this one-developer repository has exactly two
-  branches, `dev` and `master`. Develop directly on `dev`, run the complete
-  check, then fast-forward `master` to the verified `dev` commit and push both.
-  Do not create temporary `codex/*`, feature, release, or worktree branches.
-  At the end of every development cycle, local `dev`, local `master`,
-  `origin/dev`, and `origin/master` must identify the same commit, the checkout
-  must be clean, and no other local or remote branch may remain.
+- Branch and review flow: keep only `master` and `dev` as permanent branches.
+  Use the receipt-bound managed-worktree tool from the released Lil Zen control
+  plane to create a temporary `codex/*` branch from current `origin/dev`, push
+  it immediately, pass every required check and exact-commit GitHub review,
+  and merge its pull request into `dev`. Promote `dev` to `master` only through
+  a reviewed release pull request. GitHub automatically deletes the temporary
+  branch after merge; explicitly abandoned work is deleted immediately.
+  At stable rest, `master` and `dev` identify the same released commit, the
+  canonical root is clean on `master` at `origin/master`, and no dirty,
+  unmerged, or additional local or remote branch remains.
 - Complete check command: `npm test`
   It is the sole aggregate check and must run unchanged in exact-commit
   `quality / site` GitHub CI for `dev` and
@@ -35,11 +38,12 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   release transaction, verify the immutable release, GitHub Pages build, live
   asset digests and public API integration, and then mirror the source to the
   Windows copy when required.
-- Rollback path: restore the prior immutable site release with a revert on
-  `dev`, verify it, fast-forward `master`, wait for the
+- Rollback path: restore the prior immutable site release and prior Pages
+  commit through a reviewed revert or corrective pull request, wait for the
   exact Pages rebuild, and repeat the same live checks.
-- Forbidden actions: bypassing `quality / site`, creating extra branches or
-  feature worktrees, direct live edits,
+- Forbidden actions: direct pushes to `master`, bypassing `quality / site`,
+  using `dev` as a release or deployment authority, unleased or non-`codex/*`
+  feature worktrees, long-lived temporary branches, direct live edits,
   global GitHub-auth switching, repository-local secrets, deployment from the
   Windows mirror, PC-hosted production API/search dependencies, silent
   fallbacks, or a release record that does not match the Pages commit.
@@ -81,8 +85,8 @@ This repository owns only the browser/site side:
 
 The API and server-side SearXNG source is the separate canonical
 `token-gen-api` repository. Any Codex or Codex CLI instance may build either
-product, but it must use that product's `dev` branch, repository instructions,
-verification, release and rollback path. Machine location
+product, but it must use that product's current receipt-bound managed worktree,
+repository instructions, review, release and rollback path. Machine location
 does not create ownership. Never patch the Token Gen server runtime directly
 or work around missing API behaviour by inventing browser data.
 
@@ -132,7 +136,7 @@ Required protected Discord bot routes:
 - `/api/discord/chat/completions`
 - `/api/discord/chat/stream`
 
-Before committing on `dev`:
+Before committing, in the receipt-bound managed worktree:
 
 1. Verify the root with `git rev-parse --show-toplevel`.
 2. Verify the remote with `git remote -v`.
@@ -151,6 +155,6 @@ Related paths:
 - Deployed local integration proxy source: the Lil Zen control plane; its live
   path is not an authoring repository
 
-Commit and push public-site changes only from this repository's `dev` branch,
-then fast-forward `master` after verification. The Windows source copy is a
-non-authoritative mirror and may never become the deploy source.
+Commit and push public-site changes only from the managed worktree created for
+this repository. The Windows source copy is a non-authoritative mirror and may
+never become the deploy source.
