@@ -29,7 +29,7 @@ export function generationControlState(value, contextWindow) {
   if (!text) return { maximum, value: "" };
   const numeric = Number(text);
   if (!Number.isFinite(numeric) || numeric <= 0) return { maximum, value: "" };
-  return { maximum, value: String(Math.min(Math.trunc(numeric), maximum)) };
+  return { maximum, value: String(Math.min(Math.max(1, Math.trunc(numeric)), maximum)) };
 }
 
 export function withOptionalGenerationLimit(payload, value, contextWindow) {

@@ -76,6 +76,8 @@ test("web evidence budget is integer-normalized within the advertised range", as
     [500.8, 501],
     [100000, 100000],
     [200000, 100000],
+    ["", 10000],
+    ["   ", 10000],
     ["invalid", 10000],
   ]) {
     assert.equal(

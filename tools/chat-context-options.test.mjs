@@ -26,6 +26,7 @@ test("model discovery retains an explicit generation limit within the physical c
   assert.equal(withOptionalGenerationLimit({}, "64000", 524288).max_tokens, 64000);
   assert.equal(withOptionalGenerationLimit({}, "600000", 524288).max_tokens, 524288);
   assert.equal(withOptionalGenerationLimit({}, "64000.5", 524288).max_tokens, 64000);
+  assert.equal(withOptionalGenerationLimit({}, "0.5", 524288).max_tokens, 1);
 });
 
 test("trusted project instructions stay separate from whole untrusted evidence units", async () => {

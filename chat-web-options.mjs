@@ -9,7 +9,10 @@ export function normalizeWebRouteOptions({
   maxResults,
   contextTokenBudget,
 }) {
-  const rawBudget = Number(contextTokenBudget);
+  const budgetText = contextTokenBudget === null || contextTokenBudget === undefined
+    ? ""
+    : String(contextTokenBudget).trim();
+  const rawBudget = budgetText ? Number(budgetText) : Number.NaN;
   const budget = Number.isFinite(rawBudget)
     ? Math.max(500, Math.min(100000, Math.round(rawBudget)))
     : 10000;
