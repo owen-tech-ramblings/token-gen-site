@@ -1,6 +1,8 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import { requestChatStream } from "./chat-transport-options.mjs";
 import { announceVision } from "./chat-vision-announcements.mjs";
+import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
+import { scannedPdfProjectAction } from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-1";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -177,6 +179,7 @@ let visionCapabilities = {};
 let reasoningCapabilities = {};
 let availableModels = [];
 let uploadedDocuments = [];
+let pendingScannedPdf = null;
 let attachedVisionImages = [];
 let activeImageSource = null;
 let activeImageMask = null;
@@ -1968,7 +1971,7 @@ async function deleteActiveProject() {
 }
 
 async function uploadProjectDocuments(files) {
-  if (!projectState.active || !files.length) return;
+  if (!projectState.active || !files.length) return false;
   projectState.busy = true;
   renderProjectState();
   try {
@@ -1988,8 +1991,10 @@ async function uploadProjectDocuments(files) {
     projectState.busy = false;
     await setActiveProject(projectState.active.id, { quiet: true });
     setProjectStatus(`${files.length} project file${files.length === 1 ? "" : "s"} added to ${projectState.active.name}`, "good");
+    return true;
   } catch (error) {
     setProjectStatus(error.message, "bad");
+    return false;
   } finally {
     projectState.busy = false;
     els.projectDocuments.value = "";
@@ -2389,6 +2394,7 @@ async function openStoredConversation(id) {
     els.historyRetention.value = historyState.currentRetention;
     await setActiveProject(conversation.project_id || "", { quiet: true });
     uploadedDocuments = [];
+    pendingScannedPdf = null;
     renderDocuments();
     clearAttachedVisionImages();
     clearActiveImageSource();
@@ -2554,7 +2560,10 @@ async function extractDocument(file) {
   }
   const normalized = normalizeDocumentText(text);
   if (!normalized && (extension === "pdf" || file.type === "application/pdf")) {
-    throw new Error("Add to project for visual analysis. Quick document attachments use extracted text only.");
+    const error = new Error("This scanned PDF needs project visual analysis.");
+    error.code = "scanned_pdf_requires_project";
+    error.file = file;
+    throw error;
   }
   if (!normalized) throw new Error("No readable text was found in this file.");
   return {
@@ -2584,7 +2593,7 @@ function renderDocuments() {
     ? `${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"} with ${formatNumber(total)} characters. Token Gen fits the context on the server.`
     : "No documents attached. Token Gen fits attached context on the server.";
   els.docStatus.dataset.state = total ? "good" : "neutral";
-  els.docList.innerHTML = uploadedDocuments.map((doc) => `
+  const documents = uploadedDocuments.map((doc) => `
     <div class="chat-doc-item">
       <div class="chat-doc-badge">${escapeHtml(documentBadge(doc.name))}</div>
       <div>
@@ -2594,7 +2603,34 @@ function renderDocuments() {
       <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">x</button>
     </div>
   `).join("");
+  const scannedPdfAction = pendingScannedPdf ? `
+    <div class="chat-doc-item">
+      <div class="chat-doc-badge">PDF</div>
+      <div>
+        <strong title="${escapeHtml(pendingScannedPdf.name)}">${escapeHtml(pendingScannedPdf.name)}</strong>
+        <span>Scanned PDF ready for project visual analysis</span>
+      </div>
+      <button class="chat-doc-remove" type="button" data-scanned-pdf-cancel aria-label="Cancel ${escapeHtml(pendingScannedPdf.name)}">x</button>
+      <button class="chat-button chat-button--small" type="button" data-scanned-pdf-add>Add to project for visual analysis</button>
+    </div>
+  ` : "";
+  els.docList.innerHTML = `${documents}${scannedPdfAction}`;
   updateSendState();
+}
+
+async function addPendingScannedPdfToProject() {
+  const action = scannedPdfProjectAction(pendingScannedPdf, projectState.active);
+  if (action.kind === "none") return;
+  if (action.kind === "choose_project") {
+    setSettingsOpen(true);
+    setProjectStatus("Choose or create a project, then add this scanned PDF for visual analysis.", "neutral");
+    els.projectSettingsSelect?.focus();
+    return;
+  }
+  if (await uploadProjectDocuments(action.files)) {
+    pendingScannedPdf = null;
+    renderDocuments();
+  }
 }
 
 function renderInlineMarkdown(value) {
@@ -4195,19 +4231,13 @@ els.visionImages.addEventListener("change", async () => {
   els.visionImages.disabled = true;
   setStatus(`Preparing ${files.length === 1 ? files[0].name : `${files.length} images`} locally...`, "busy");
   try {
-    if (attachedVisionImages.length + files.length > limits.maxImages) {
-      throw new Error(`Attach up to ${limits.maxImages} images per message.`);
-    }
-    const next = [...attachedVisionImages];
-    for (const file of files) {
-      const image = await readVisionImage(file);
-      const totalBytes = next.reduce((sum, item) => sum + Number(item.sizeBytes || 0), 0) + image.sizeBytes;
-      if (totalBytes > limits.maxTotalBytes) {
-        releaseImagePreviewUrl(image);
-        throw new Error(`Attached images may total up to ${Math.floor(limits.maxTotalBytes / 1024 / 1024)} MB.`);
-      }
-      next.push(image);
-    }
+    const next = await stageVisionAttachments({
+      existing: attachedVisionImages,
+      files,
+      limits,
+      readVisionImage,
+      releasePreview: releaseImagePreviewUrl,
+    });
     attachedVisionImages = withVisionEditTarget(next);
     renderVisionPreview();
     setStatus(visionSupported
@@ -4291,7 +4321,12 @@ els.documents.addEventListener("change", async () => {
     renderDocuments();
     setStatus(`Attached ${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"}`, "good");
   } catch (error) {
-    setStatus(error.message, "bad");
+    if (error?.code === "scanned_pdf_requires_project" && error.file) {
+      pendingScannedPdf = error.file;
+      setStatus("Scanned PDF ready to add to a project for visual analysis.", "neutral");
+    } else {
+      setStatus(error.message, "bad");
+    }
   } finally {
     els.documents.value = "";
     els.documents.disabled = false;
@@ -4300,6 +4335,15 @@ els.documents.addEventListener("change", async () => {
 });
 
 els.docList.addEventListener("click", (event) => {
+  if (event.target.closest("[data-scanned-pdf-add]")) {
+    void addPendingScannedPdfToProject();
+    return;
+  }
+  if (event.target.closest("[data-scanned-pdf-cancel]")) {
+    pendingScannedPdf = null;
+    renderDocuments();
+    return;
+  }
   const button = event.target.closest("[data-doc-id]");
   if (!button) return;
   uploadedDocuments = uploadedDocuments.filter((doc) => doc.id !== button.dataset.docId);
@@ -4308,6 +4352,7 @@ els.docList.addEventListener("click", (event) => {
 
 els.docClear.addEventListener("click", () => {
   uploadedDocuments = [];
+  pendingScannedPdf = null;
   renderDocuments();
 });
 
@@ -4572,4 +4617,8 @@ window.addEventListener("focus", () => {
   if (!historyState.available && !historyState.loading) loadConversationHistory();
   if (!jobState.available && !jobState.loading) loadBackgroundJobs();
   else refreshActiveJobs({ immediate: true });
+});
+
+window.addEventListener("pagehide", () => {
+  pendingScannedPdf = null;
 });

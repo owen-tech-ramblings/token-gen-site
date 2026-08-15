@@ -145,7 +145,7 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-final-audit-20260816-1/, "Chat HTML must cache-bust changed visual project controls.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
@@ -224,7 +224,8 @@ assert.match(chatHtml, /Project files can be searched; images and scanned PDFs r
 assert.match(chatHtml, />Add to project</, "The general project upload action must not claim every file receives visual analysis.");
 assert.doesNotMatch(chatHtml, /Project documents/, "Project UI must not retain the former Project documents wording.");
 assert.match(chatJs, /form\.append\("analysis_mode", analysisMode\)/, "Project uploads must submit the selected analysis mode.");
-assert.match(chatJs, /Add to project for visual analysis\. Quick document attachments use extracted text only\./, "A scanned quick PDF must offer project visual analysis instead of claiming OCR.");
+assert.match(chatJs, /data-scanned-pdf-add/, "A scanned quick PDF must expose an explicit project visual-analysis action.");
+assert.match(chatJs, /Scanned PDF ready to add to a project for visual analysis\./, "A scanned quick PDF must explain the next project action without claiming OCR.");
 assert.match(chatJs, /projectFileProcessingState\(document\)/, "Project file rows must render safe visual processing states.");
 assert.match(chatJs, /data-project-document-retry/, "Failed visual project files must expose an explicit retry action.");
 assert.match(chatJs, /\["failed", "ready_with_warnings"\]\.includes\(processing\.status\)/, "Ready-with-warnings visual files must expose explicit retry.");
