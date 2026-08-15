@@ -6,14 +6,11 @@ export function normalizeWebResultLimit(value) {
 }
 
 export function normalizeWebRouteOptions({
-  research,
   maxResults,
   contextTokenBudget,
 }) {
   return {
     maxResults: normalizeWebResultLimit(maxResults),
-    contextTokenBudget: research
-      ? Math.max(16000, Number(contextTokenBudget || 10000))
-      : Number(contextTokenBudget || 10000),
+    contextTokenBudget: Number(contextTokenBudget || 10000),
   };
 }

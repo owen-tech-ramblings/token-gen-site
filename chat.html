@@ -222,10 +222,8 @@
           <div class="chat-document-budget">
             <div>
               <span>Document context</span>
-              <output id="chatDocBudgetValue" for="chatDocBudget">30%</output>
+              <span>Automatic</span>
             </div>
-            <input id="chatDocBudget" type="range" min="30" max="75" step="5" value="30" aria-label="Maximum document share of the model context" />
-            <div class="chat-doc-meter" aria-label="Document context budget"><span id="chatDocMeter"></span></div>
             <p class="chat-web-note" id="chatDocStatus">No documents attached.</p>
             <button class="chat-text-button" id="chatDocClear" type="button">Clear documents</button>
           </div>
@@ -251,7 +249,7 @@
                 </label>
                 <label class="chat-field" for="chatWebBudget">
                   <span>Token budget</span>
-                  <input id="chatWebBudget" type="number" min="500" max="131072" step="500" value="16000" />
+                  <input id="chatWebBudget" type="number" min="500" max="100000" step="500" value="16000" />
                 </label>
               </div>
               <p class="chat-web-note">The search provider receives the query. Destination pages use the selected fetch route; Token Gen never silently changes Tor or Proxy to Direct. A supplied Tavily key remains in this tab and is sent only with the request.</p>
@@ -487,10 +485,11 @@
                 <input id="chatTemperature" type="number" min="0" max="2" step="0.1" value="1.0" />
               </label>
               <label class="chat-field" for="chatMaxTokens">
-                <span>Maximum tokens</span>
-                <input id="chatMaxTokens" type="number" min="32" max="393216" step="1000" value="393216" />
+                <span>Total generation limit <small>Optional</small></span>
+                <input id="chatMaxTokens" type="number" min="1" max="524288" step="1" placeholder="Automatic" />
               </label>
             </div>
+            <p class="chat-web-note" id="chatContextCapacity">Automatic allocation uses the remaining model context.</p>
             <label class="chat-field" for="chatSystem">
               <span>Assistant instructions</span>
               <textarea id="chatSystem" rows="10">You are Token Gen, Jesse's self-hosted assistant running through a local vLLM. Help with analysis, research, writing, coding, planning, troubleshooting, and creative work. Lead with an accurate, practical answer; state material assumptions and uncertainty; ask a clarifying question only when the missing detail would substantially change the result.
@@ -589,6 +588,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-reasoning-20260815-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-dynamic-context-20260815-1"></script>
   </body>
 </html>

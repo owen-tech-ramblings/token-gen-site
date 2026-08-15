@@ -1,4 +1,13 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
+import {
+  DEFAULT_CONTEXT_WINDOW,
+  generationControlState,
+  projectContextPassages,
+  projectRetrievalOptions,
+  reasoningCapacity,
+  webContextSources,
+  withOptionalGenerationLimit,
+} from "./chat-context-options.mjs";
 
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 
@@ -10,14 +19,13 @@ const els = {
   system: $("#chatSystem"),
   temperature: $("#chatTemperature"),
   maxTokens: $("#chatMaxTokens"),
+  contextCapacity: $("#chatContextCapacity"),
   reasoning: $("#chatReasoning"),
   documents: $("#chatDocuments"),
   visionImages: $("#chatVisionImages"),
   visionPreview: $("#chatVisionPreview"),
   visionStatus: $("#chatVisionStatus"),
-  docBudget: $("#chatDocBudget"),
   docStatus: $("#chatDocStatus"),
-  docMeter: $("#chatDocMeter"),
   docList: $("#chatDocList"),
   docClear: $("#chatDocClear"),
   webSearch: $("#chatWebSearch"),
@@ -89,7 +97,6 @@ const els = {
   attachImage: $("#chatAttachImage"),
   attachMask: $("#chatAttachMask"),
   webQuickToggle: $("#chatWebQuickToggle"),
-  docBudgetValue: $("#chatDocBudgetValue"),
   historyList: $("#chatHistoryList"),
   historyCount: $("#chatHistoryCount"),
   historyStatus: $("#chatHistoryStatus"),
@@ -147,6 +154,7 @@ let webFetchModes = { direct: true, tor: false, proxy: false };
 let imageGenerationSupported = false;
 let visionSupported = false;
 let visionCapabilities = {};
+let reasoningCapabilities = {};
 let availableModels = [];
 let uploadedDocuments = [];
 let attachedVisionImages = [];
@@ -196,9 +204,6 @@ let jobState = {
   refreshTimer: null,
 };
 
-const DEFAULT_CONTEXT_WINDOW = 1000000;
-const DEFAULT_MAX_OUTPUT_TOKENS = 393216;
-const TOKEN_CHARS = 4;
 const IMAGE_POLL_INTERVAL_MS = 2200;
 const IMAGE_EDITOR_MAX_DIMENSION = 2048;
 const IMAGE_EDITOR_HISTORY_LIMIT = 12;
@@ -315,10 +320,6 @@ function modelLabel(id) {
   return String(id || "").split("/").filter(Boolean).pop() || id || "model";
 }
 
-function estimateTokens(text) {
-  return Math.ceil(String(text || "").length / TOKEN_CHARS);
-}
-
 function clampNumber(value, fallback, min, max) {
   const number = Number(value);
   if (!Number.isFinite(number)) return fallback;
@@ -361,23 +362,24 @@ function getModelContextWindow(model = getSelectedModel()) {
     nested.context_window,
   );
   const detected = candidates.find((value) => Number.isFinite(Number(value)) && Number(value) > 0);
-  return Number(detected || els.maxTokens.max || DEFAULT_CONTEXT_WINDOW);
+  return Number(detected || DEFAULT_CONTEXT_WINDOW);
 }
 
 function syncMaxOutputControl(model = getSelectedModel()) {
-  const maximum = Math.min(getModelContextWindow(model), DEFAULT_MAX_OUTPUT_TOKENS);
-  els.maxTokens.max = String(maximum);
-  if (Number(els.maxTokens.value) > maximum) {
-    els.maxTokens.value = String(maximum);
+  const contextWindow = getModelContextWindow(model);
+  const control = generationControlState(els.maxTokens.value, contextWindow);
+  const capacity = reasoningCapacity(model, { reasoning: reasoningCapabilities });
+  els.maxTokens.max = String(control.maximum);
+  els.maxTokens.value = control.value;
+  if (els.contextCapacity) {
+    els.contextCapacity.textContent = capacity.dynamicAllocation
+      ? `Automatic fits up to ${formatNumber(capacity.defaultCombinedCompletionTokens)} combined generation tokens inside the discovered ${formatNumber(contextWindow)}-token model window: up to ${formatNumber(capacity.maxThinkingTokens)} hidden reasoning tokens plus up to ${formatNumber(capacity.maxVisibleAnswerTokens)} visible-answer tokens.`
+      : `The discovered model window is ${formatNumber(contextWindow)} tokens, with up to ${formatNumber(capacity.maxThinkingTokens)} hidden reasoning tokens plus up to ${formatNumber(capacity.maxVisibleAnswerTokens)} visible-answer tokens within a ${formatNumber(capacity.defaultCombinedCompletionTokens)}-token combined generation allowance.`;
   }
 }
 
-function getDocumentBudgetPercent() {
-  return clampNumber(els.docBudget.value, 30, 30, 75);
-}
-
 function getDocumentBudgetTokens() {
-  return Math.floor(getModelContextWindow() * (getDocumentBudgetPercent() / 100));
+  return getModelContextWindow();
 }
 
 function getMode() {
@@ -530,7 +532,7 @@ function updateSendState() {
     els.send.disabled = false;
     return;
   }
-  els.send.disabled = !canSendCurrentMode() || documentTokenTotal() > getDocumentBudgetTokens();
+  els.send.disabled = !canSendCurrentMode();
 }
 
 function absoluteImageUrl(url) {
@@ -1899,31 +1901,27 @@ function storedHistoryMessages() {
         query: message.webContext.query,
         provider: message.webContext.provider || message.webContext.search_route?.provider,
         fetch_mode: message.webContext.fetch_mode || message.webContext.fetchMode,
-        sources: Array.isArray(message.webContext.sources)
-          ? message.webContext.sources.slice(0, 10).map((source) => ({
-              index: source.index,
-              title: source.title,
-              url: source.url,
-              fetched: source.fetched,
-              extraction_method: source.extraction_method,
-            }))
-          : [],
+        sources: webContextSources(message.webContext).map((source) => ({
+          index: source.index,
+          title: source.title,
+          url: source.url,
+          fetched: source.fetched,
+          extraction_method: source.extraction_method,
+        })),
       };
     }
     if (message.projectContext) {
       item.project_context = {
         project_id: message.projectContext.project_id,
         project_name: message.projectContext.project_name,
-        passages: Array.isArray(message.projectContext.passages)
-          ? message.projectContext.passages.slice(0, 12).map((passage) => ({
-              citation: passage.citation,
-              document_id: passage.document_id,
-              document_name: passage.document_name,
-              page: passage.page,
-              section: passage.section,
-              lines: passage.lines,
-            }))
-          : [],
+        passages: projectContextPassages(message.projectContext).map((passage) => ({
+          citation: passage.citation,
+          document_id: passage.document_id,
+          document_name: passage.document_name,
+          page: passage.page,
+          section: passage.section,
+          lines: passage.lines,
+        })),
       };
     }
     return item;
@@ -2337,13 +2335,12 @@ async function extractDocument(file) {
     name: file.name,
     type: file.type || extension.toUpperCase(),
     chars: normalized.length,
-    tokens: estimateTokens(normalized),
     text: normalized,
   };
 }
 
-function documentTokenTotal(docs = uploadedDocuments) {
-  return docs.reduce((total, doc) => total + doc.tokens, 0);
+function documentCharacterTotal(docs = uploadedDocuments) {
+  return docs.reduce((total, doc) => total + doc.chars, 0);
 }
 
 function documentBadge(name) {
@@ -2355,24 +2352,17 @@ function documentBadge(name) {
 }
 
 function renderDocuments() {
-  const total = documentTokenTotal();
-  const budget = getDocumentBudgetTokens();
-  const percentUsed = budget ? Math.min(100, (total / budget) * 100) : 0;
-  const overBudget = total > budget;
-  els.docBudget.value = String(getDocumentBudgetPercent());
-  if (els.docBudgetValue) els.docBudgetValue.textContent = `${getDocumentBudgetPercent()}%`;
-  els.docMeter.style.width = `${percentUsed}%`;
-  els.docMeter.dataset.state = overBudget ? "bad" : total ? "good" : "neutral";
+  const total = documentCharacterTotal();
   els.docStatus.textContent = uploadedDocuments.length
-    ? `${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"} using ${formatNumber(total)} of ${formatNumber(budget)} tokens.`
-    : `No documents attached. Budget is ${formatNumber(budget)} tokens.`;
-  els.docStatus.dataset.state = overBudget ? "bad" : total ? "good" : "neutral";
+    ? `${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"} with ${formatNumber(total)} characters. Token Gen fits the context on the server.`
+    : "No documents attached. Token Gen fits attached context on the server.";
+  els.docStatus.dataset.state = total ? "good" : "neutral";
   els.docList.innerHTML = uploadedDocuments.map((doc) => `
     <div class="chat-doc-item">
       <div class="chat-doc-badge">${escapeHtml(documentBadge(doc.name))}</div>
       <div>
         <strong title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</strong>
-        <span>${formatNumber(doc.tokens)} tokens</span>
+        <span>${formatNumber(doc.chars)} characters</span>
       </div>
       <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">x</button>
     </div>
@@ -2384,7 +2374,7 @@ function buildDocumentContextMessage() {
   if (!uploadedDocuments.length) return null;
   const sections = uploadedDocuments.map((doc, index) => [
     `Document ${index + 1}: ${doc.name}`,
-    `Estimated tokens: ${doc.tokens}`,
+    `Characters: ${doc.chars}`,
     doc.text,
   ].join("\n"));
   return {
@@ -2659,7 +2649,7 @@ function renderImageOutputs(message) {
 
 function renderWebContext(context) {
   if (!context) return "";
-  const sources = Array.isArray(context.sources) ? context.sources.slice(0, 6) : [];
+  const sources = webContextSources(context);
   const research = context.research?.enabled ? context.research : null;
   const warnings = Array.isArray(context.warnings) ? context.warnings.slice(0, 2) : [];
   return `
@@ -2697,7 +2687,7 @@ function appendAssistantMessage(content = "") {
 
 function renderProjectContext(context) {
   if (!context) return "";
-  const passages = Array.isArray(context.passages) ? context.passages.slice(0, 12) : [];
+  const passages = projectContextPassages(context);
   return `
     <details class="chat-web-context chat-project-context">
       <summary>
@@ -2744,8 +2734,8 @@ function attachWebContext(index, context) {
   renderMessages(false);
 }
 
-function boundedChatPayload(systemParts, route) {
-  const fullHistory = messages
+function chatHistoryForPayload() {
+  return messages
     .filter((message) => !message.isWelcome && !message.excludeFromContext && (message.role === "user" || message.role === "assistant"))
     .map((message) => ({
       role: message.role,
@@ -2753,33 +2743,6 @@ function boundedChatPayload(systemParts, route) {
       reasoningContent: assistantReasoningContent(message),
       visionImages: Array.isArray(message.visionImages) ? message.visionImages.slice(0, getVisionLimits().maxImages) : [],
     }));
-  const contextWindow = getModelContextWindow();
-  const systemTokens = estimateTokens(systemParts.join("\n\n"));
-  const safetyTokens = Math.max(1024, Math.ceil(contextWindow * 0.01));
-  const messageTokens = (message) => estimateTokens(message?.content || "")
-    + estimateTokens(route.enableThinking ? message?.reasoningContent : "")
-    + 8 + (message?.visionImages?.length || 0) * 1400;
-  const availableAfterSystem = Math.max(512, contextWindow - systemTokens - safetyTokens);
-  const requestedWebTokens = route.web ? route.contextTokenBudget : 0;
-  const webTokens = Math.max(0, Math.min(requestedWebTokens, Math.floor(availableAfterSystem * 0.5)));
-  const historyTokens = fullHistory.reduce((total, message) => total + messageTokens(message), 0);
-  const requestedOutput = Number(els.maxTokens.value || 393216);
-  const maximumOutput = availableAfterSystem - webTokens - historyTokens;
-  if (maximumOutput < 32) {
-    throw new Error(
-      `This conversation is at the active model's ${contextWindow.toLocaleString("en-AU")}-token physical limit. `
-      + "No turns were discarded. Start a new chat or remove large attachments before continuing.",
-    );
-  }
-  const outputTokens = Math.max(32, Math.min(requestedOutput, maximumOutput));
-
-  return {
-    history: fullHistory,
-    maxTokens: outputTokens,
-    webTokens,
-    estimatedInputTokens: systemTokens + historyTokens + webTokens,
-    contextWindow,
-  };
 }
 
 async function chatPayloadMessage(message, includeReasoning) {
@@ -2809,10 +2772,10 @@ async function retrieveActiveProjectContext(query) {
   if (!project) return null;
   let retrieval = { project, passages: [], context: "" };
   if (projectState.documents.length) {
-    const tokenBudget = Math.min(16000, Math.max(1000, Math.floor(getModelContextWindow() * 0.1)));
+    const retrievalOptions = projectRetrievalOptions(getDocumentBudgetTokens());
     const { json } = await projectRequest(`/${encodeURIComponent(project.id)}/retrieve`, {
       method: "POST",
-      body: JSON.stringify({ query, top_k: 8, token_budget: tokenBudget }),
+      body: JSON.stringify({ query, ...retrievalOptions }),
     });
     if (!json.ok || !json.project || !Array.isArray(json.passages)) {
       throw new Error("Project retrieval returned an invalid response.");
@@ -2853,17 +2816,16 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
     ...(documentContext?.content ? [documentContext.content] : []),
     ...(projectContext?.system ? [projectContext.system] : []),
   ];
-  const bounded = boundedChatPayload(systemParts, route);
-  const history = await Promise.all(bounded.history.map((message) => chatPayloadMessage(message, route.enableThinking)));
+  const contextWindow = getModelContextWindow();
+  const history = await Promise.all(chatHistoryForPayload().map((message) => chatPayloadMessage(message, route.enableThinking)));
 
-  return {
+  const payload = {
     model: els.model.value,
     messages: [
       ...(systemParts.length ? [{ role: "system", content: systemParts.join("\n\n") }] : []),
       ...history,
     ],
     temperature: Number(els.temperature.value || 1.0),
-    max_tokens: bounded.maxTokens,
     enable_thinking: route.enableThinking,
     web_search: {
       enabled: route.web,
@@ -2871,7 +2833,7 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
       tavily_api_key: els.webApiKey.value.trim() || undefined,
       fetch_mode: els.webFetchMode.value,
       max_results: route.maxResults,
-      context_token_budget: bounded.webTokens,
+      context_token_budget: route.contextTokenBudget,
       time_range: route.timeRange,
     },
     metadata: {
@@ -2880,11 +2842,11 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
       project_id: projectState.active?.id || undefined,
       requested_mode: route.mode,
       resolved_route: route.research ? "research" : route.web ? "web" : route.vision ? "vision" : "chat",
-      context_window: bounded.contextWindow,
-      estimated_input_tokens: bounded.estimatedInputTokens,
+      context_window: contextWindow,
       history_truncated: false,
     },
   };
+  return withOptionalGenerationLimit(payload, els.maxTokens.value, contextWindow);
 }
 
 function extractAssistantMessage(data) {
@@ -2908,6 +2870,7 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 6000) {
 function disableChat(reason = "Token Gen API model discovery failed") {
   chatReady = false;
   availableModels = [];
+  reasoningCapabilities = {};
   els.model.innerHTML = `<option value="">API unavailable</option>`;
   if (els.activeModel) els.activeModel.textContent = "API unavailable";
   syncMaxOutputControl({ max_model_len: DEFAULT_CONTEXT_WINDOW });
@@ -2937,6 +2900,7 @@ async function loadModels() {
   }
   availableModels = models;
   visionCapabilities = json.capabilities?.vision || models[0]?.capabilities?.vision || {};
+  reasoningCapabilities = json.capabilities?.reasoning || models[0]?.capabilities?.reasoning || {};
   els.model.innerHTML = models.map((model) => `<option value="${escapeHtml(model.id)}">${escapeHtml(modelLabel(model.id))}</option>`).join("");
   if (els.activeModel) els.activeModel.textContent = modelLabel(models[0].id);
   syncMaxOutputControl(models[0]);
@@ -3038,10 +3002,6 @@ async function sendMessage(content, route = routeRequest(content)) {
   }
   if (route.web && !webSearchSupported) {
     setStatus("This question needs current web context, but web search is unavailable", "bad");
-    return;
-  }
-  if (documentTokenTotal() > getDocumentBudgetTokens()) {
-    setStatus("Document context is over budget", "bad");
     return;
   }
   if (attachedVisionImages.length && !visionSupported) {
@@ -4077,8 +4037,6 @@ els.imageMaskUpload.addEventListener("change", async () => {
   }
 });
 
-els.docBudget.addEventListener("input", renderDocuments);
-
 els.documents.addEventListener("change", async () => {
   const files = Array.from(els.documents.files || []);
   if (!files.length) return;
@@ -4088,10 +4046,6 @@ els.documents.addEventListener("change", async () => {
     const nextDocuments = [...uploadedDocuments];
     for (const file of files) {
       const doc = await extractDocument(file);
-      const totalIfAdded = documentTokenTotal(nextDocuments) + doc.tokens;
-      if (totalIfAdded > getDocumentBudgetTokens()) {
-        throw new Error(`${file.name} would exceed the document context budget.`);
-      }
       nextDocuments.push(doc);
     }
     uploadedDocuments = nextDocuments;

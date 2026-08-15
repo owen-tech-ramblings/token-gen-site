@@ -19,6 +19,13 @@ test("website exposes a 5 through 20 Sources range with default 10", () => {
   );
 });
 
+test("website exposes the API's 100k web evidence ceiling", () => {
+  assert.match(
+    chatHtml,
+    /id="chatWebBudget"[^>]*min="500"[^>]*max="100000"[^>]*value="16000"/,
+  );
+});
+
 test("website result-limit normalization defaults and clamps", async () => {
   const { normalizeWebResultLimit } = await loadWebOptions();
   for (const [value, expected] of [
@@ -42,7 +49,7 @@ test("website result-limit normalization defaults and clamps", async () => {
   }
 });
 
-test("ordinary Web and Research routes use the same normalized value", async () => {
+test("ordinary Web and Research routes preserve the selected evidence budget", async () => {
   const { normalizeWebRouteOptions } = await loadWebOptions();
   assert.deepEqual(
     normalizeWebRouteOptions({
@@ -58,6 +65,6 @@ test("ordinary Web and Research routes use the same normalized value", async () 
       maxResults: 5,
       contextTokenBudget: 10000,
     }),
-    { maxResults: 5, contextTokenBudget: 16000 },
+    { maxResults: 5, contextTokenBudget: 10000 },
   );
 });
