@@ -9,6 +9,7 @@ const PROJECT_FILE_EXTENSIONS = new Set([
   "hpp", "cs", "go", "rs", "rb", "php", "sh", "bash", "zsh", "sql", "css", "scss", "toml", "ini",
   "cfg", "png", "jpg", "jpeg", "webp",
 ]);
+const ACTIVE_BACKGROUND_JOB_STATUSES = new Set(["submitting", "queued_or_running", "queued", "running", "processing"]);
 
 function positiveNumber(value, fallback) {
   const numeric = Number(value);
@@ -76,7 +77,8 @@ function boundedProgress(value, fallback) {
 }
 
 export function projectFileProcessingState(document = {}) {
-  const status = String(document.processing_status || "ready");
+  const suppliedStatus = typeof document.processing_status === "string" && document.processing_status.trim();
+  const status = suppliedStatus || "ready";
   if (status === "queued") {
     return { status, label: "Queued for visual analysis", progress: boundedProgress(document.processing_progress, 0) };
   }
@@ -89,7 +91,9 @@ export function projectFileProcessingState(document = {}) {
   if (status === "failed") {
     return { status, label: "Visual analysis failed", progress: boundedProgress(document.processing_progress, 100) };
   }
-  return { status: "ready", label: "Ready", progress: 100 };
+  if (status === "ready") return { status, label: "Ready", progress: 100 };
+  if (!suppliedStatus) return { status: "ready", label: "Ready", progress: 100 };
+  return { status: "unknown", label: "Processing state unavailable", progress: boundedProgress(document.processing_progress, 0) };
 }
 
 export function projectJobPresentation(job = {}) {
@@ -109,6 +113,25 @@ export function projectJobPresentation(job = {}) {
     statusLabel,
     progress: boundedProgress(job.processing_progress, 0),
   };
+}
+
+export function backgroundJobLifecycle(jobs = [], job = {}) {
+  const current = Array.isArray(jobs) ? jobs : [];
+  const next = job?.id
+    ? [job, ...current.filter((item) => item?.id !== job.id)]
+      .sort((a, b) => String(b?.updated_at || b?.created_at).localeCompare(String(a?.updated_at || a?.created_at)))
+    : current;
+  const activeJobIds = next
+    .filter((item) => ACTIVE_BACKGROUND_JOB_STATUSES.has(item?.status))
+    .map((item) => item.id)
+    .filter(Boolean);
+  const refreshProjectId = job?.kind === "project_visual_analysis"
+    && ["completed", "failed"].includes(job?.status)
+    && typeof job.project_id === "string"
+    && job.project_id
+      ? job.project_id
+      : null;
+  return { jobs: next, activeJobIds, refreshProjectId };
 }
 
 export function projectMediaForChat(context) {

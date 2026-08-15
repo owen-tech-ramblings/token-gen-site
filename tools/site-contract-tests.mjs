@@ -219,12 +219,18 @@ assert.match(chatHtml, /id="chatProjectAnalysisMode"/, "Project uploads must exp
 assert.match(chatHtml, /value="auto"[^>]*>Automatic for scanned and visual pages/, "Project uploads must retain automatic visual analysis.");
 assert.match(chatHtml, /value="visual"[^>]*>Every PDF page/, "Project uploads must support explicit every-page visual analysis.");
 assert.match(chatHtml, /Project files are encrypted/, "Project UI must call stored resources project files.");
+assert.match(chatHtml, /Project files can be searched; images and scanned PDFs receive visual analysis./, "Project copy must distinguish general file search from visual analysis.");
+assert.match(chatHtml, />Add to project</, "The general project upload action must not claim every file receives visual analysis.");
 assert.doesNotMatch(chatHtml, /Project documents/, "Project UI must not retain the former Project documents wording.");
 assert.match(chatJs, /form\.append\("analysis_mode", analysisMode\)/, "Project uploads must submit the selected analysis mode.");
 assert.match(chatJs, /Add to project for visual analysis\. Quick document attachments use extracted text only\./, "A scanned quick PDF must offer project visual analysis instead of claiming OCR.");
 assert.match(chatJs, /projectFileProcessingState\(document\)/, "Project file rows must render safe visual processing states.");
 assert.match(chatJs, /data-project-document-retry/, "Failed visual project files must expose an explicit retry action.");
+assert.match(chatJs, /\["failed", "ready_with_warnings"\]\.includes\(processing\.status\)/, "Ready-with-warnings visual files must expose explicit retry.");
 assert.match(chatJs, /projectJobPresentation\(job\)/, "Visual project jobs must use a generic safe presentation.");
+assert.match(chatJs, /if \(json\.job\) trackBackgroundJob\(json\.job\);/, "Visual upload and retry responses must immediately track their returned job.");
+assert.match(chatJs, /refreshActiveProjectFiles\(lifecycle\.refreshProjectId\)/, "A terminal visual job must refresh the active project files.");
+assert.match(chatJs, /filesRefreshPromise/, "Project file refreshes must be coalesced to avoid polling storms.");
 assert.match(chatJs, /background job\$\{activeCount === 1 \? "" : "s"\} active/, "The jobs drawer must support non-image background work.");
 assert.match(chatJs, /projectMediaForChat\(retrieval\)/, "Only the current retrieval may shape visual project media.");
 assert.match(chatJs, /project_media: projectMedia/, "Visual references must be sent only in the top-level chat project_media field.");
@@ -232,6 +238,7 @@ assert.match(chatJs, /if \(projectContext\) projectContext\.projectMedia = \[\];
 assert.match(chatJs, /delete payload\.project_media;/, "Visual references must be removed from the in-memory payload after request serialization.");
 assert.doesNotMatch(chatJs, /data-[^"'`]*(?:reference|project-media)/, "Opaque visual references must never be placed in DOM data attributes.");
 assert.match(chatContextOptionsJs, /function projectHistoryMetadata/, "Project history must use a dedicated safe metadata mapper.");
+assert.match(chatJs, /from "\.\/chat-context-options\.mjs\?v=token-chat-visual-projects-20260815-1"/, "Chat must cache-bust the visual project helper module with its script version.");
 const projectHistoryMetadataSource = chatContextOptionsJs.slice(
   chatContextOptionsJs.indexOf("export function projectHistoryMetadata"),
   chatContextOptionsJs.indexOf("export function apiErrorMessage"),

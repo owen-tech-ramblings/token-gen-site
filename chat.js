@@ -7,6 +7,7 @@ import {
 } from "./chat-multimodal-options.mjs";
 import {
   apiErrorMessage,
+  backgroundJobLifecycle,
   contextPayloadParts,
   DEFAULT_CONTEXT_WINDOW,
   generationControlState,
@@ -21,7 +22,7 @@ import {
   reasoningCapacity,
   webContextSources,
   withOptionalGenerationLimit,
-} from "./chat-context-options.mjs";
+} from "./chat-context-options.mjs?v=token-chat-visual-projects-20260815-1";
 
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 
@@ -209,6 +210,9 @@ let projectState = {
   documents: [],
   etag: null,
   busy: false,
+  filesRefreshPromise: null,
+  filesRefreshProjectId: null,
+  queuedFilesRefreshProjectId: null,
 };
 let jobState = {
   available: false,
@@ -1515,9 +1519,18 @@ async function jobRequest(path = "", options = {}) {
 
 function upsertBackgroundJob(job) {
   if (!job?.id) return;
-  jobState.jobs = [job, ...jobState.jobs.filter((item) => item.id !== job.id)]
-    .sort((a, b) => String(b.updated_at || b.created_at).localeCompare(String(a.updated_at || a.created_at)));
+  const lifecycle = backgroundJobLifecycle(jobState.jobs, job);
+  jobState.jobs = lifecycle.jobs;
   renderBackgroundJobs();
+  if (lifecycle.refreshProjectId) void refreshActiveProjectFiles(lifecycle.refreshProjectId);
+  scheduleActiveJobRefresh();
+  return lifecycle;
+}
+
+function trackBackgroundJob(job) {
+  const lifecycle = upsertBackgroundJob(job);
+  if (!lifecycle) return;
+  if (!jobState.available) void loadBackgroundJobs();
 }
 
 function scheduleActiveJobRefresh() {
@@ -1662,6 +1675,12 @@ function renderProjectDocuments() {
   els.projectDocumentList.innerHTML = documents.map((document) => {
     const processing = projectFileProcessingState(document);
     const visual = document.media_class === "image" || document.extension === "pdf";
+    const activeVisualJob = jobState.jobs.some((job) => (
+      job.kind === "project_visual_analysis"
+      && job.project_id === projectState.active?.id
+      && job.document_id === document.id
+      && backgroundJobIsActive(job)
+    ));
     return `
     <div class="chat-project-document">
       <div class="chat-project-document-icon" aria-hidden="true">${escapeHtml((document.extension || "file").slice(0, 4).toUpperCase())}</div>
@@ -1677,7 +1696,7 @@ function renderProjectDocuments() {
         <button type="button" data-project-document-download="${escapeHtml(document.id)}" title="Download project file" aria-label="Download ${escapeHtml(document.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
         </button>
-        ${visual && processing.status === "failed" ? `<button type="button" data-project-document-retry="${escapeHtml(document.id)}" title="Retry visual analysis" aria-label="Retry visual analysis for ${escapeHtml(document.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg></button>` : ""}
+        ${visual && !activeVisualJob && ["failed", "ready_with_warnings"].includes(processing.status) ? `<button type="button" data-project-document-retry="${escapeHtml(document.id)}" title="Retry visual analysis" aria-label="Retry visual analysis for ${escapeHtml(document.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg></button>` : ""}
         <button type="button" data-project-document-delete="${escapeHtml(document.id)}" title="Delete document" aria-label="Delete ${escapeHtml(document.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></svg>
         </button>
@@ -1705,7 +1724,7 @@ function renderProjectState() {
   els.projectAnalysisMode.disabled = !active || !projectState.available || projectState.busy;
   els.projectCreate.disabled = !projectState.available || projectState.busy;
   els.attachProjectDocument.hidden = !active || !projectState.available;
-  if (active) els.attachProjectHint.textContent = `Add to project for visual analysis in ${active.name}`;
+  if (active) els.attachProjectHint.textContent = `Add to ${active.name}`;
   renderProjectDocuments();
 }
 
@@ -1775,6 +1794,51 @@ async function loadProjects() {
   } finally {
     projectState.loading = false;
     renderProjectState();
+  }
+}
+
+function upsertProjectFile(document) {
+  if (!document?.id || !projectState.active) return;
+  projectState.documents = [...projectState.documents.filter((item) => item.id !== document.id), document];
+  projectState.active = {
+    ...projectState.active,
+    document_count: projectState.documents.length,
+  };
+  renderProjectState();
+}
+
+async function refreshActiveProjectFiles(projectId) {
+  if (!projectId || projectState.activeId !== projectId || projectState.active?.id !== projectId) return;
+  if (projectState.filesRefreshPromise) {
+    projectState.queuedFilesRefreshProjectId = projectId;
+    return projectState.filesRefreshPromise;
+  }
+  projectState.filesRefreshProjectId = projectId;
+  const refresh = (async () => {
+    try {
+      const { json } = await projectRequest(`/${encodeURIComponent(projectId)}/documents`);
+      if (projectState.activeId !== projectId || projectState.active?.id !== projectId) return;
+      if (!Array.isArray(json.documents)) throw new Error("Project library returned an invalid response.");
+      projectState.documents = json.documents;
+      projectState.active = { ...projectState.active, document_count: json.documents.length };
+      renderProjectState();
+    } catch {
+      // Job polling must not replace the active project view with a transient refresh error.
+    }
+  })();
+  projectState.filesRefreshPromise = refresh;
+  try {
+    await refresh;
+  } finally {
+    if (projectState.filesRefreshPromise === refresh) {
+      projectState.filesRefreshPromise = null;
+      projectState.filesRefreshProjectId = null;
+    }
+    const queuedProjectId = projectState.queuedFilesRefreshProjectId;
+    projectState.queuedFilesRefreshProjectId = null;
+    if (queuedProjectId && projectState.activeId === queuedProjectId && projectState.active?.id === queuedProjectId) {
+      void refreshActiveProjectFiles(queuedProjectId);
+    }
   }
 }
 
@@ -1872,7 +1936,9 @@ async function uploadProjectDocuments(files) {
       const form = new FormData();
       form.append("file", file, file.name);
       form.append("analysis_mode", analysisMode);
-      await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents`, { method: "POST", body: form });
+      const { json } = await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents`, { method: "POST", body: form });
+      if (json.document) upsertProjectFile(json.document);
+      if (json.job) trackBackgroundJob(json.job);
     }
     projectState.busy = false;
     await setActiveProject(projectState.active.id, { quiet: true });
@@ -1936,12 +2002,9 @@ async function retryProjectVisualAnalysis(documentId) {
   renderProjectState();
   setProjectStatus(`Retrying visual analysis for ${document.name}...`, "neutral");
   try {
-    await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
-    projectState.busy = false;
-    await Promise.all([
-      setActiveProject(projectState.active.id, { quiet: true }),
-      loadBackgroundJobs(),
-    ]);
+    const { json } = await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
+    if (json.job) trackBackgroundJob(json.job);
+    else void loadBackgroundJobs();
     setProjectStatus(`Visual analysis queued for ${document.name}`, "good");
   } catch (error) {
     setProjectStatus(error.message, "bad");

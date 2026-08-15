@@ -147,6 +147,12 @@ test("project processing states use safe labels and bounded numeric progress", a
   assert.deepEqual(projectFileProcessingState({ processing_status: "failed", processing_progress: 101 }), {
     status: "failed", label: "Visual analysis failed", progress: 100,
   });
+  assert.deepEqual(projectFileProcessingState({ processing_status: "new_server_state", processing_progress: 70 }), {
+    status: "unknown", label: "Processing state unavailable", progress: 70,
+  });
+  assert.deepEqual(projectFileProcessingState({}), {
+    status: "ready", label: "Ready", progress: 100,
+  });
 });
 
 test("project visual jobs use generic labels and safe progress", async () => {
@@ -163,6 +169,36 @@ test("project visual jobs use generic labels and safe progress", async () => {
     progress: 0,
   });
   assert.equal(projectJobPresentation({ status: "private_job_state" }).status, "queued");
+});
+
+test("visual job lifecycle replaces one job, polls active work, and refreshes files only at terminal states", async () => {
+  const { backgroundJobLifecycle } = await loadContextOptions();
+  const queued = backgroundJobLifecycle([], {
+    id: "job-1",
+    kind: "project_visual_analysis",
+    project_id: "project-1",
+    document_id: "file-1",
+    status: "queued",
+  });
+  assert.deepEqual(queued.jobs.map((job) => job.id), ["job-1"]);
+  assert.deepEqual(queued.activeJobIds, ["job-1"]);
+  assert.equal(queued.refreshProjectId, null);
+
+  const completed = backgroundJobLifecycle(queued.jobs, {
+    ...queued.jobs[0],
+    status: "completed",
+    updated_at: "2026-08-15T00:00:01Z",
+  });
+  assert.deepEqual(completed.jobs.map((job) => job.id), ["job-1"]);
+  assert.deepEqual(completed.activeJobIds, []);
+  assert.equal(completed.refreshProjectId, "project-1");
+
+  const image = backgroundJobLifecycle(completed.jobs, {
+    id: "image-1",
+    kind: "generation",
+    status: "completed",
+  });
+  assert.equal(image.refreshProjectId, null);
 });
 
 test("only current visual evidence becomes top-level project media", async () => {
