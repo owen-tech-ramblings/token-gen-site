@@ -85,7 +85,7 @@ assert.match(chatJs, /function assistantReasoningContent\(message\)/, "Chat must
 assert.match(chatJs, /if \(message\.role === "assistant" && reasoningContent\) item\.reasoning_content = reasoningContent;/, "Saved assistant messages must persist canonical opaque reasoning only.");
 assert.match(chatJs, /if \(typeof message\.reasoning_content === "string"\) return message\.reasoning_content;[\s\S]*if \(typeof message\.reasoning === "string"\) return message\.reasoning;/, "History restoration must prefer canonical reasoning_content and accept the legacy alias.");
 assert.match(chatJs, /reasoningContent: restoredAssistantReasoning\(message\)/, "Restored reasoning must remain internal browser state.");
-assert.match(chatJs, /if \(includeReasoning && message\.role === "assistant"\) \{[\s\S]*payload\.reasoning_content = reasoningContent;/, "Thinking-enabled requests must send canonical assistant reasoning.");
+assert.match(chatJs, /if \(includeReasoning && reasoningContent\) \{[\s\S]*payload\.reasoning_content = reasoningContent;/, "Thinking-enabled requests must send canonical assistant reasoning only when it exists.");
 assert.match(chatJs, /chatPayloadMessage\(message, route\.enableThinking\)/, "Thinking-disabled requests must omit stored reasoning without changing message state.");
 assert.match(chatJs, /estimateTokens\(route\.enableThinking \? message\?\.reasoningContent : ""\)/, "Opaque reasoning must count toward the thinking-enabled context budget.");
 assert.match(chatJs, /let assistantReasoningContent = "";/, "Streamed reasoning must accumulate separately from visible assistant text.");

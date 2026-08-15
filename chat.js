@@ -2787,7 +2787,7 @@ async function chatPayloadMessage(message, includeReasoning) {
   const reasoningContent = assistantReasoningContent(message);
   if (!images.length || message.role !== "user") {
     const payload = { role: message.role, content: message.content };
-    if (includeReasoning && message.role === "assistant") {
+    if (includeReasoning && reasoningContent) {
       payload.reasoning_content = reasoningContent;
     }
     return payload;
