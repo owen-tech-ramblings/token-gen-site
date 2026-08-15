@@ -3,11 +3,17 @@ import { requestChatStream } from "./chat-transport-options.mjs";
 import { announceVision } from "./chat-vision-announcements.mjs";
 import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
 import {
+  beginOwnedOperation,
   beginScannedPdfUpload,
-  createPendingScannedPdf,
+  captureProjectView,
+  clearStagedScannedPdf,
+  createScannedPdfHandoffState,
+  finishOwnedOperation,
   finishScannedPdfUpload,
+  projectViewIsCurrent,
   scannedPdfUploadAppliesToProject,
-} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-2";
+  stageScannedPdf,
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-3";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -184,7 +190,7 @@ let visionCapabilities = {};
 let reasoningCapabilities = {};
 let availableModels = [];
 let uploadedDocuments = [];
-let pendingScannedPdf = null;
+let scannedPdfHandoff = createScannedPdfHandoffState();
 let attachedVisionImages = [];
 let activeImageSource = null;
 let activeImageMask = null;
@@ -212,6 +218,7 @@ let historyState = {
   saveTimer: null,
   saving: false,
   saveQueued: false,
+  viewGeneration: 0,
 };
 let projectState = {
   available: false,
@@ -222,6 +229,9 @@ let projectState = {
   documents: [],
   etag: null,
   busy: false,
+  busyToken: null,
+  nextOperationToken: 0,
+  viewGeneration: 0,
   filesRefreshPromise: null,
   filesRefreshProjectId: null,
   queuedFilesRefreshProjectId: null,
@@ -1781,8 +1791,24 @@ function renderProjectState() {
   renderProjectDocuments();
 }
 
+function beginProjectBusy() {
+  Object.assign(projectState, beginOwnedOperation(projectState));
+  return projectState.busyToken;
+}
+
+function finishProjectBusy(busyToken) {
+  const ownsBusyState = projectState.busyToken === busyToken;
+  Object.assign(projectState, finishOwnedOperation(projectState, busyToken));
+  return ownsBusyState;
+}
+
+function captureActiveProjectView(projectId) {
+  return captureProjectView(projectState, historyState.viewGeneration, projectId);
+}
+
 async function setActiveProject(id, { quiet = false } = {}) {
   const nextId = String(id || "");
+  projectState.viewGeneration += 1;
   if (!nextId) {
     projectState.activeId = null;
     projectState.active = null;
@@ -1793,7 +1819,8 @@ async function setActiveProject(id, { quiet = false } = {}) {
     if (!quiet) scheduleConversationSave(0);
     return;
   }
-  projectState.busy = true;
+  const view = captureActiveProjectView(nextId);
+  const busyToken = beginProjectBusy();
   projectState.activeId = nextId;
   renderProjectState();
   setProjectStatus("Opening project...", "neutral");
@@ -1802,6 +1829,7 @@ async function setActiveProject(id, { quiet = false } = {}) {
       projectRequest(`/${encodeURIComponent(nextId)}`),
       projectRequest(`/${encodeURIComponent(nextId)}/documents`),
     ]);
+    if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return;
     const project = projectResult.json.project;
     if (!project?.id || !Array.isArray(documentsResult.json.documents)) throw new Error("Project library returned an invalid response.");
     projectState.active = project;
@@ -1814,14 +1842,14 @@ async function setActiveProject(id, { quiet = false } = {}) {
     setProjectStatus(`${project.name} / ${projectState.documents.length} project file${projectState.documents.length === 1 ? "" : "s"}`, "good");
     if (!quiet) scheduleConversationSave(0);
   } catch (error) {
+    if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return;
     projectState.activeId = null;
     projectState.active = null;
     projectState.documents = [];
     projectState.etag = null;
     setProjectStatus(error.message, "bad");
   } finally {
-    projectState.busy = false;
-    renderProjectState();
+    if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
@@ -1867,10 +1895,11 @@ async function refreshActiveProjectFiles(projectId) {
     return projectState.filesRefreshPromise;
   }
   projectState.filesRefreshProjectId = projectId;
+  const view = captureActiveProjectView(projectId);
   const refresh = (async () => {
     try {
       const { json } = await projectRequest(`/${encodeURIComponent(projectId)}/documents`);
-      if (projectState.activeId !== projectId || projectState.active?.id !== projectId) return;
+      if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return;
       if (!Array.isArray(json.documents)) throw new Error("Project library returned an invalid response.");
       projectState.documents = json.documents;
       projectState.active = { ...projectState.active, document_count: json.documents.length };
@@ -1902,7 +1931,7 @@ async function createProject() {
     els.projectCreateName.focus();
     return;
   }
-  projectState.busy = true;
+  const busyToken = beginProjectBusy();
   renderProjectState();
   setProjectStatus("Creating project...", "neutral");
   try {
@@ -1911,13 +1940,12 @@ async function createProject() {
     if (!project?.id) throw new Error("Project library returned an invalid response.");
     projectState.projects = [project, ...projectState.projects];
     els.projectCreateName.value = "";
-    projectState.busy = false;
+    finishProjectBusy(busyToken);
     await setActiveProject(project.id);
   } catch (error) {
     setProjectStatus(error.message, "bad");
   } finally {
-    projectState.busy = false;
-    renderProjectState();
+    if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
@@ -1928,7 +1956,7 @@ async function saveProjectDetails() {
     setProjectStatus("Project name cannot be empty", "bad");
     return;
   }
-  projectState.busy = true;
+  const busyToken = beginProjectBusy();
   renderProjectState();
   setProjectStatus("Saving project...", "neutral");
   try {
@@ -1947,15 +1975,14 @@ async function saveProjectDetails() {
   } catch (error) {
     setProjectStatus(error.status === 412 ? "Project changed elsewhere. Reopen it and try again." : error.message, "bad");
   } finally {
-    projectState.busy = false;
-    renderProjectState();
+    if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
 async function deleteActiveProject() {
   const project = projectState.active;
   if (!project || !window.confirm(`Delete "${project.name}" and all its stored project files? This cannot be undone.`)) return;
-  projectState.busy = true;
+  const busyToken = beginProjectBusy();
   renderProjectState();
   setProjectStatus("Deleting project...", "neutral");
   try {
@@ -1970,8 +1997,7 @@ async function deleteActiveProject() {
   } catch (error) {
     setProjectStatus(error.message, "bad");
   } finally {
-    projectState.busy = false;
-    renderProjectState();
+    if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
@@ -1980,8 +2006,9 @@ async function uploadProjectDocuments(files, { projectId = projectState.active?.
   const destination = projectState.projects.find((item) => item.id === destinationId)
     || (projectState.active?.id === destinationId ? projectState.active : null);
   if (!destination || !files.length) return false;
-  const destinationIsCurrent = () => projectState.activeId === destinationId && projectState.active?.id === destinationId;
-  projectState.busy = true;
+  const view = captureActiveProjectView(destinationId);
+  const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
+  const busyToken = beginProjectBusy();
   renderProjectState();
   try {
     const analysisMode = projectUploadAnalysisMode(els.projectAnalysisMode.value);
@@ -2000,15 +2027,17 @@ async function uploadProjectDocuments(files, { projectId = projectState.active?.
       if (destinationIsCurrent() && json.job) trackBackgroundJob(json.job);
     }
     if (destinationIsCurrent()) {
-      await setActiveProject(destinationId, { quiet: true });
-      setProjectStatus(`${files.length} project file${files.length === 1 ? "" : "s"} added to ${destination.name}`, "good");
+      await refreshActiveProjectFiles(destinationId);
+      if (destinationIsCurrent()) {
+        setProjectStatus(`${files.length} project file${files.length === 1 ? "" : "s"} added to ${destination.name}`, "good");
+      }
     }
     return true;
   } catch (error) {
     if (destinationIsCurrent()) setProjectStatus(error.message, "bad");
     return false;
   } finally {
-    projectState.busy = false;
+    finishProjectBusy(busyToken);
     els.projectDocuments.value = "";
     renderProjectState();
   }
@@ -2041,38 +2070,43 @@ async function downloadProjectDocument(documentId) {
 async function deleteProjectDocument(documentId) {
   const document = projectState.documents.find((item) => item.id === documentId);
   if (!document || !projectState.active || !window.confirm(`Delete "${document.name}" from this project?`)) return;
-  projectState.busy = true;
+  const destinationId = projectState.active.id;
+  const view = captureActiveProjectView(destinationId);
+  const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
+  const busyToken = beginProjectBusy();
   renderProjectState();
   setProjectStatus(`Deleting ${document.name}...`, "neutral");
   try {
-    await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(document.id)}`, { method: "DELETE" });
-    projectState.busy = false;
-    await setActiveProject(projectState.active.id, { quiet: true });
-    setProjectStatus(`${document.name} deleted`, "good");
+    await projectRequest(`/${encodeURIComponent(destinationId)}/documents/${encodeURIComponent(document.id)}`, { method: "DELETE" });
+    if (destinationIsCurrent()) {
+      await refreshActiveProjectFiles(destinationId);
+      if (destinationIsCurrent()) setProjectStatus(`${document.name} deleted`, "good");
+    }
   } catch (error) {
-    setProjectStatus(error.message, "bad");
+    if (destinationIsCurrent()) setProjectStatus(error.message, "bad");
   } finally {
-    projectState.busy = false;
-    renderProjectState();
+    if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
 async function retryProjectVisualAnalysis(documentId) {
   const document = projectState.documents.find((item) => item.id === documentId);
   if (!document || !projectState.active) return;
-  projectState.busy = true;
+  const destinationId = projectState.active.id;
+  const view = captureActiveProjectView(destinationId);
+  const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
+  const busyToken = beginProjectBusy();
   renderProjectState();
   setProjectStatus(`Retrying visual analysis for ${document.name}...`, "neutral");
   try {
-    const { json } = await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
-    if (json.job) trackBackgroundJob(json.job);
-    else void loadBackgroundJobs();
-    setProjectStatus(`Visual analysis queued for ${document.name}`, "good");
+    const { json } = await projectRequest(`/${encodeURIComponent(destinationId)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
+    if (destinationIsCurrent() && json.job) trackBackgroundJob(json.job);
+    else if (destinationIsCurrent()) void loadBackgroundJobs();
+    if (destinationIsCurrent()) setProjectStatus(`Visual analysis queued for ${document.name}`, "good");
   } catch (error) {
-    setProjectStatus(error.message, "bad");
+    if (destinationIsCurrent()) setProjectStatus(error.message, "bad");
   } finally {
-    projectState.busy = false;
-    renderProjectState();
+    if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
@@ -2387,6 +2421,7 @@ async function openStoredConversation(id) {
     setRailOpen(false);
     return;
   }
+  const conversationGeneration = ++historyState.viewGeneration;
   if (historyState.saveTimer) {
     clearTimeout(historyState.saveTimer);
     historyState.saveTimer = null;
@@ -2395,6 +2430,7 @@ async function openStoredConversation(id) {
   setHistoryStatus("Opening...", "neutral", "Opening your saved chat...");
   try {
     const { json, etag } = await historyRequest(`/${encodeURIComponent(id)}`);
+    if (historyState.viewGeneration !== conversationGeneration) return;
     const conversation = json.conversation;
     releaseConversationVisionPreviews();
     messages = conversation.messages?.length
@@ -2405,6 +2441,7 @@ async function openStoredConversation(id) {
     historyState.currentRetention = conversation.retention;
     els.historyRetention.value = historyState.currentRetention;
     await setActiveProject(conversation.project_id || "", { quiet: true });
+    if (historyState.viewGeneration !== conversationGeneration) return;
     uploadedDocuments = [];
     clearPendingScannedPdf();
     clearAttachedVisionImages();
@@ -2418,7 +2455,7 @@ async function openStoredConversation(id) {
     setStatus(`Opened ${conversation.title || "saved chat"}`, "good");
     els.input.focus();
   } catch (error) {
-    setHistoryStatus("Could not open chat", "bad", error.message);
+    if (historyState.viewGeneration === conversationGeneration) setHistoryStatus("Could not open chat", "bad", error.message);
   }
 }
 
@@ -2614,9 +2651,9 @@ function renderDocuments() {
       <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">x</button>
     </div>
   `).join("");
-  const scannedPdfAction = pendingScannedPdf ? (() => {
-    const file = pendingScannedPdf.file;
-    const disabled = pendingScannedPdf.busy ? " disabled" : "";
+  const scannedPdfAction = scannedPdfHandoff.pending ? (() => {
+    const file = scannedPdfHandoff.pending.file;
+    const disabled = scannedPdfHandoff.activeAction ? " disabled" : "";
     return `
     <div class="chat-doc-item">
       <div class="chat-doc-badge">PDF</div>
@@ -2634,12 +2671,12 @@ function renderDocuments() {
 }
 
 function clearPendingScannedPdf() {
-  pendingScannedPdf = null;
+  scannedPdfHandoff = clearStagedScannedPdf(scannedPdfHandoff);
   renderDocuments();
 }
 
 async function addPendingScannedPdfToProject() {
-  const started = beginScannedPdfUpload(pendingScannedPdf, projectState.active);
+  const started = beginScannedPdfUpload(scannedPdfHandoff, projectState.active);
   const action = started.action;
   if (action.kind === "none") return;
   if (action.kind === "busy") return;
@@ -2649,15 +2686,15 @@ async function addPendingScannedPdfToProject() {
     els.projectSettingsSelect?.focus();
     return;
   }
-  pendingScannedPdf = started.pending;
+  scannedPdfHandoff = started.state;
   renderDocuments();
   let uploaded = false;
   try {
     uploaded = await uploadProjectDocuments(action.files, { projectId: action.projectId });
   } finally {
     const capturedDestinationIsCurrent = scannedPdfUploadAppliesToProject(action, projectState.active);
-    pendingScannedPdf = finishScannedPdfUpload(
-      pendingScannedPdf, action, uploaded && capturedDestinationIsCurrent,
+    scannedPdfHandoff = finishScannedPdfUpload(
+      scannedPdfHandoff, action, uploaded, capturedDestinationIsCurrent,
     );
     renderDocuments();
   }
@@ -4352,7 +4389,8 @@ els.documents.addEventListener("change", async () => {
     setStatus(`Attached ${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"}`, "good");
   } catch (error) {
     if (error?.code === "scanned_pdf_requires_project" && error.file) {
-      pendingScannedPdf = createPendingScannedPdf(
+      scannedPdfHandoff = stageScannedPdf(
+        scannedPdfHandoff,
         error.file,
         globalThis.crypto?.randomUUID?.() || `scanned-pdf-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       );
@@ -4373,7 +4411,7 @@ els.docList.addEventListener("click", (event) => {
     return;
   }
   if (event.target.closest("[data-scanned-pdf-cancel]")) {
-    if (!pendingScannedPdf?.busy) clearPendingScannedPdf();
+    if (!scannedPdfHandoff.activeAction) clearPendingScannedPdf();
     return;
   }
   const button = event.target.closest("[data-doc-id]");
@@ -4594,6 +4632,7 @@ els.imageMaskPreview.addEventListener("click", (event) => {
 });
 
 els.clear.addEventListener("click", async () => {
+  historyState.viewGeneration += 1;
   if (historyState.available && historyState.currentRetention !== "none") {
     await flushConversationSave();
   }
@@ -4651,5 +4690,5 @@ window.addEventListener("focus", () => {
 });
 
 window.addEventListener("pagehide", () => {
-  pendingScannedPdf = null;
+  scannedPdfHandoff = clearStagedScannedPdf(scannedPdfHandoff);
 });

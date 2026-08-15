@@ -145,7 +145,7 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-final-audit-20260816-2/, "Chat HTML must cache-bust changed visual project controls.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-final-audit-20260816-3/, "Chat HTML must cache-bust changed visual project controls.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
@@ -230,7 +230,7 @@ assert.match(chatJs, /projectFileProcessingState\(document\)/, "Project file row
 assert.match(chatJs, /data-project-document-retry/, "Failed visual project files must expose an explicit retry action.");
 assert.match(chatJs, /\["failed", "ready_with_warnings"\]\.includes\(processing\.status\)/, "Ready-with-warnings visual files must expose explicit retry.");
 assert.match(chatJs, /projectJobPresentation\(job\)/, "Visual project jobs must use a generic safe presentation.");
-assert.match(chatJs, /if \(json\.job\) trackBackgroundJob\(json\.job\);/, "Visual upload and retry responses must immediately track their returned job.");
+assert.match(chatJs, /if \(destinationIsCurrent\(\) && json\.job\) trackBackgroundJob\(json\.job\);/, "Only the current destination may immediately track its returned visual job.");
 assert.match(chatJs, /refreshActiveProjectFiles\(lifecycle\.refreshProjectId\)/, "A terminal visual job must refresh the active project files.");
 assert.match(chatJs, /filesRefreshPromise/, "Project file refreshes must be coalesced to avoid polling storms.");
 assert.match(chatJs, /const requestGeneration = \+\+jobState\.listRequestGeneration/, "Each private job-list request must carry a monotonic start generation.");

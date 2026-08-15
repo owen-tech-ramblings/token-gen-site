@@ -4,14 +4,16 @@ Last updated: 2026-08-16 Australia/Sydney
 
 ## 2026-08-16 Cycle 4A Task 6 final-audit recovery
 
-The scanned-PDF project handoff now has an executable, page-memory-only state
-machine. It captures the exact pending file ID and project ID, disables both
-actions while one upload is active, prevents a double click from posting twice,
-and applies refresh/status only if that captured destination remains current.
-An older completion cannot clear a replacement file, New Chat state, or a
-changed project. New Chat calls the same explicit clear-and-render helper.
+The scanned-PDF project handoff now has an executable, page-memory-only,
+action-owned state machine. It captures the exact pending file ID and project
+ID, disables both actions while one upload is active, prevents a double click
+from posting twice, and refuses a replacement scan until that action finishes.
+A changed project retains the file for a later explicit action, while New Chat
+clears the pending file without allowing the old completion to alter newer
+state. Project busy ownership is tokenized, and refreshes capture both project
+and conversation generations before applying their response.
 
-The cache-busted chat module key is `token-chat-final-audit-20260816-2`.
+The cache-busted chat module key is `token-chat-final-audit-20260816-3`.
 Focused local verification passed `34/34` Node tests, the site contract,
 JavaScript syntax checks, and `git diff --check`. This audit deliberately did
 not run `npm test`, verify live routes, push, deploy, or promote `master`.
