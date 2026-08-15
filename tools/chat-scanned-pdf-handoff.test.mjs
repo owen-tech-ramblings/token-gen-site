@@ -214,6 +214,70 @@ test("timer and queued saves retain their captured A ownership after B opens", a
   assert.equal(historyState.historyStatus, "Opened B");
 });
 
+test("stale chat fetches and upstream errors leave B untouched", async () => {
+  const { awaitCurrentSendStep } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof awaitCurrentSendStep, "function");
+  const b = { messages: ["B message"], status: "Opened B", reasoning: "B reasoning" };
+
+  let owner = "a";
+  const isCurrent = () => owner === "a";
+  const fetchController = new AbortController();
+  let releaseFetch;
+  const fetchGate = new Promise((resolve) => { releaseFetch = resolve; });
+  const deferredFetch = awaitCurrentSendStep(isCurrent, () => fetchGate, { controller: fetchController });
+  owner = "b";
+  releaseFetch({ ok: true });
+  assert.deepEqual(await deferredFetch, { current: false, value: null });
+  assert.equal(fetchController.signal.aborted, true);
+  assert.deepEqual(b, { messages: ["B message"], status: "Opened B", reasoning: "B reasoning" });
+
+  owner = "a";
+  const errorController = new AbortController();
+  let rejectUpstream;
+  const upstreamGate = new Promise((_, reject) => { rejectUpstream = reject; });
+  const deferredError = awaitCurrentSendStep(isCurrent, () => upstreamGate, { controller: errorController });
+  owner = "b";
+  rejectUpstream(new Error("upstream failed"));
+  assert.deepEqual(await deferredError, { current: false, value: null });
+  assert.equal(errorController.signal.aborted, true);
+  assert.deepEqual(b, { messages: ["B message"], status: "Opened B", reasoning: "B reasoning" });
+});
+
+test("stale chat reader cancels once while a current stream remains usable", async () => {
+  const { awaitCurrentSendStep } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof awaitCurrentSendStep, "function");
+  let owner = "a";
+  const isCurrent = () => owner === "a";
+  const controller = new AbortController();
+  let readCount = 0;
+  let releaseSecondRead;
+  const reader = {
+    cancelCalls: 0,
+    read() {
+      readCount += 1;
+      if (readCount === 1) return Promise.resolve({ value: "A chunk", done: false });
+      return new Promise((resolve) => { releaseSecondRead = resolve; });
+    },
+    async cancel() { this.cancelCalls += 1; },
+  };
+  const visible = [];
+  const first = await awaitCurrentSendStep(isCurrent, () => reader.read(), { reader, controller });
+  if (first.current) visible.push(first.value.value);
+  assert.deepEqual(visible, ["A chunk"]);
+
+  const second = awaitCurrentSendStep(isCurrent, () => reader.read(), { reader, controller });
+  owner = "b";
+  releaseSecondRead({ value: "stale chunk", done: false });
+  assert.deepEqual(await second, { current: false, value: null });
+  assert.equal(reader.cancelCalls, 1);
+  assert.equal(controller.signal.aborted, true);
+  assert.deepEqual(visible, ["A chunk"], "the stale chunk must not reach B");
+
+  owner = "a";
+  const current = await awaitCurrentSendStep(isCurrent, async () => "normal response", { controller: new AbortController() });
+  assert.deepEqual(current, { current: true, value: "normal response" });
+});
+
 test("a captured project scope aborts deferred A preparation after B becomes active", async () => {
   const {
     captureLoadedProjectScope,
@@ -360,6 +424,10 @@ test("chat renders a disabled real scanned-PDF project action and New Chat clear
   const sendEnd = source.indexOf("function imageSettings", sendStart);
   const send = source.slice(sendStart, sendEnd);
   assert.ok(send.indexOf("!preparedProject.current") < send.indexOf("requestChatStream(payload"), "A stale project scope must stop before the model stream request.");
-  assert.match(send, /if \(!route\.project \|\| sendViewIsCurrent\(\)\)/, "A superseded project retry must not be appended into a newer conversation.");
+  assert.match(send, /const streamAbortController = new AbortController\(\)/, "Every chat send must own a cancellable stream request.");
+  assert.match(send, /awaitCurrentSendStep\(\s*sendViewIsCurrent,\s*\(\) => requestChatStream\(/, "The response await must stop stale sends before response handling.");
+  assert.match(send, /awaitCurrentSendStep\(\s*sendViewIsCurrent,\s*\(\) => reader\.read\(\),/, "Every reader await must stop stale chunks before UI mutation.");
+  assert.doesNotMatch(send, /!route\.project \|\| sendViewIsCurrent\(\)/, "Ordinary chat failures must not update a newer conversation.");
+  assert.match(send, /if \(sendViewIsCurrent\(\)\) \{\s*const failure/, "Only the current send may append a failure.");
   assert.match(source, /pagehide/);
 });

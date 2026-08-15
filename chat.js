@@ -4,6 +4,7 @@ import { announceVision } from "./chat-vision-announcements.mjs";
 import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
 import {
   applySavedConversationResult,
+  awaitCurrentSendStep,
   beginHistoryViewAction,
   beginOwnedOperation,
   beginScannedPdfUpload,
@@ -23,7 +24,7 @@ import {
   projectViewIsCurrent,
   scannedPdfUploadAppliesToProject,
   stageScannedPdf,
-} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-6";
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-7";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -3367,6 +3368,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     return;
   }
   let visionImages = [];
+  const streamAbortController = new AbortController();
   const projectScope = route.project
     ? captureLoadedProjectScope(projectState, historyState.viewGeneration)
     : null;
@@ -3375,8 +3377,15 @@ async function sendMessage(content, route = routeRequest(content)) {
     || projectScopeIsCurrent(projectState, historyState.viewGeneration, projectScope);
   if (attachedVisionImages.length) {
     setStatus("Preparing images locally...", "busy");
-    visionImages = await prepareVisionImagesForSend(attachedVisionImages);
+    const preparedVision = await awaitCurrentSendStep(
+      sendViewIsCurrent,
+      () => prepareVisionImagesForSend(attachedVisionImages),
+      { controller: streamAbortController },
+    );
+    if (!preparedVision.current) return;
+    visionImages = preparedVision.value;
   }
+  if (!sendViewIsCurrent()) return;
   if (!projectScopeIsValid()) {
     if (sendViewIsCurrent()) setStatus(PROJECT_SCOPE_RETRY_MESSAGE, "bad");
     return;
@@ -3400,14 +3409,26 @@ async function sendMessage(content, route = routeRequest(content)) {
 
   let assistantIndex = null;
   try {
-    const chatUserId = await getChatUserId();
+    const userIdentity = await awaitCurrentSendStep(
+      sendViewIsCurrent,
+      () => getChatUserId(),
+      { controller: streamAbortController },
+    );
+    if (!userIdentity.current) return;
+    const chatUserId = userIdentity.value;
     if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
-    const preparedProject = route.project
-      ? await prepareCurrentProjectScope(projectState, historyState.viewGeneration, projectScope, async () => {
-          setStatus(`Searching ${projectScope.project.name}...`, "busy");
-          return retrieveActiveProjectContext(content, projectScope);
-        })
+    const preparedProjectStep = route.project
+      ? await awaitCurrentSendStep(
+          sendViewIsCurrent,
+          () => prepareCurrentProjectScope(projectState, historyState.viewGeneration, projectScope, async () => {
+            setStatus(`Searching ${projectScope.project.name}...`, "busy");
+            return retrieveActiveProjectContext(content, projectScope);
+          }),
+          { controller: streamAbortController },
+        )
       : { current: true, value: null };
+    if (!preparedProjectStep.current) return;
+    const preparedProject = route.project ? preparedProjectStep.value : { current: true, value: null };
     const projectContext = preparedProject.value;
     if (route.project && (!preparedProject.current || !projectContext || !projectScopeIsValid())) {
       throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
@@ -3418,11 +3439,29 @@ async function sendMessage(content, route = routeRequest(content)) {
       setStatus("Gathering web context...", "busy");
     }
 
-    const payload = await buildPayload(chatUserId, projectContext, route, projectScope);
+    const preparedPayload = await awaitCurrentSendStep(
+      sendViewIsCurrent,
+      () => buildPayload(chatUserId, projectContext, route, projectScope),
+      { controller: streamAbortController },
+    );
+    if (!preparedPayload.current) return;
+    const payload = preparedPayload.value;
     if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
-    const res = await requestChatStream(payload, chatUserId, isLoopbackHost());
+    const streamedResponse = await awaitCurrentSendStep(
+      sendViewIsCurrent,
+      () => requestChatStream(payload, chatUserId, isLoopbackHost(), fetch, streamAbortController.signal),
+      { controller: streamAbortController },
+    );
+    if (!streamedResponse.current) return;
+    const res = streamedResponse.value;
     if (!res.ok || !res.body) {
-      const text = await res.text();
+      const errorResponse = await awaitCurrentSendStep(
+        sendViewIsCurrent,
+        () => res.text(),
+        { controller: streamAbortController },
+      );
+      if (!errorResponse.current) return;
+      const text = errorResponse.value;
       let errorPayload = text;
       try {
         const parsed = JSON.parse(text);
@@ -3443,7 +3482,13 @@ async function sendMessage(content, route = routeRequest(content)) {
     const reader = res.body.getReader();
 
     while (true) {
-      const { value, done } = await reader.read();
+      const readResult = await awaitCurrentSendStep(
+        sendViewIsCurrent,
+        () => reader.read(),
+        { reader, controller: streamAbortController },
+      );
+      if (!readResult.current) return;
+      const { value, done } = readResult.value;
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const events = buffer.split("\n\n");
@@ -3507,10 +3552,11 @@ async function sendMessage(content, route = routeRequest(content)) {
         ? "The model reasoned but did not return a usable final answer."
         : "The model returned an empty response.");
     }
+    if (!sendViewIsCurrent()) return;
     updateAssistantMessage(assistantIndex, assistantText, { reasoningContent: assistantReasoningContent });
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
-    if (!route.project || sendViewIsCurrent()) {
+    if (sendViewIsCurrent()) {
       const failure = createMessage("assistant", `Request failed: ${error.message}`, {
         excludeFromContext: true,
         excludeFromHistory: true,
@@ -3521,9 +3567,9 @@ async function sendMessage(content, route = routeRequest(content)) {
       setStatus(`Chat request failed: ${error.message}`, "bad");
     }
   } finally {
-    updateSendState();
-    els.input.disabled = !chatReady;
     if (sendViewIsCurrent()) {
+      updateSendState();
+      els.input.disabled = !chatReady;
       els.input.focus();
       renderMessages(false);
       scheduleConversationSave(0);

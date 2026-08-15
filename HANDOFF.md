@@ -37,8 +37,15 @@ visual media, and `metadata.project_id`. Any project or conversation ownership
 change after image/identity/retrieval/payload preparation aborts before the
 model request with a safe retry message, so A context cannot be submitted as B.
 
-The cache-busted chat module key is `token-chat-final-audit-20260816-6`.
-Focused local verification passed `41/41` Node tests, the site contract,
+All chat sends, including ordinary public chat, keep the captured conversation
+view through every asynchronous preparation, response, error-body, and reader
+step. A stale A fetch/error/chunk is discarded before UI/message/reasoning
+mutation, cancels its reader once, and best-effort aborts its per-send request
+signal. Only a current send may publish an error, completion status, or final
+control update.
+
+The cache-busted chat module key is `token-chat-final-audit-20260816-7`.
+Focused local verification passed `44/44` Node tests, the site contract,
 JavaScript syntax checks, and `git diff --check`. This audit deliberately did
 not run `npm test`, verify live routes, push, deploy, or promote `master`.
 

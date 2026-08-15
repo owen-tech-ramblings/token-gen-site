@@ -42,3 +42,14 @@ test("ordinary chat retains its exact public transport and cleanup runs after a 
   );
   assert.equal("project_media" in privatePayload, false);
 });
+
+test("chat transport forwards the per-send cancellation signal", async () => {
+  const { requestChatStream } = await loadTransport();
+  const controller = new AbortController();
+  let request;
+  await requestChatStream({ messages: [] }, "browser-user", false, async (url, options) => {
+    request = { url, options };
+    return new Response("stream");
+  }, controller.signal);
+  assert.equal(request.options.signal, controller.signal);
+});

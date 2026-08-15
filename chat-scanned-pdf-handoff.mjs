@@ -169,3 +169,21 @@ export async function prepareCurrentProjectScope(projectState, conversationGener
     ? { current: true, value }
     : { current: false, value: null };
 }
+
+export async function awaitCurrentSendStep(isCurrent, operation, { reader = null, controller = null } = {}) {
+  try {
+    const value = await operation();
+    if (isCurrent()) return { current: true, value };
+  } catch (error) {
+    if (isCurrent()) throw error;
+  }
+  if (controller && !controller.signal.aborted) controller.abort();
+  if (reader?.cancel) {
+    try {
+      await reader.cancel();
+    } catch {
+      // A closed stream does not need another recovery path.
+    }
+  }
+  return { current: false, value: null };
+}

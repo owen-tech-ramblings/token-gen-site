@@ -7,7 +7,7 @@ const chatHtml = readFileSync(new URL("../chat.html", import.meta.url), "utf8");
 
 test("project-media chat uses only the credentialed same-origin bridge and clears references", () => {
   assert.match(chatJs, /import \{ requestChatStream \} from "\.\/chat-transport-options\.mjs"/);
-  assert.match(chatJs, /await requestChatStream\(payload, chatUserId, isLoopbackHost\(\)\)/);
+  assert.match(chatJs, /requestChatStream\(payload, chatUserId, isLoopbackHost\(\), fetch, streamAbortController\.signal\)/);
 });
 
 test("composer controls name each image and preserve keyboard focus with one polite status", () => {

@@ -34,12 +34,17 @@ Last updated: 2026-08-16 Australia/Sydney
   project/conversation view after image, identity, retrieval, or payload
   preparation stops before model submission with a safe retry message, while a
   stable request keeps the same A instructions/evidence/media and metadata ID.
-- Verified locally with the focused Node test set (`41/41`),
+- Every ordinary and project chat send now also owns its captured conversation
+  view through image/identity/project/payload preparation, stream response,
+  error body, and every SSE reader await. A stale completion cancels its reader
+  once and aborts the per-send request signal best-effort; it cannot append an
+  error, status, reasoning, response, or final control update into B.
+- Verified locally with the focused Node test set (`44/44`),
   `node tools/site-contract-tests.mjs`, `node --check` for changed modules and
   the private bridge, and `git diff --check`. `npm test`, live checks, deploy,
   push, deployment, and branch promotion were intentionally not run in this
   audit pass. The current chat cache key is
-  `token-chat-final-audit-20260816-6`.
+  `token-chat-final-audit-20260816-7`.
 
 ## Dynamic 524,288-token allocation - live 2026-08-15
 

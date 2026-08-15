@@ -1,6 +1,6 @@
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 
-export async function requestChatStream(payload, userId, loopback, fetchImpl = fetch) {
+export async function requestChatStream(payload, userId, loopback, fetchImpl = fetch, signal = undefined) {
   const hasProjectMedia = Array.isArray(payload?.project_media) && payload.project_media.length > 0;
   let body = "";
   try {
@@ -14,6 +14,7 @@ export async function requestChatStream(payload, userId, loopback, fetchImpl = f
         headers: { "content-type": "application/json" },
         credentials: "include",
         body,
+        ...(signal ? { signal } : {}),
       }]
     : [`${API_BASE}/api/chat/stream`, {
         method: "POST",
@@ -23,6 +24,7 @@ export async function requestChatStream(payload, userId, loopback, fetchImpl = f
           "x-token-gen-user-source": loopback ? "local-development" : "cloudflare-access",
         },
         body,
+        ...(signal ? { signal } : {}),
       }];
   try {
     return await fetchImpl(...request);
