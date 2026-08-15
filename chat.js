@@ -1,6 +1,6 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import { requestChatStream } from "./chat-transport-options.mjs";
-import { nextVisionAnnouncement } from "./chat-vision-announcements.mjs";
+import { announceVision } from "./chat-vision-announcements.mjs";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -1183,7 +1183,7 @@ function renderVisionPreview({ focus = null, announcement = "" } = {}) {
     chip.append(preview, details, actions);
     return chip;
   }));
-  if (announcement && els.visionActionStatus) els.visionActionStatus.textContent = nextVisionAnnouncement(announcement);
+  if (announcement && els.visionActionStatus) announceVision(els.visionActionStatus, announcement);
   if (focus?.id) {
     const controls = Array.from(els.visionPreview.querySelectorAll("[data-vision-id], [data-vision-edit-target], [data-vision-remove]"));
     const target = controls.find((control) => (

@@ -1,6 +1,5 @@
-let sequence = 0;
-
-export function nextVisionAnnouncement(message) {
-  sequence += 1;
-  return `${message}\u2063${sequence}`;
+export function announceVision(region, message, schedule = queueMicrotask) {
+  if (!region || !message) return;
+  region.textContent = "";
+  schedule(() => { region.textContent = message; });
 }
