@@ -2,7 +2,12 @@ import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import { requestChatStream } from "./chat-transport-options.mjs";
 import { announceVision } from "./chat-vision-announcements.mjs";
 import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
-import { scannedPdfProjectAction } from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-1";
+import {
+  beginScannedPdfUpload,
+  createPendingScannedPdf,
+  finishScannedPdfUpload,
+  scannedPdfUploadAppliesToProject,
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-2";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -1970,8 +1975,12 @@ async function deleteActiveProject() {
   }
 }
 
-async function uploadProjectDocuments(files) {
-  if (!projectState.active || !files.length) return false;
+async function uploadProjectDocuments(files, { projectId = projectState.active?.id } = {}) {
+  const destinationId = String(projectId || "");
+  const destination = projectState.projects.find((item) => item.id === destinationId)
+    || (projectState.active?.id === destinationId ? projectState.active : null);
+  if (!destination || !files.length) return false;
+  const destinationIsCurrent = () => projectState.activeId === destinationId && projectState.active?.id === destinationId;
   projectState.busy = true;
   renderProjectState();
   try {
@@ -1980,20 +1989,23 @@ async function uploadProjectDocuments(files) {
       const file = files[index];
       if (!projectFileAccepted(file.name)) throw new Error(`${file.name} is not a supported project file.`);
       if (file.size > PROJECT_MAX_FILE_BYTES) throw new Error(`${file.name} is larger than the 30 MB project limit.`);
-      setProjectStatus(`Adding ${file.name} (${index + 1} of ${files.length}) to the project...`, "neutral");
+      if (destinationIsCurrent()) {
+        setProjectStatus(`Adding ${file.name} (${index + 1} of ${files.length}) to the project...`, "neutral");
+      }
       const form = new FormData();
       form.append("file", file, file.name);
       form.append("analysis_mode", analysisMode);
-      const { json } = await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents`, { method: "POST", body: form });
-      if (json.document) upsertProjectFile(json.document);
-      if (json.job) trackBackgroundJob(json.job);
+      const { json } = await projectRequest(`/${encodeURIComponent(destinationId)}/documents`, { method: "POST", body: form });
+      if (destinationIsCurrent() && json.document) upsertProjectFile(json.document);
+      if (destinationIsCurrent() && json.job) trackBackgroundJob(json.job);
     }
-    projectState.busy = false;
-    await setActiveProject(projectState.active.id, { quiet: true });
-    setProjectStatus(`${files.length} project file${files.length === 1 ? "" : "s"} added to ${projectState.active.name}`, "good");
+    if (destinationIsCurrent()) {
+      await setActiveProject(destinationId, { quiet: true });
+      setProjectStatus(`${files.length} project file${files.length === 1 ? "" : "s"} added to ${destination.name}`, "good");
+    }
     return true;
   } catch (error) {
-    setProjectStatus(error.message, "bad");
+    if (destinationIsCurrent()) setProjectStatus(error.message, "bad");
     return false;
   } finally {
     projectState.busy = false;
@@ -2394,8 +2406,7 @@ async function openStoredConversation(id) {
     els.historyRetention.value = historyState.currentRetention;
     await setActiveProject(conversation.project_id || "", { quiet: true });
     uploadedDocuments = [];
-    pendingScannedPdf = null;
-    renderDocuments();
+    clearPendingScannedPdf();
     clearAttachedVisionImages();
     clearActiveImageSource();
     clearActiveImageMask();
@@ -2603,32 +2614,51 @@ function renderDocuments() {
       <button class="chat-doc-remove" type="button" data-doc-id="${escapeHtml(doc.id)}" aria-label="Remove ${escapeHtml(doc.name)}">x</button>
     </div>
   `).join("");
-  const scannedPdfAction = pendingScannedPdf ? `
+  const scannedPdfAction = pendingScannedPdf ? (() => {
+    const file = pendingScannedPdf.file;
+    const disabled = pendingScannedPdf.busy ? " disabled" : "";
+    return `
     <div class="chat-doc-item">
       <div class="chat-doc-badge">PDF</div>
       <div>
-        <strong title="${escapeHtml(pendingScannedPdf.name)}">${escapeHtml(pendingScannedPdf.name)}</strong>
+        <strong title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</strong>
         <span>Scanned PDF ready for project visual analysis</span>
       </div>
-      <button class="chat-doc-remove" type="button" data-scanned-pdf-cancel aria-label="Cancel ${escapeHtml(pendingScannedPdf.name)}">x</button>
-      <button class="chat-button chat-button--small" type="button" data-scanned-pdf-add>Add to project for visual analysis</button>
+      <button class="chat-doc-remove" type="button" data-scanned-pdf-cancel${disabled} aria-label="Cancel ${escapeHtml(file.name)}">x</button>
+      <button class="chat-button chat-button--small" type="button" data-scanned-pdf-add${disabled}>Add to project for visual analysis</button>
     </div>
-  ` : "";
+  `;
+  })() : "";
   els.docList.innerHTML = `${documents}${scannedPdfAction}`;
   updateSendState();
 }
 
+function clearPendingScannedPdf() {
+  pendingScannedPdf = null;
+  renderDocuments();
+}
+
 async function addPendingScannedPdfToProject() {
-  const action = scannedPdfProjectAction(pendingScannedPdf, projectState.active);
+  const started = beginScannedPdfUpload(pendingScannedPdf, projectState.active);
+  const action = started.action;
   if (action.kind === "none") return;
+  if (action.kind === "busy") return;
   if (action.kind === "choose_project") {
     setSettingsOpen(true);
     setProjectStatus("Choose or create a project, then add this scanned PDF for visual analysis.", "neutral");
     els.projectSettingsSelect?.focus();
     return;
   }
-  if (await uploadProjectDocuments(action.files)) {
-    pendingScannedPdf = null;
+  pendingScannedPdf = started.pending;
+  renderDocuments();
+  let uploaded = false;
+  try {
+    uploaded = await uploadProjectDocuments(action.files, { projectId: action.projectId });
+  } finally {
+    const capturedDestinationIsCurrent = scannedPdfUploadAppliesToProject(action, projectState.active);
+    pendingScannedPdf = finishScannedPdfUpload(
+      pendingScannedPdf, action, uploaded && capturedDestinationIsCurrent,
+    );
     renderDocuments();
   }
 }
@@ -4322,7 +4352,10 @@ els.documents.addEventListener("change", async () => {
     setStatus(`Attached ${uploadedDocuments.length} document${uploadedDocuments.length === 1 ? "" : "s"}`, "good");
   } catch (error) {
     if (error?.code === "scanned_pdf_requires_project" && error.file) {
-      pendingScannedPdf = error.file;
+      pendingScannedPdf = createPendingScannedPdf(
+        error.file,
+        globalThis.crypto?.randomUUID?.() || `scanned-pdf-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      );
       setStatus("Scanned PDF ready to add to a project for visual analysis.", "neutral");
     } else {
       setStatus(error.message, "bad");
@@ -4340,8 +4373,7 @@ els.docList.addEventListener("click", (event) => {
     return;
   }
   if (event.target.closest("[data-scanned-pdf-cancel]")) {
-    pendingScannedPdf = null;
-    renderDocuments();
+    if (!pendingScannedPdf?.busy) clearPendingScannedPdf();
     return;
   }
   const button = event.target.closest("[data-doc-id]");
@@ -4352,8 +4384,7 @@ els.docList.addEventListener("click", (event) => {
 
 els.docClear.addEventListener("click", () => {
   uploadedDocuments = [];
-  pendingScannedPdf = null;
-  renderDocuments();
+  clearPendingScannedPdf();
 });
 
 els.jobsList.addEventListener("click", async (event) => {
@@ -4573,7 +4604,7 @@ els.clear.addEventListener("click", async () => {
   historyState.currentRetention = historyState.defaultRetention;
   els.historyRetention.value = historyState.currentRetention;
   uploadedDocuments = [];
-  renderDocuments();
+  clearPendingScannedPdf();
   clearAttachedVisionImages();
   clearActiveImageSource();
   clearActiveImageMask();

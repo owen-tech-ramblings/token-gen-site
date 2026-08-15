@@ -1,6 +1,20 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-15 Australia/Sydney
+Last updated: 2026-08-16 Australia/Sydney
+
+## 2026-08-16 Cycle 4A Task 6 final-audit recovery
+
+The scanned-PDF project handoff now has an executable, page-memory-only state
+machine. It captures the exact pending file ID and project ID, disables both
+actions while one upload is active, prevents a double click from posting twice,
+and applies refresh/status only if that captured destination remains current.
+An older completion cannot clear a replacement file, New Chat state, or a
+changed project. New Chat calls the same explicit clear-and-render helper.
+
+The cache-busted chat module key is `token-chat-final-audit-20260816-2`.
+Focused local verification passed `34/34` Node tests, the site contract,
+JavaScript syntax checks, and `git diff --check`. This audit deliberately did
+not run `npm test`, verify live routes, push, deploy, or promote `master`.
 
 ## 2026-08-15 dynamic context release
 

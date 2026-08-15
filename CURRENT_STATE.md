@@ -1,6 +1,21 @@
 # Token Gen Current State
 
-Last updated: 2026-08-15 Australia/Sydney
+Last updated: 2026-08-16 Australia/Sydney
+
+## Cycle 4A Task 6 final-audit recovery - locally verified 2026-08-16
+
+- A scanned PDF awaiting explicit project upload remains only in current-page
+  memory. Its handoff now captures a pending ID and destination project ID,
+  prevents duplicate submissions while busy, and never lets an older completion
+  clear a replacement, New Chat state, or a switched project.
+- New Chat explicitly clears and rerenders the pending scanned-PDF action.
+  Add and Cancel controls are disabled during the one active handoff; only the
+  still-current destination receives upload status, refreshed documents, or
+  visual-job tracking.
+- Verified locally with the focused Node test set (`34/34`),
+  `node tools/site-contract-tests.mjs`, `node --check` for changed modules and
+  the private bridge, and `git diff --check`. `npm test`, live checks, deploy,
+  push, and branch promotion were intentionally not run in this audit pass.
 
 ## Dynamic 524,288-token allocation - live 2026-08-15
 
