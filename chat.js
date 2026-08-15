@@ -1,5 +1,7 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import {
+  apiErrorMessage,
+  contextPayloadParts,
   DEFAULT_CONTEXT_WINDOW,
   generationControlState,
   projectContextPassages,
@@ -2370,22 +2372,6 @@ function renderDocuments() {
   updateSendState();
 }
 
-function buildDocumentContextMessage() {
-  if (!uploadedDocuments.length) return null;
-  const sections = uploadedDocuments.map((doc, index) => [
-    `Document ${index + 1}: ${doc.name}`,
-    `Characters: ${doc.chars}`,
-    doc.text,
-  ].join("\n"));
-  return {
-    role: "system",
-    content: [
-      "The user uploaded the following document context. Use it when relevant, cite document names when answering from it, and ignore it when it is not relevant.",
-      ...sections.map((section) => `<document>\n${section}\n</document>`),
-    ].join("\n\n"),
-  };
-}
-
 function renderInlineMarkdown(value) {
   return escapeHtml(value)
     .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>')
@@ -2782,17 +2768,10 @@ async function retrieveActiveProjectContext(query) {
     }
     retrieval = json;
   }
-  const system = [
-    `Active project: ${retrieval.project.name}`,
-    retrieval.project.instructions
-      ? `<project_instructions>\n${retrieval.project.instructions}\n</project_instructions>`
-      : "",
-    retrieval.context
-      ? `<project_evidence>\n${retrieval.context}\n</project_evidence>`
-      : "",
-  ].filter(Boolean).join("\n\n");
+  const contextParts = contextPayloadParts([], retrieval);
   return {
-    system,
+    trustedSystem: contextParts.trustedSystem,
+    evidenceMessages: contextParts.evidenceMessages,
     metadata: {
       project_id: retrieval.project.id,
       project_name: retrieval.project.name,
@@ -2810,11 +2789,10 @@ async function retrieveActiveProjectContext(query) {
 
 async function buildPayload(userId, projectContext = null, route = routeRequest("")) {
   const system = els.system.value.trim();
-  const documentContext = buildDocumentContextMessage();
+  const documentContext = contextPayloadParts(uploadedDocuments);
   const systemParts = [
     ...(system ? [system] : []),
-    ...(documentContext?.content ? [documentContext.content] : []),
-    ...(projectContext?.system ? [projectContext.system] : []),
+    ...(projectContext?.trustedSystem ? [projectContext.trustedSystem] : []),
   ];
   const contextWindow = getModelContextWindow();
   const history = await Promise.all(chatHistoryForPayload().map((message) => chatPayloadMessage(message, route.enableThinking)));
@@ -2823,6 +2801,8 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
     model: els.model.value,
     messages: [
       ...(systemParts.length ? [{ role: "system", content: systemParts.join("\n\n") }] : []),
+      ...documentContext.evidenceMessages,
+      ...(projectContext?.evidenceMessages || []),
       ...history,
     ],
     temperature: Number(els.temperature.value || 1.0),
@@ -3056,7 +3036,14 @@ async function sendMessage(content, route = routeRequest(content)) {
     });
     if (!res.ok || !res.body) {
       const text = await res.text();
-      throw new Error(text || "Chat stream request failed");
+      let errorPayload = text;
+      try {
+        const parsed = JSON.parse(text);
+        errorPayload = parsed?.error || parsed;
+      } catch {
+        // A plain-text gateway error remains a useful message.
+      }
+      throw new Error(apiErrorMessage(errorPayload, "Chat stream request failed"));
     }
 
     assistantIndex = appendAssistantMessage("");
@@ -3089,7 +3076,7 @@ async function sendMessage(content, route = routeRequest(content)) {
         } catch {
           continue;
         }
-        if (chunk.error) throw new Error(chunk.error);
+        if (chunk.error) throw new Error(apiErrorMessage(chunk.error));
         if (chunk.type === "progress") {
           setStatus(chunk.message || "Token Gen is working...", "busy");
           continue;

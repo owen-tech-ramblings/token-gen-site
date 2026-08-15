@@ -96,6 +96,10 @@ assert.match(chatJs, /chatPayloadMessage\(message, route\.enableThinking\)/, "Th
 assert.doesNotMatch(chatJs, /TOKEN_CHARS|function estimateTokens|availableAfterSystem|safetyTokens|maximumOutput|estimated_input_tokens/, "The browser must not estimate or reserve model capacity that the API measures exactly.");
 assert.doesNotMatch(chatJs, /Math\.floor\(availableAfterSystem \* 0\.5\)/, "The browser must not halve the selected web evidence budget.");
 assert.match(chatJs, /context_token_budget:\s*route\.contextTokenBudget/, "Chat must send the selected web evidence budget for server-side admission.");
+assert.match(chatJs, /contextPayloadParts\(uploadedDocuments\)/, "Uploaded documents must remain separate whole evidence units for server admission.");
+assert.match(chatJs, /projectContext\?\.evidenceMessages \|\| \[\]/, "Project passages must remain separate whole evidence units for server admission.");
+assert.doesNotMatch(chatJs, /documentContext\?\.content|projectContext\?\.system/, "Untrusted evidence must not be folded into the mandatory system instruction.");
+assert.match(chatJs, /apiErrorMessage\(chunk\.error\)/, "Structured capacity errors must remain readable in the chat stream.");
 assert.match(chatJs, /let assistantReasoningContent = "";/, "Streamed reasoning must accumulate separately from visible assistant text.");
 assert.match(chatJs, /assistantReasoningContent \+= reasoning;/, "Reasoning deltas must accumulate independently of final content.");
 assert.match(chatJs, /assistantReasoningContent = typeof chunk\.reasoning_content === "string" \? chunk\.reasoning_content : "";/, "A replacement final answer must discard stale reasoning unless it supplies canonical replacement reasoning.");
@@ -215,7 +219,7 @@ assert.match(chatJs, /JOBS_API_PATH\s*=\s*"\/api\/private\/jobs"/, "Jobs must us
 assert.match(chatJs, /absolutePrivateUrl/, "Private conversation assets must remain on the same-origin bridge.");
 assert.match(chatJs, /credentials:\s*"include"/, "Protected project requests must use the Cloudflare Access session.");
 assert.match(chatJs, /retrieveActiveProjectContext/, "Chat must retrieve only relevant project passages for each question.");
-assert.match(chatJs, /<project_evidence>/, "Retrieved project evidence must be isolated from trusted project instructions.");
+assert.match(chatContextOptionsJs, /<project_evidence /, "Retrieved project evidence must be isolated from trusted project instructions.");
 assert.match(chatJs, /project_id:\s*projectState\.active\?\.id/, "Chat requests and saved conversations must retain active project association.");
 assert.match(chatJs, /project_context/, "Saved chat messages must retain citation metadata.");
 assert.doesNotMatch(chatJs, /localStorage[^\n]+project|project[^\n]+localStorage/i, "Project identity and documents must not be persisted in browser localStorage.");

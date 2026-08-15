@@ -68,3 +68,19 @@ test("ordinary Web and Research routes preserve the selected evidence budget", a
     { maxResults: 5, contextTokenBudget: 10000 },
   );
 });
+
+test("web evidence budget is integer-normalized within the advertised range", async () => {
+  const { normalizeWebRouteOptions } = await loadWebOptions();
+  for (const [value, expected] of [
+    [499, 500],
+    [500.8, 501],
+    [100000, 100000],
+    [200000, 100000],
+    ["invalid", 10000],
+  ]) {
+    assert.equal(
+      normalizeWebRouteOptions({ maxResults: 10, contextTokenBudget: value }).contextTokenBudget,
+      expected,
+    );
+  }
+});

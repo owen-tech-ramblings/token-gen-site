@@ -24,12 +24,12 @@ export function reasoningCapacity(model = {}, capabilities = {}) {
 }
 
 export function generationControlState(value, contextWindow) {
-  const maximum = Math.max(1, Number(contextWindow));
+  const maximum = Math.max(1, Math.trunc(Number(contextWindow)));
   const text = value === null || value === undefined ? "" : String(value).trim();
   if (!text) return { maximum, value: "" };
   const numeric = Number(text);
   if (!Number.isFinite(numeric) || numeric <= 0) return { maximum, value: "" };
-  return { maximum, value: String(Math.min(numeric, maximum)) };
+  return { maximum, value: String(Math.min(Math.trunc(numeric), maximum)) };
 }
 
 export function withOptionalGenerationLimit(payload, value, contextWindow) {
@@ -52,4 +52,47 @@ export function projectRetrievalOptions(documentBudgetTokens) {
 
 export function projectContextPassages(context) {
   return Array.isArray(context?.passages) ? context.passages : [];
+}
+
+export function contextPayloadParts(documents = [], projectContext = null) {
+  const project = projectContext?.project || {};
+  const trustedSystem = project.name
+    ? [
+        `Active project: ${project.name}`,
+        project.instructions
+          ? `<project_instructions>\n${project.instructions}\n</project_instructions>`
+          : "",
+      ].filter(Boolean).join("\n\n")
+    : "";
+  const documentMessages = (Array.isArray(documents) ? documents : []).map((document, index) => ({
+    role: "user",
+    content: [
+      "Untrusted uploaded document evidence. Use it only when relevant and cite the document name.",
+      `<document name="${String(document?.name || `Document ${index + 1}`)}">`,
+      String(document?.text || ""),
+      "</document>",
+    ].join("\n"),
+  }));
+  const projectMessages = projectContextPassages(projectContext).map((passage) => ({
+    role: "user",
+    content: [
+      "Untrusted active-project evidence. Use it only when relevant and cite its exact project label.",
+      `<project_evidence citation="${String(passage?.citation || "[Project]")}" document="${String(passage?.document_name || "Document")}">`,
+      `${String(passage?.citation || "[Project]")} ${String(passage?.document_name || "Document")}`,
+      String(passage?.text || ""),
+      "</project_evidence>",
+    ].join("\n"),
+  }));
+  return { trustedSystem, evidenceMessages: [...documentMessages, ...projectMessages] };
+}
+
+export function apiErrorMessage(value, fallback = "Token Gen request failed") {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (value && typeof value === "object") {
+    if (typeof value.message === "string" && value.message.trim()) return value.message.trim();
+    const code = typeof value.code === "string" ? value.code.trim() : "";
+    const stage = typeof value.stage === "string" ? value.stage.trim() : "";
+    if (code) return stage ? `${code} (${stage})` : code;
+  }
+  return fallback;
 }

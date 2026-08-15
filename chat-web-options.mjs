@@ -9,8 +9,12 @@ export function normalizeWebRouteOptions({
   maxResults,
   contextTokenBudget,
 }) {
+  const rawBudget = Number(contextTokenBudget);
+  const budget = Number.isFinite(rawBudget)
+    ? Math.max(500, Math.min(100000, Math.round(rawBudget)))
+    : 10000;
   return {
     maxResults: normalizeWebResultLimit(maxResults),
-    contextTokenBudget: Number(contextTokenBudget || 10000),
+    contextTokenBudget: budget,
   };
 }
