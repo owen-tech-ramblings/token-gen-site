@@ -81,6 +81,18 @@ assert.match(chatJs, /chunk\.type === "response_replacement"/, "Chat must accept
 assert.match(chatJs, /chunk\.type === "progress"/, "Chat must render search and generation progress events.");
 assert.match(chatJs, /typeof delta\.content === "string"/, "Only final content may be rendered as the assistant answer.");
 assert.doesNotMatch(chatJs, /delta\.content \|\| delta\.reasoning_content \|\| delta\.reasoning/, "Raw model reasoning must not be rendered or retained as assistant content.");
+assert.match(chatJs, /function assistantReasoningContent\(message\)/, "Chat must keep opaque reasoning in a dedicated assistant-only helper.");
+assert.match(chatJs, /if \(message\.role === "assistant" && reasoningContent\) item\.reasoning_content = reasoningContent;/, "Saved assistant messages must persist canonical opaque reasoning only.");
+assert.match(chatJs, /if \(typeof message\.reasoning_content === "string"\) return message\.reasoning_content;[\s\S]*if \(typeof message\.reasoning === "string"\) return message\.reasoning;/, "History restoration must prefer canonical reasoning_content and accept the legacy alias.");
+assert.match(chatJs, /reasoningContent: restoredAssistantReasoning\(message\)/, "Restored reasoning must remain internal browser state.");
+assert.match(chatJs, /if \(includeReasoning && message\.role === "assistant"\) \{[\s\S]*payload\.reasoning_content = reasoningContent;/, "Thinking-enabled requests must send canonical assistant reasoning.");
+assert.match(chatJs, /chatPayloadMessage\(message, route\.enableThinking\)/, "Thinking-disabled requests must omit stored reasoning without changing message state.");
+assert.match(chatJs, /estimateTokens\(route\.enableThinking \? message\?\.reasoningContent : ""\)/, "Opaque reasoning must count toward the thinking-enabled context budget.");
+assert.match(chatJs, /let assistantReasoningContent = "";/, "Streamed reasoning must accumulate separately from visible assistant text.");
+assert.match(chatJs, /assistantReasoningContent \+= reasoning;/, "Reasoning deltas must accumulate independently of final content.");
+assert.match(chatJs, /assistantReasoningContent = typeof chunk\.reasoning_content === "string" \? chunk\.reasoning_content : "";/, "A replacement final answer must discard stale reasoning unless it supplies canonical replacement reasoning.");
+assert.match(chatJs, /updateAssistantMessage\(assistantIndex, assistantText, \{ reasoningContent: assistantReasoningContent \}\);/, "Completed assistant messages must retain opaque reasoning outside rendered content.");
+assert.doesNotMatch(chatJs, /content:\s*message\.reasoningContent/, "Opaque reasoning must never become visible message content.");
 assert.match(chatJs, /history:\s*fullHistory/, "Chat must keep the complete conversation instead of silently dropping old turns.");
 assert.doesNotMatch(chatJs, /selected\.unshift\(message\)/, "Chat must not silently trim conversation history with a character estimate.");
 assert.match(chatHtml, /id="chatMode"/, "Chat HTML must include a mode selector.");
@@ -119,7 +131,7 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-frontier-20260809-1/, "Chat HTML must use the current reliability CSS cache key.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-qwen38-20260815-1/, "Chat HTML must cache-bust the current Qwen3.8 script.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-reasoning-20260815-1/, "Chat HTML must cache-bust the preserved-reasoning script.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");

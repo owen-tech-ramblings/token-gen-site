@@ -1837,6 +1837,19 @@ function currentMessages() {
   return messages.filter((message) => !message.isWelcome && (message.role === "user" || message.role === "assistant"));
 }
 
+function assistantReasoningContent(message) {
+  return message?.role === "assistant" && typeof message.reasoningContent === "string"
+    ? message.reasoningContent
+    : "";
+}
+
+function restoredAssistantReasoning(message) {
+  if (message.role !== "assistant") return "";
+  if (typeof message.reasoning_content === "string") return message.reasoning_content;
+  if (typeof message.reasoning === "string") return message.reasoning;
+  return "";
+}
+
 function historyImageMetadata(output) {
   return {
     url: output.url,
@@ -1860,6 +1873,8 @@ function storedHistoryMessages() {
       content: String(message.content || ""),
       created_at: message.createdAt,
     };
+    const reasoningContent = assistantReasoningContent(message);
+    if (message.role === "assistant" && reasoningContent) item.reasoning_content = reasoningContent;
     const images = Array.isArray(message.imageOutputs)
       ? message.imageOutputs.slice(0, 4).map(historyImageMetadata)
       : [];
@@ -1922,6 +1937,7 @@ function restoredHistoryMessage(message) {
   return createMessage(message.role, message.content || "", {
     id: message.id,
     createdAt: message.created_at,
+    reasoningContent: restoredAssistantReasoning(message),
     webContext: message.web_context,
     projectContext: message.project_context,
     imageOutputs: images.map((image) => ({ ...image, url: absoluteImageUrl(image.url) })),
@@ -2713,8 +2729,8 @@ function renderProjectContext(context) {
   `;
 }
 
-function updateAssistantMessage(index, content) {
-  messages[index].content = content;
+function updateAssistantMessage(index, content, extra = {}) {
+  messages[index] = { ...messages[index], content, ...extra };
   renderMessages(false);
 }
 
@@ -2734,12 +2750,15 @@ function boundedChatPayload(systemParts, route) {
     .map((message) => ({
       role: message.role,
       content: String(message.content || ""),
+      reasoningContent: assistantReasoningContent(message),
       visionImages: Array.isArray(message.visionImages) ? message.visionImages.slice(0, getVisionLimits().maxImages) : [],
     }));
   const contextWindow = getModelContextWindow();
   const systemTokens = estimateTokens(systemParts.join("\n\n"));
   const safetyTokens = Math.max(1024, Math.ceil(contextWindow * 0.01));
-  const messageTokens = (message) => estimateTokens(message?.content || "") + 8 + (message?.visionImages?.length || 0) * 1400;
+  const messageTokens = (message) => estimateTokens(message?.content || "")
+    + estimateTokens(route.enableThinking ? message?.reasoningContent : "")
+    + 8 + (message?.visionImages?.length || 0) * 1400;
   const availableAfterSystem = Math.max(512, contextWindow - systemTokens - safetyTokens);
   const requestedWebTokens = route.web ? route.contextTokenBudget : 0;
   const webTokens = Math.max(0, Math.min(requestedWebTokens, Math.floor(availableAfterSystem * 0.5)));
@@ -2763,10 +2782,15 @@ function boundedChatPayload(systemParts, route) {
   };
 }
 
-async function chatPayloadMessage(message) {
+async function chatPayloadMessage(message, includeReasoning) {
   const images = Array.isArray(message.visionImages) ? message.visionImages : [];
+  const reasoningContent = assistantReasoningContent(message);
   if (!images.length || message.role !== "user") {
-    return { role: message.role, content: message.content };
+    const payload = { role: message.role, content: message.content };
+    if (includeReasoning && message.role === "assistant") {
+      payload.reasoning_content = reasoningContent;
+    }
+    return payload;
   }
   const content = [{ type: "text", text: message.content }];
   for (const image of images) {
@@ -2830,7 +2854,7 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
     ...(projectContext?.system ? [projectContext.system] : []),
   ];
   const bounded = boundedChatPayload(systemParts, route);
-  const history = await Promise.all(bounded.history.map(chatPayloadMessage));
+  const history = await Promise.all(bounded.history.map((message) => chatPayloadMessage(message, route.enableThinking)));
 
   return {
     model: els.model.value,
@@ -3079,6 +3103,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     if (projectContext?.metadata) attachProjectContext(assistantIndex, projectContext.metadata);
     let assistantText = "";
     let reasoningSeen = false;
+    let assistantReasoningContent = "";
     let buffer = "";
     const decoder = new TextDecoder();
     const reader = res.body.getReader();
@@ -3111,6 +3136,7 @@ async function sendMessage(content, route = routeRequest(content)) {
         }
         if (chunk.type === "response_replacement") {
           assistantText = String(chunk.content || "");
+          assistantReasoningContent = typeof chunk.reasoning_content === "string" ? chunk.reasoning_content : "";
           if (!assistantText.trim()) throw new Error("Token Gen could not repair the incomplete response.");
           updateAssistantMessage(assistantIndex, assistantText);
           setStatus("A malformed model response was repaired locally.", "busy");
@@ -3131,6 +3157,7 @@ async function sendMessage(content, route = routeRequest(content)) {
         const reasoning = delta.reasoning_content || delta.reasoning;
         if (typeof reasoning === "string" && reasoning) {
           reasoningSeen = true;
+          assistantReasoningContent += reasoning;
           setStatus("Thinking through the answer...", "busy");
         }
         const token = typeof delta.content === "string" ? delta.content : "";
@@ -3146,7 +3173,7 @@ async function sendMessage(content, route = routeRequest(content)) {
         ? "The model reasoned but did not return a usable final answer."
         : "The model returned an empty response.");
     }
-    updateAssistantMessage(assistantIndex, assistantText);
+    updateAssistantMessage(assistantIndex, assistantText, { reasoningContent: assistantReasoningContent });
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
     const failure = createMessage("assistant", `Request failed: ${error.message}`, {
