@@ -145,7 +145,7 @@ assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
 assert.match(chatHtml, /styles\.css\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-final-audit-20260816-5/, "Chat HTML must cache-bust changed visual project controls.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-final-audit-20260816-6/, "Chat HTML must cache-bust changed visual project controls.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
@@ -260,7 +260,7 @@ assert.match(chatJs, /absolutePrivateUrl/, "Private conversation assets must rem
 assert.match(chatJs, /credentials:\s*"include"/, "Protected project requests must use the Cloudflare Access session.");
 assert.match(chatJs, /retrieveActiveProjectContext/, "Chat must retrieve only relevant project passages for each question.");
 assert.match(chatContextOptionsJs, /<project_evidence /, "Retrieved project evidence must be isolated from trusted project instructions.");
-assert.match(chatJs, /project_id:\s*loadedActiveProject\(projectState\)\?\.id/, "Chat requests and saved conversations must retain only the loaded active project association.");
+assert.match(chatJs, /project_id:\s*projectScope\?\.project\?\.id/, "Chat requests must retain the captured loaded project association through submission.");
 assert.match(chatJs, /project_context/, "Saved chat messages must retain citation metadata.");
 assert.doesNotMatch(chatJs, /localStorage[^\n]+project|project[^\n]+localStorage/i, "Project identity and documents must not be persisted in browser localStorage.");
 assert.match(chatHtml, /id="chatVisionImages"[^>]+multiple[^>]+image\/webp/, "Chat must accept multiple bounded PNG, JPG, or WebP vision attachments.");

@@ -22,14 +22,23 @@ open advanced the history view.
 
 A token-scoped save may complete its backend write after supersession, but its
 result cannot replace the current conversation ID/version, history status, or
-newer B messages. An open that owns a pending save checks ownership before
-Opening status or GET; a newer open can proceed while an older New Chat save is
-still resolving. During an A-to-B selection load, every project action uses
-only a loaded project whose ID equals `activeId`; project attach/upload, scanned
-PDF handoff, retrieval, and association metadata cannot use stale A.
+newer B messages. Every save invocation captures a non-null history action at
+its own start; timer, queued, manual-flush, New Chat, and open paths recheck it
+after every await before they mutate history UI. An open that owns a pending
+save checks ownership before Opening status or GET; a newer open can proceed
+while an older New Chat save is still resolving. During an A-to-B selection
+load, every project action uses only a loaded project whose ID equals `activeId`;
+project attach/upload, scanned PDF handoff, retrieval, and association metadata
+cannot use stale A.
 
-The cache-busted chat module key is `token-chat-final-audit-20260816-5`.
-Focused local verification passed `39/39` Node tests, the site contract,
+Project chat sends capture one loaded project scope before asynchronous work.
+The exact captured project owns trusted instructions, retrieved evidence,
+visual media, and `metadata.project_id`. Any project or conversation ownership
+change after image/identity/retrieval/payload preparation aborts before the
+model request with a safe retry message, so A context cannot be submitted as B.
+
+The cache-busted chat module key is `token-chat-final-audit-20260816-6`.
+Focused local verification passed `41/41` Node tests, the site contract,
 JavaScript syntax checks, and `git diff --check`. This audit deliberately did
 not run `npm test`, verify live routes, push, deploy, or promote `master`.
 

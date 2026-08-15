@@ -26,12 +26,20 @@ Last updated: 2026-08-16 Australia/Sydney
   before opening status or GET. While a selection is loading, only a project
   whose loaded ID matches `activeId` can drive project context, upload, scanned
   PDF handoff, or attachment controls; stale A cannot act for selected B.
-- Verified locally with the focused Node test set (`39/39`),
+- Every save path now captures a non-null history action at its own start.
+  Timer, queued, explicit-flush, New Chat, and open saves recheck it after each
+  awaited private request; a completed stale A write may persist remotely but
+  cannot update B's identity, version, status, or rendered conversation.
+  Project sends similarly capture one loaded project scope. A changed
+  project/conversation view after image, identity, retrieval, or payload
+  preparation stops before model submission with a safe retry message, while a
+  stable request keeps the same A instructions/evidence/media and metadata ID.
+- Verified locally with the focused Node test set (`41/41`),
   `node tools/site-contract-tests.mjs`, `node --check` for changed modules and
   the private bridge, and `git diff --check`. `npm test`, live checks, deploy,
   push, deployment, and branch promotion were intentionally not run in this
   audit pass. The current chat cache key is
-  `token-chat-final-audit-20260816-5`.
+  `token-chat-final-audit-20260816-6`.
 
 ## Dynamic 524,288-token allocation - live 2026-08-15
 

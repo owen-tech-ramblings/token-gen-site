@@ -7,6 +7,8 @@ import {
   beginHistoryViewAction,
   beginOwnedOperation,
   beginScannedPdfUpload,
+  captureHistoryViewAction,
+  captureLoadedProjectScope,
   captureProjectSelection,
   captureProjectView,
   clearStagedScannedPdf,
@@ -15,11 +17,13 @@ import {
   finishScannedPdfUpload,
   historyViewActionIsCurrent,
   loadedActiveProject,
+  prepareCurrentProjectScope,
   projectSelectionIsCurrent,
+  projectScopeIsCurrent,
   projectViewIsCurrent,
   scannedPdfUploadAppliesToProject,
   stageScannedPdf,
-} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-5";
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-6";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -223,7 +227,7 @@ let historyState = {
   currentRetention: "30_days",
   saveTimer: null,
   saving: false,
-  saveQueued: false,
+  saveQueued: null,
   viewGeneration: 0,
   historyActionToken: null,
   nextHistoryActionToken: 0,
@@ -264,6 +268,7 @@ const JOBS_API_PATH = "/api/private/jobs";
 const HISTORY_SAVE_DELAY_MS = 450;
 const JOB_REFRESH_INTERVAL_MS = 2800;
 const PROJECT_MAX_FILE_BYTES = 30 * 1024 * 1024;
+const PROJECT_SCOPE_RETRY_MESSAGE = "Project changed while preparing this request. Please retry.";
 const DEFAULT_VISION_MAX_IMAGES = 4;
 const DEFAULT_VISION_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_VISION_MAX_TOTAL_BYTES = 24 * 1024 * 1024;
@@ -2324,13 +2329,13 @@ function historyMessagesArePrefix(remoteMessages, localMessages) {
   ));
 }
 
-async function saveConversation(expectedAction = null) {
-  const actionIsCurrent = () => !expectedAction || historyViewActionIsCurrent(historyState, expectedAction);
+async function saveConversation(expectedAction = captureHistoryViewAction(historyState)) {
+  const actionIsCurrent = () => historyViewActionIsCurrent(historyState, expectedAction);
   if (!actionIsCurrent() || !historyState.available || historyState.currentRetention === "none") return false;
   const storedMessages = storedHistoryMessages();
   if (!storedMessages.some((message) => message.role === "user")) return false;
   if (historyState.saving) {
-    historyState.saveQueued = true;
+    historyState.saveQueued = expectedAction;
     return false;
   }
   historyState.saving = true;
@@ -2355,9 +2360,11 @@ async function saveConversation(expectedAction = null) {
           headers: { "if-match": currentVersion },
           body: JSON.stringify(body),
         });
+        if (!actionIsCurrent()) return false;
       } catch (error) {
         if (error.status !== 409) throw error;
         const latest = await historyRequest(`/${encodeURIComponent(currentId)}`);
+        if (!actionIsCurrent()) return false;
         const remoteConversation = latest.json.conversation;
         if (historyMessagesArePrefix(remoteConversation?.messages, storedMessages)) {
           result = await historyRequest(`/${encodeURIComponent(currentId)}`, {
@@ -2365,13 +2372,16 @@ async function saveConversation(expectedAction = null) {
             headers: { "if-match": latest.etag || remoteConversation.version },
             body: JSON.stringify(body),
           });
+          if (!actionIsCurrent()) return false;
         } else {
           body.title = `${body.title.slice(0, 106)} (continued)`;
           result = await historyRequest("", { method: "POST", body: JSON.stringify(body) });
+          if (!actionIsCurrent()) return false;
         }
       }
     } else {
       result = await historyRequest("", { method: "POST", body: JSON.stringify(body) });
+      if (!actionIsCurrent()) return false;
     }
     const conversation = result.json.conversation;
     if (!conversation?.id) throw new Error("Private history returned an invalid response.");
@@ -2396,20 +2406,21 @@ async function saveConversation(expectedAction = null) {
     return false;
   } finally {
     historyState.saving = false;
-    updateHistoryControls();
-    if (historyState.saveQueued) {
-      historyState.saveQueued = false;
-      scheduleConversationSave(0);
-    }
+    if (actionIsCurrent()) updateHistoryControls();
+    const queuedAction = historyState.saveQueued;
+    historyState.saveQueued = null;
+    if (queuedAction) scheduleConversationSave(0, queuedAction);
   }
 }
 
-function scheduleConversationSave(delay = HISTORY_SAVE_DELAY_MS) {
+function scheduleConversationSave(delay = HISTORY_SAVE_DELAY_MS, scheduledAction = null) {
   if (!historyState.available || historyState.currentRetention === "none") return;
+  if (scheduledAction && !historyViewActionIsCurrent(historyState, scheduledAction)) return;
   if (historyState.saveTimer) clearTimeout(historyState.saveTimer);
   historyState.saveTimer = setTimeout(() => {
     historyState.saveTimer = null;
-    saveConversation();
+    const action = scheduledAction || captureHistoryViewAction(historyState);
+    void saveConversation(action);
   }, delay);
 }
 
@@ -2433,8 +2444,8 @@ async function waitForConversationSave() {
   }
 }
 
-async function flushConversationSave(expectedAction = null) {
-  const actionIsCurrent = () => !expectedAction || historyViewActionIsCurrent(historyState, expectedAction);
+async function flushConversationSave(expectedAction = captureHistoryViewAction(historyState)) {
+  const actionIsCurrent = () => historyViewActionIsCurrent(historyState, expectedAction);
   if (!actionIsCurrent()) return false;
   if (historyState.saveTimer) {
     clearTimeout(historyState.saveTimer);
@@ -3124,10 +3135,9 @@ function attachProjectContext(index, context) {
   renderMessages(false);
 }
 
-async function retrieveActiveProjectContext(query) {
-  const project = loadedActiveProject(projectState);
-  if (!project) return null;
-  const view = captureActiveProjectView(project.id);
+async function retrieveActiveProjectContext(query, projectScope) {
+  const project = projectScope?.project;
+  if (!project || !projectScopeIsCurrent(projectState, historyState.viewGeneration, projectScope)) return null;
   let retrieval = { project, passages: [], context: "" };
   if (projectState.documents.length) {
     const retrievalOptions = projectRetrievalOptions(getDocumentBudgetTokens());
@@ -3135,7 +3145,7 @@ async function retrieveActiveProjectContext(query) {
       method: "POST",
       body: JSON.stringify({ query, ...retrievalOptions }),
     });
-    if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return null;
+    if (!projectScopeIsCurrent(projectState, historyState.viewGeneration, projectScope)) return null;
     if (!json.ok || !json.project || !Array.isArray(json.passages)) {
       throw new Error("Project retrieval returned an invalid response.");
     }
@@ -3150,7 +3160,7 @@ async function retrieveActiveProjectContext(query) {
   };
 }
 
-async function buildPayload(userId, projectContext = null, route = routeRequest("")) {
+async function buildPayload(userId, projectContext = null, route = routeRequest(""), projectScope = null) {
   const system = els.system.value.trim();
   const documentContext = contextPayloadParts(uploadedDocuments);
   const systemParts = [
@@ -3184,7 +3194,7 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
     metadata: {
       source: "token_gen_chat",
       user_id: userId,
-      project_id: loadedActiveProject(projectState)?.id || undefined,
+      project_id: projectScope?.project?.id || undefined,
       requested_mode: route.mode,
       resolved_route: route.research ? "research" : route.web ? "web" : route.vision ? "vision" : "chat",
       context_window: contextWindow,
@@ -3338,6 +3348,8 @@ async function loadWebSearchCapability() {
 }
 
 async function sendMessage(content, route = routeRequest(content)) {
+  const sendViewAction = captureHistoryViewAction(historyState);
+  const sendViewIsCurrent = () => historyViewActionIsCurrent(historyState, sendViewAction);
   if (!chatReady) {
     setStatus("Token Gen API model discovery is unavailable", "bad");
     return;
@@ -3355,11 +3367,19 @@ async function sendMessage(content, route = routeRequest(content)) {
     return;
   }
   let visionImages = [];
-  const activeProject = loadedActiveProject(projectState);
-  if (route.project && !activeProject) route = { ...route, project: false };
+  const projectScope = route.project
+    ? captureLoadedProjectScope(projectState, historyState.viewGeneration)
+    : null;
+  if (route.project && !projectScope) route = { ...route, project: false };
+  const projectScopeIsValid = () => !route.project
+    || projectScopeIsCurrent(projectState, historyState.viewGeneration, projectScope);
   if (attachedVisionImages.length) {
     setStatus("Preparing images locally...", "busy");
     visionImages = await prepareVisionImagesForSend(attachedVisionImages);
+  }
+  if (!projectScopeIsValid()) {
+    if (sendViewIsCurrent()) setStatus(PROJECT_SCOPE_RETRY_MESSAGE, "bad");
+    return;
   }
   messages.push(createMessage("user", content, { visionImages }));
   clearAttachedVisionImages({ release: false });
@@ -3373,7 +3393,7 @@ async function sendMessage(content, route = routeRequest(content)) {
       : route.web
         ? "Gathering web context..."
         : route.project
-          ? `Searching ${activeProject.name}...`
+          ? `Searching ${projectScope.project.name}...`
           : "Generating response...",
     "busy",
   );
@@ -3381,21 +3401,25 @@ async function sendMessage(content, route = routeRequest(content)) {
   let assistantIndex = null;
   try {
     const chatUserId = await getChatUserId();
-    const projectContext = route.project
-      ? await (async () => {
-          const loadedProject = loadedActiveProject(projectState);
-          if (!loadedProject || loadedProject.id !== activeProject.id) return null;
-          setStatus(`Searching ${loadedProject.name}...`, "busy");
-          return retrieveActiveProjectContext(content);
-        })()
-      : null;
+    if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
+    const preparedProject = route.project
+      ? await prepareCurrentProjectScope(projectState, historyState.viewGeneration, projectScope, async () => {
+          setStatus(`Searching ${projectScope.project.name}...`, "busy");
+          return retrieveActiveProjectContext(content, projectScope);
+        })
+      : { current: true, value: null };
+    const projectContext = preparedProject.value;
+    if (route.project && (!preparedProject.current || !projectContext || !projectScopeIsValid())) {
+      throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
+    }
     if (route.research) {
       setStatus("Researching sources and preparing local evidence...", "busy");
     } else if (route.web) {
       setStatus("Gathering web context...", "busy");
     }
 
-    const payload = await buildPayload(chatUserId, projectContext, route);
+    const payload = await buildPayload(chatUserId, projectContext, route, projectScope);
+    if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
     const res = await requestChatStream(payload, chatUserId, isLoopbackHost());
     if (!res.ok || !res.body) {
       const text = await res.text();
@@ -3486,20 +3510,24 @@ async function sendMessage(content, route = routeRequest(content)) {
     updateAssistantMessage(assistantIndex, assistantText, { reasoningContent: assistantReasoningContent });
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
-    const failure = createMessage("assistant", `Request failed: ${error.message}`, {
-      excludeFromContext: true,
-      excludeFromHistory: true,
-      isError: true,
-    });
-    if (assistantIndex !== null) messages[assistantIndex] = failure;
-    else messages.push(failure);
-    setStatus(`Chat request failed: ${error.message}`, "bad");
+    if (!route.project || sendViewIsCurrent()) {
+      const failure = createMessage("assistant", `Request failed: ${error.message}`, {
+        excludeFromContext: true,
+        excludeFromHistory: true,
+        isError: true,
+      });
+      if (assistantIndex !== null) messages[assistantIndex] = failure;
+      else messages.push(failure);
+      setStatus(`Chat request failed: ${error.message}`, "bad");
+    }
   } finally {
     updateSendState();
     els.input.disabled = !chatReady;
-    els.input.focus();
-    renderMessages(false);
-    scheduleConversationSave(0);
+    if (sendViewIsCurrent()) {
+      els.input.focus();
+      renderMessages(false);
+      scheduleConversationSave(0);
+    }
   }
 }
 

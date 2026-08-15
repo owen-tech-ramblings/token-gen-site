@@ -166,6 +166,111 @@ test("a superseded New Chat flush cannot rebind a newer opened conversation", as
   assert.deepEqual(staleResult.state.messages, ["message from B"]);
 });
 
+test("timer and queued saves retain their captured A ownership after B opens", async () => {
+  const {
+    applySavedConversationResult,
+    beginHistoryViewAction,
+    captureHistoryViewAction,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof captureHistoryViewAction, "function");
+  let historyState = {
+    viewGeneration: 0,
+    historyActionToken: null,
+    nextHistoryActionToken: 0,
+    currentId: "chat-a",
+    currentVersion: "version-a",
+    messages: ["message from A"],
+    historyStatus: "Saving A",
+  };
+  const activeA = beginHistoryViewAction(historyState);
+  historyState = activeA.state;
+  const timerAction = captureHistoryViewAction(historyState);
+  const queuedAction = captureHistoryViewAction(historyState);
+  let releaseTimer;
+  let releaseQueued;
+  const timerSave = new Promise((resolve) => { releaseTimer = resolve; }).then(() => applySavedConversationResult(
+    historyState, timerAction, { id: "chat-a", version: "timer-version-a" }, "timer-etag-a",
+  ));
+  const queuedSave = new Promise((resolve) => { releaseQueued = resolve; }).then(() => applySavedConversationResult(
+    historyState, queuedAction, { id: "chat-a", version: "queued-version-a" }, "queued-etag-a",
+  ));
+
+  const openB = beginHistoryViewAction(historyState);
+  historyState = {
+    ...openB.state,
+    currentId: "chat-b",
+    currentVersion: "version-b",
+    messages: ["message from B"],
+    historyStatus: "Opened B",
+  };
+  releaseTimer();
+  releaseQueued();
+  const [timerResult, queuedResult] = await Promise.all([timerSave, queuedSave]);
+  assert.equal(timerResult.applied, false);
+  assert.equal(queuedResult.applied, false);
+  assert.equal(historyState.currentId, "chat-b");
+  assert.equal(historyState.currentVersion, "version-b");
+  assert.deepEqual(historyState.messages, ["message from B"]);
+  assert.equal(historyState.historyStatus, "Opened B");
+});
+
+test("a captured project scope aborts deferred A preparation after B becomes active", async () => {
+  const {
+    captureLoadedProjectScope,
+    prepareCurrentProjectScope,
+    projectScopeIsCurrent,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof captureLoadedProjectScope, "function");
+  assert.equal(typeof prepareCurrentProjectScope, "function");
+  assert.equal(typeof projectScopeIsCurrent, "function");
+
+  let projectState = {
+    activeId: "project-a",
+    active: { id: "project-a", name: "A", instructions: "A instructions" },
+    viewGeneration: 1,
+  };
+  const scopeA = captureLoadedProjectScope(projectState, 7);
+  let fetchCalls = 0;
+  const submitPreparedProject = (prepared) => {
+    if (!prepared.current) return null;
+    fetchCalls += 1;
+    return prepared.value;
+  };
+  let releasePreparation;
+  const preparation = new Promise((resolve) => { releasePreparation = resolve; });
+  const preparedA = prepareCurrentProjectScope(projectState, 7, scopeA, async (project) => {
+    await preparation;
+    return { metadata: { project_id: project.id }, evidence: project.instructions };
+  });
+
+  Object.assign(projectState, {
+    activeId: "project-b",
+    active: { id: "project-b", name: "B", instructions: "B instructions" },
+    viewGeneration: 2,
+  });
+  releasePreparation();
+  const stalePreparation = await preparedA;
+  assert.deepEqual(stalePreparation, { current: false, value: null });
+  assert.equal(submitPreparedProject(stalePreparation), null);
+  assert.equal(fetchCalls, 0, "a changed project must not submit A context upstream");
+
+  Object.assign(projectState, {
+    activeId: "project-a",
+    active: { id: "project-a", name: "A", instructions: "A instructions" },
+    viewGeneration: 3,
+  });
+  const stableScopeA = captureLoadedProjectScope(projectState, 7);
+  const stablePreparation = await prepareCurrentProjectScope(projectState, 7, stableScopeA, async (project) => (
+    { metadata: { project_id: project.id }, evidence: project.instructions }
+  ));
+  const stableSubmission = submitPreparedProject(stablePreparation);
+  assert.deepEqual(stableSubmission, {
+    metadata: { project_id: "project-a" },
+    evidence: "A instructions",
+  });
+  assert.equal(fetchCalls, 1, "only the stable A scope may reach the model submission boundary");
+});
+
 test("a deferred first open yields before a newer open issues its request", async () => {
   const {
     beginHistoryViewAction,
@@ -229,8 +334,10 @@ test("chat renders a disabled real scanned-PDF project action and New Chat clear
   const saveStart = source.indexOf("async function saveConversation");
   const saveEnd = source.indexOf("function scheduleConversationSave", saveStart);
   const save = source.slice(saveStart, saveEnd);
-  assert.match(save, /async function saveConversation\(expectedAction = null\)/);
+  assert.match(save, /async function saveConversation\(expectedAction = captureHistoryViewAction\(historyState\)\)/);
   assert.match(save, /applySavedConversationResult\(historyState, expectedAction,/);
+  assert.match(save, /historyState\.saveQueued = expectedAction/);
+  assert.match(source, /saveConversation\(action\)/);
   const openStart = source.indexOf("async function openStoredConversation");
   const openEnd = source.indexOf("async function deleteStoredConversation", openStart);
   const open = source.slice(openStart, openEnd);
@@ -244,5 +351,15 @@ test("chat renders a disabled real scanned-PDF project action and New Chat clear
   assert.match(source, /const active = loadedActiveProject\(projectState\)/);
   assert.match(source, /beginScannedPdfUpload\(scannedPdfHandoff, loadedActiveProject\(projectState\)\)/);
   assert.match(source, /if \(loadedActiveProject\(projectState\)\) els\.projectDocuments\.click\(\);/);
+  assert.match(source, /captureLoadedProjectScope\(projectState, historyState\.viewGeneration\)/);
+  assert.match(source, /const sendViewAction = captureHistoryViewAction\(historyState\)/);
+  assert.match(source, /projectScopeIsCurrent\(projectState, historyState\.viewGeneration, projectScope\)/);
+  assert.match(source, /prepareCurrentProjectScope\(projectState, historyState\.viewGeneration, projectScope,/);
+  assert.match(source, /buildPayload\(chatUserId, projectContext, route, projectScope\)/);
+  const sendStart = source.indexOf("async function sendMessage");
+  const sendEnd = source.indexOf("function imageSettings", sendStart);
+  const send = source.slice(sendStart, sendEnd);
+  assert.ok(send.indexOf("!preparedProject.current") < send.indexOf("requestChatStream(payload"), "A stale project scope must stop before the model stream request.");
+  assert.match(send, /if \(!route\.project \|\| sendViewIsCurrent\(\)\)/, "A superseded project retry must not be appended into a newer conversation.");
   assert.match(source, /pagehide/);
 });

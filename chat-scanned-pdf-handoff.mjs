@@ -117,8 +117,15 @@ export function historyViewActionIsCurrent(state, action) {
   );
 }
 
+export function captureHistoryViewAction(state) {
+  return {
+    actionToken: Number(state?.historyActionToken || 0),
+    viewGeneration: Number(state?.viewGeneration || 0),
+  };
+}
+
 export function applySavedConversationResult(state, expectedAction, conversation, version) {
-  if (expectedAction && !historyViewActionIsCurrent(state, expectedAction)) {
+  if (!expectedAction || !historyViewActionIsCurrent(state, expectedAction)) {
     return { state, applied: false };
   }
   return {
@@ -135,4 +142,30 @@ export function loadedActiveProject(projectState) {
   const active = projectState?.active;
   if (!active?.id || String(projectState?.activeId || "") !== String(active.id)) return null;
   return active;
+}
+
+export function captureLoadedProjectScope(projectState, conversationGeneration) {
+  const project = loadedActiveProject(projectState);
+  if (!project) return null;
+  return {
+    project,
+    view: captureProjectView(projectState, conversationGeneration, project.id),
+  };
+}
+
+export function projectScopeIsCurrent(projectState, conversationGeneration, scope) {
+  return Boolean(
+    scope?.project?.id
+    && projectViewIsCurrent(projectState, conversationGeneration, scope.view)
+  );
+}
+
+export async function prepareCurrentProjectScope(projectState, conversationGeneration, scope, prepare) {
+  if (!projectScopeIsCurrent(projectState, conversationGeneration, scope)) {
+    return { current: false, value: null };
+  }
+  const value = await prepare(scope.project);
+  return projectScopeIsCurrent(projectState, conversationGeneration, scope)
+    ? { current: true, value }
+    : { current: false, value: null };
 }
