@@ -10,8 +10,14 @@ import {
   contextPayloadParts,
   DEFAULT_CONTEXT_WINDOW,
   generationControlState,
+  projectFileAccepted,
+  projectFileProcessingState,
+  projectHistoryMetadata,
+  projectJobPresentation,
+  projectMediaForChat,
   projectContextPassages,
   projectRetrievalOptions,
+  projectUploadAnalysisMode,
   reasoningCapacity,
   webContextSources,
   withOptionalGenerationLimit,
@@ -126,6 +132,7 @@ const els = {
   projectDelete: $("#chatProjectDelete"),
   projectUpload: $("#chatProjectUpload"),
   projectDocuments: $("#chatProjectDocuments"),
+  projectAnalysisMode: $("#chatProjectAnalysisMode"),
   projectDocumentList: $("#chatProjectDocumentList"),
   projectDocumentCount: $("#chatProjectDocumentCount"),
   projectStatus: $("#chatProjectStatus"),
@@ -1392,14 +1399,20 @@ async function historyRequest(path = "", options = {}) {
 function jobStatusLabel(status) {
   if (status === "completed") return "Complete";
   if (status === "failed") return "Failed";
+  if (status === "queued") return "Queued";
+  if (status === "processing" || status === "running") return "Processing";
   if (status === "submitting") return "Submitting";
   return "Running";
+}
+
+function backgroundJobIsActive(job) {
+  return ["submitting", "queued_or_running", "queued", "running", "processing"].includes(job?.status);
 }
 
 function renderBackgroundJobs() {
   if (!els.jobsList) return;
   const jobs = jobState.jobs;
-  const activeCount = jobs.filter((job) => ["submitting", "queued_or_running"].includes(job.status)).length;
+  const activeCount = jobs.filter(backgroundJobIsActive).length;
   if (els.jobsBadge) {
     els.jobsBadge.textContent = String(activeCount);
     els.jobsBadge.hidden = activeCount === 0;
@@ -1411,8 +1424,8 @@ function renderBackgroundJobs() {
       : !jobState.available
         ? "Background jobs are unavailable. Image tools still work in this tab."
         : activeCount
-          ? `${activeCount} image job${activeCount === 1 ? "" : "s"} running`
-          : jobs.length ? "All image jobs are complete" : "No background jobs yet";
+          ? `${activeCount} background job${activeCount === 1 ? "" : "s"} active`
+          : jobs.length ? "All background jobs are complete" : "No background jobs yet";
     els.jobsStatus.dataset.state = !jobState.available && !jobState.loading ? "bad" : activeCount ? "busy" : "good";
   }
   if (jobState.loading) {
@@ -1420,26 +1433,34 @@ function renderBackgroundJobs() {
     return;
   }
   if (!jobState.available || !jobs.length) {
-    els.jobsList.innerHTML = `<p class="chat-jobs-empty">${jobState.available ? "Long-running image work will appear here." : "The current image routes remain available."}</p>`;
+    els.jobsList.innerHTML = `<p class="chat-jobs-empty">${jobState.available ? "Long-running private work will appear here." : "The current image routes remain available."}</p>`;
     return;
   }
   els.jobsList.innerHTML = jobs.map((job) => {
+    const visual = job.kind === "project_visual_analysis";
+    const visualPresentation = visual ? projectJobPresentation(job) : null;
     const output = Array.isArray(job.outputs) ? job.outputs[0] : null;
     const outputUrl = output?.url ? absoluteImageUrl(output.url) : "";
-    const isActive = ["submitting", "queued_or_running"].includes(job.status);
+    const isActive = backgroundJobIsActive(job);
     const isComplete = job.status === "completed" && outputUrl;
-    const title = job.title || job.prompt || "Image job";
+    const title = visualPresentation?.label || job.title || job.prompt || "Background job";
+    const status = visualPresentation?.status || job.status;
+    const statusLabel = visualPresentation?.statusLabel || jobStatusLabel(job.status);
     const sample = Number(job.sample_total || 1) > 1 ? ` / sample ${job.sample_index} of ${job.sample_total}` : "";
+    const visualDetails = visualPresentation
+      ? `${formatNumber(job.page_count || 0)} page${Number(job.page_count || 0) === 1 ? "" : "s"} / ${visualPresentation.progress}%`
+      : `${escapeHtml(job.kind || "image")}${escapeHtml(sample)} / ${escapeHtml(historyTimeLabel(job.updated_at))}`;
     return `
       <article class="chat-job-item" data-job-id="${escapeHtml(job.id)}">
         ${isComplete ? `<img class="chat-job-thumbnail" src="${escapeHtml(outputUrl)}" alt="" loading="lazy" />` : `<div class="chat-job-placeholder${isActive ? " is-running" : ""}" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4Z" /><path d="m4 16 5-5 4 4 3-3 4 4" /></svg></div>`}
         <div class="chat-job-copy">
           <div class="chat-job-heading">
             <strong>${escapeHtml(title)}</strong>
-            <span data-state="${escapeHtml(job.status)}">${escapeHtml(jobStatusLabel(job.status))}</span>
+            <span data-state="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
           </div>
-          <small>${escapeHtml(job.kind || "image")}${escapeHtml(sample)} / ${escapeHtml(historyTimeLabel(job.updated_at))}</small>
-          ${job.error ? `<p>${escapeHtml(job.error)}</p>` : ""}
+          <small>${visualDetails}</small>
+          ${visualPresentation && isActive ? `<progress class="chat-job-progress" value="${visualPresentation.progress}" max="100" aria-label="Visual analysis progress ${visualPresentation.progress}%"></progress>` : ""}
+          ${job.error ? `<p>${escapeHtml(visualPresentation ? "Visual analysis needs attention. Retry from Project files." : job.error)}</p>` : ""}
           <div class="chat-job-actions">
             ${isComplete ? `
               <button class="chat-secondary-button" type="button" data-job-add="${escapeHtml(job.id)}">
@@ -1502,7 +1523,7 @@ function upsertBackgroundJob(job) {
 function scheduleActiveJobRefresh() {
   if (jobState.refreshTimer) clearTimeout(jobState.refreshTimer);
   jobState.refreshTimer = null;
-  if (!jobState.available || !jobState.jobs.some((job) => ["submitting", "queued_or_running"].includes(job.status))) return;
+  if (!jobState.available || !jobState.jobs.some(backgroundJobIsActive)) return;
   jobState.refreshTimer = setTimeout(() => refreshActiveJobs(), JOB_REFRESH_INTERVAL_MS);
 }
 
@@ -1511,7 +1532,7 @@ async function refreshActiveJobs({ immediate = false } = {}) {
   if (jobState.refreshTimer) clearTimeout(jobState.refreshTimer);
   jobState.refreshTimer = null;
   if (!immediate) await new Promise((resolve) => setTimeout(resolve, 0));
-  const active = jobState.jobs.filter((job) => ["submitting", "queued_or_running"].includes(job.status)).slice(0, 4);
+  const active = jobState.jobs.filter(backgroundJobIsActive).slice(0, 4);
   if (!active.length) {
     renderBackgroundJobs();
     return;
@@ -1635,26 +1656,35 @@ function renderProjectDocuments() {
   const documents = projectState.documents;
   els.projectDocumentCount.textContent = String(documents.length);
   if (!documents.length) {
-    els.projectDocumentList.innerHTML = '<p class="chat-project-empty">No reusable documents yet.</p>';
+    els.projectDocumentList.innerHTML = '<p class="chat-project-empty">No reusable project files yet.</p>';
     return;
   }
-  els.projectDocumentList.innerHTML = documents.map((document) => `
+  els.projectDocumentList.innerHTML = documents.map((document) => {
+    const processing = projectFileProcessingState(document);
+    const visual = document.media_class === "image" || document.extension === "pdf";
+    return `
     <div class="chat-project-document">
       <div class="chat-project-document-icon" aria-hidden="true">${escapeHtml((document.extension || "file").slice(0, 4).toUpperCase())}</div>
       <div class="chat-project-document-copy">
         <strong title="${escapeHtml(document.name)}">${escapeHtml(document.name)}</strong>
         <small>${formatProjectBytes(document.original_bytes)} / ${formatNumber(document.estimated_token_count || 0)} tokens / ${formatNumber(document.chunk_count || 0)} passages</small>
+        ${visual ? `
+          <span class="chat-project-processing" data-state="${escapeHtml(processing.status)}">${escapeHtml(processing.label)}${processing.status === "processing" || processing.status === "queued" ? ` / ${processing.progress}%` : ""}</span>
+          <progress class="chat-project-progress" value="${processing.progress}" max="100" aria-label="${escapeHtml(processing.label)} ${processing.progress}%"></progress>
+        ` : ""}
       </div>
       <div class="chat-project-document-actions">
-        <button type="button" data-project-document-download="${escapeHtml(document.id)}" title="Download document" aria-label="Download ${escapeHtml(document.name)}">
+        <button type="button" data-project-document-download="${escapeHtml(document.id)}" title="Download project file" aria-label="Download ${escapeHtml(document.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
         </button>
+        ${visual && processing.status === "failed" ? `<button type="button" data-project-document-retry="${escapeHtml(document.id)}" title="Retry visual analysis" aria-label="Retry visual analysis for ${escapeHtml(document.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg></button>` : ""}
         <button type="button" data-project-document-delete="${escapeHtml(document.id)}" title="Delete document" aria-label="Delete ${escapeHtml(document.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></svg>
         </button>
       </div>
     </div>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function renderProjectState() {
@@ -1672,9 +1702,10 @@ function renderProjectState() {
   els.projectSave.disabled = !active || !projectState.available || projectState.busy;
   els.projectDelete.disabled = !active || !projectState.available || projectState.busy;
   els.projectUpload.disabled = !active || !projectState.available || projectState.busy;
+  els.projectAnalysisMode.disabled = !active || !projectState.available || projectState.busy;
   els.projectCreate.disabled = !projectState.available || projectState.busy;
   els.attachProjectDocument.hidden = !active || !projectState.available;
-  if (active) els.attachProjectHint.textContent = `Save for reuse in ${active.name}`;
+  if (active) els.attachProjectHint.textContent = `Add to project for visual analysis in ${active.name}`;
   renderProjectDocuments();
 }
 
@@ -1708,7 +1739,7 @@ async function setActiveProject(id, { quiet = false } = {}) {
       { ...projectState.projects.find((item) => item.id === project.id), ...project },
       ...projectState.projects.filter((item) => item.id !== project.id),
     ].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
-    setProjectStatus(`${project.name} / ${projectState.documents.length} document${projectState.documents.length === 1 ? "" : "s"}`, "good");
+    setProjectStatus(`${project.name} / ${projectState.documents.length} project file${projectState.documents.length === 1 ? "" : "s"}`, "good");
     if (!quiet) scheduleConversationSave(0);
   } catch (error) {
     projectState.activeId = null;
@@ -1736,7 +1767,7 @@ async function loadProjects() {
       projectState.documents = [];
       projectState.etag = null;
     }
-    setProjectStatus(projectState.projects.length ? "Choose a project or continue without one" : "Create a project for reusable documents", "good");
+    setProjectStatus(projectState.projects.length ? "Choose a project or continue without one" : "Create a project for reusable project files", "good");
   } catch (error) {
     projectState.available = false;
     projectState.projects = [];
@@ -1806,7 +1837,7 @@ async function saveProjectDetails() {
 
 async function deleteActiveProject() {
   const project = projectState.active;
-  if (!project || !window.confirm(`Delete "${project.name}" and all its stored documents? This cannot be undone.`)) return;
+  if (!project || !window.confirm(`Delete "${project.name}" and all its stored project files? This cannot be undone.`)) return;
   projectState.busy = true;
   renderProjectState();
   setProjectStatus("Deleting project...", "neutral");
@@ -1832,17 +1863,20 @@ async function uploadProjectDocuments(files) {
   projectState.busy = true;
   renderProjectState();
   try {
+    const analysisMode = projectUploadAnalysisMode(els.projectAnalysisMode.value);
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
+      if (!projectFileAccepted(file.name)) throw new Error(`${file.name} is not a supported project file.`);
       if (file.size > PROJECT_MAX_FILE_BYTES) throw new Error(`${file.name} is larger than the 30 MB project limit.`);
-      setProjectStatus(`Indexing ${file.name} (${index + 1} of ${files.length})...`, "neutral");
+      setProjectStatus(`Adding ${file.name} (${index + 1} of ${files.length}) to the project...`, "neutral");
       const form = new FormData();
       form.append("file", file, file.name);
+      form.append("analysis_mode", analysisMode);
       await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents`, { method: "POST", body: form });
     }
     projectState.busy = false;
     await setActiveProject(projectState.active.id, { quiet: true });
-    setProjectStatus(`${files.length} document${files.length === 1 ? "" : "s"} added to ${projectState.active.name}`, "good");
+    setProjectStatus(`${files.length} project file${files.length === 1 ? "" : "s"} added to ${projectState.active.name}`, "good");
   } catch (error) {
     setProjectStatus(error.message, "bad");
   } finally {
@@ -1887,6 +1921,28 @@ async function deleteProjectDocument(documentId) {
     projectState.busy = false;
     await setActiveProject(projectState.active.id, { quiet: true });
     setProjectStatus(`${document.name} deleted`, "good");
+  } catch (error) {
+    setProjectStatus(error.message, "bad");
+  } finally {
+    projectState.busy = false;
+    renderProjectState();
+  }
+}
+
+async function retryProjectVisualAnalysis(documentId) {
+  const document = projectState.documents.find((item) => item.id === documentId);
+  if (!document || !projectState.active) return;
+  projectState.busy = true;
+  renderProjectState();
+  setProjectStatus(`Retrying visual analysis for ${document.name}...`, "neutral");
+  try {
+    await projectRequest(`/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
+    projectState.busy = false;
+    await Promise.all([
+      setActiveProject(projectState.active.id, { quiet: true }),
+      loadBackgroundJobs(),
+    ]);
+    setProjectStatus(`Visual analysis queued for ${document.name}`, "good");
   } catch (error) {
     setProjectStatus(error.message, "bad");
   } finally {
@@ -2389,6 +2445,9 @@ async function extractDocument(file) {
     throw new Error("Unsupported file type. Use PDF, DOCX, TXT, Markdown, CSV, JSON, HTML, XML, YAML, code, log, or RTF files.");
   }
   const normalized = normalizeDocumentText(text);
+  if (!normalized && (extension === "pdf" || file.type === "application/pdf")) {
+    throw new Error("Add to project for visual analysis. Quick document attachments use extracted text only.");
+  }
   if (!normalized) throw new Error("No readable text was found in this file.");
   return {
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -2839,18 +2898,8 @@ async function retrieveActiveProjectContext(query) {
   return {
     trustedSystem: contextParts.trustedSystem,
     evidenceMessages: contextParts.evidenceMessages,
-    metadata: {
-      project_id: retrieval.project.id,
-      project_name: retrieval.project.name,
-      passages: retrieval.passages.map((passage) => ({
-        citation: passage.citation,
-        document_id: passage.document_id,
-        document_name: passage.document_name,
-        page: passage.page,
-        section: passage.section,
-        lines: passage.lines,
-      })),
-    },
+    projectMedia: projectMediaForChat(retrieval),
+    metadata: projectHistoryMetadata(retrieval),
   };
 }
 
@@ -2863,6 +2912,8 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
   ];
   const contextWindow = getModelContextWindow();
   const history = await Promise.all(chatHistoryForPayload().map((message) => chatPayloadMessage(message, route.enableThinking)));
+  const projectMedia = Array.isArray(projectContext?.projectMedia) ? [...projectContext.projectMedia] : [];
+  if (projectContext) projectContext.projectMedia = [];
 
   const payload = {
     model: els.model.value,
@@ -2892,6 +2943,7 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
       context_window: contextWindow,
       history_truncated: false,
     },
+    ...(projectMedia.length ? { project_media: projectMedia } : {}),
   };
   return withOptionalGenerationLimit(payload, els.maxTokens.value, contextWindow);
 }
@@ -3092,15 +3144,27 @@ async function sendMessage(content, route = routeRequest(content)) {
       setStatus("Gathering web context...", "busy");
     }
 
-    const res = await fetch(`${API_BASE}/api/chat/stream`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-token-gen-user": chatUserId,
-        "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
-      },
-      body: JSON.stringify(await buildPayload(chatUserId, projectContext, route)),
-    });
+    const payload = await buildPayload(chatUserId, projectContext, route);
+    let requestBody = "";
+    try {
+      requestBody = JSON.stringify(payload);
+    } finally {
+      delete payload.project_media;
+    }
+    let res;
+    try {
+      res = await fetch(`${API_BASE}/api/chat/stream`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-token-gen-user": chatUserId,
+          "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
+        },
+        body: requestBody,
+      });
+    } finally {
+      requestBody = "";
+    }
     if (!res.ok || !res.body) {
       const text = await res.text();
       let errorPayload = text;
@@ -3929,6 +3993,11 @@ els.projectDocumentList.addEventListener("click", (event) => {
   const download = event.target.closest("[data-project-document-download]");
   if (download) {
     downloadProjectDocument(download.dataset.projectDocumentDownload);
+    return;
+  }
+  const retry = event.target.closest("[data-project-document-retry]");
+  if (retry) {
+    retryProjectVisualAnalysis(retry.dataset.projectDocumentRetry);
     return;
   }
   const remove = event.target.closest("[data-project-document-delete]");

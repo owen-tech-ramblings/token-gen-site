@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-multimodal-order-20260815-1" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-visual-projects-20260815-1" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -140,7 +140,7 @@
                   </button>
                   <button type="button" id="chatAttachProjectDocument" hidden>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><path d="M12 12v6M9 15h6" /></svg>
-                    <span><strong>Project document</strong><small id="chatAttachProjectHint">Save for reuse in the active project</small></span>
+                    <span><strong>Project file</strong><small id="chatAttachProjectHint">Add to project for visual analysis</small></span>
                   </button>
                   <button type="button" id="chatAttachImage">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m21 15-5-5L5 21" /></svg>
@@ -261,7 +261,7 @@
         <section class="chat-settings-section" id="chatProjectSettings" aria-label="Project library settings">
           <div class="chat-settings-title">
             <span>Projects</span>
-            <small>Keep reusable documents together and retrieve only the passages relevant to each question.</small>
+            <small>Keep reusable project files together and retrieve only the passages relevant to each question.</small>
           </div>
           <div class="chat-project-create">
             <label class="chat-field" for="chatProjectCreateName">
@@ -290,16 +290,23 @@
               <button class="chat-secondary-button chat-danger-button" id="chatProjectDelete" type="button">Delete project</button>
             </div>
             <div class="chat-project-library-head">
-              <span>Reusable documents</span>
+              <span>Reusable project files</span>
               <span id="chatProjectDocumentCount">0</span>
             </div>
             <div class="chat-project-document-list" id="chatProjectDocumentList"></div>
+            <label class="chat-field" for="chatProjectAnalysisMode">
+              <span>Visual analysis</span>
+              <select id="chatProjectAnalysisMode">
+                <option value="auto" selected>Automatic for scanned and visual pages</option>
+                <option value="visual">Every PDF page</option>
+              </select>
+            </label>
             <button class="chat-secondary-button chat-project-upload" id="chatProjectUpload" type="button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
-              Add to project
+              Add to project for visual analysis
             </button>
           </div>
-          <p class="chat-privacy-note" id="chatProjectStatus">Project documents are encrypted before secure NAS storage and stay private to your account.</p>
+          <p class="chat-privacy-note" id="chatProjectStatus">Project files are encrypted before secure NAS storage and stay private to your account.</p>
         </section>
 
         <section class="chat-settings-section chat-image-panel" aria-label="Image settings">
@@ -505,11 +512,11 @@ Keep responses clear and useful. Match detail to the request, use plain language
     </aside>
 
     <div class="chat-drawer-backdrop" id="chatJobsBackdrop" hidden></div>
-    <aside class="chat-settings-drawer chat-jobs-drawer" id="chatJobsDrawer" aria-label="Background image jobs" aria-hidden="true">
+    <aside class="chat-settings-drawer chat-jobs-drawer" id="chatJobsDrawer" aria-label="Background jobs" aria-hidden="true">
       <header class="chat-drawer-head">
         <div>
           <strong>Background jobs</strong>
-          <small>Image queue and results</small>
+          <small>Private queue and results</small>
         </div>
         <div class="chat-drawer-actions">
           <button class="chat-icon-button" id="chatJobsRefresh" type="button" title="Refresh jobs" aria-label="Refresh background jobs">
@@ -584,11 +591,11 @@ Keep responses clear and useful. Match detail to the request, use plain language
     </section>
 
     <input class="chat-file-input" id="chatDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.pdf,.docx,.rtf,.js,.ts,.tsx,.jsx,.py,.ps1,.sh,.sql,.css" />
-    <input class="chat-file-input" id="chatProjectDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.rtf,.pdf,.docx,.xlsx,.pptx,.py,.js,.jsx,.ts,.tsx,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.sh,.bash,.zsh,.sql,.css,.scss,.toml,.ini,.cfg" />
+    <input class="chat-file-input" id="chatProjectDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.rtf,.pdf,.docx,.xlsx,.pptx,.py,.js,.jsx,.ts,.tsx,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.sh,.bash,.zsh,.sql,.css,.scss,.toml,.ini,.cfg,.png,.jpg,.jpeg,.webp" />
     <input class="chat-file-input" id="chatVisionImages" type="file" multiple accept="image/png,image/jpeg,image/webp" />
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-multimodal-order-20260815-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-visual-projects-20260815-1"></script>
   </body>
 </html>

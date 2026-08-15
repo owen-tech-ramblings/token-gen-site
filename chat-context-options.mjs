@@ -3,6 +3,13 @@ export const QWEN_MAX_THINKING_TOKENS = 262144;
 export const QWEN_MAX_VISIBLE_ANSWER_TOKENS = 131072;
 export const QWEN_DEFAULT_COMBINED_COMPLETION_TOKENS = 393216;
 
+const PROJECT_FILE_EXTENSIONS = new Set([
+  "txt", "md", "markdown", "csv", "json", "jsonl", "html", "htm", "xml", "yaml", "yml", "log",
+  "rtf", "pdf", "docx", "xlsx", "pptx", "py", "js", "jsx", "ts", "tsx", "java", "c", "h", "cpp",
+  "hpp", "cs", "go", "rs", "rb", "php", "sh", "bash", "zsh", "sql", "css", "scss", "toml", "ini",
+  "cfg", "png", "jpg", "jpeg", "webp",
+]);
+
 function positiveNumber(value, fallback) {
   const numeric = Number(value);
   return Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
@@ -52,6 +59,85 @@ export function projectRetrievalOptions(documentBudgetTokens) {
 
 export function projectContextPassages(context) {
   return Array.isArray(context?.passages) ? context.passages : [];
+}
+
+export function projectFileAccepted(filename) {
+  const extension = String(filename || "").split(".").pop()?.toLowerCase() || "";
+  return PROJECT_FILE_EXTENSIONS.has(extension);
+}
+
+export function projectUploadAnalysisMode(value) {
+  return value === "visual" ? "visual" : "auto";
+}
+
+function boundedProgress(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, Math.min(100, Math.trunc(numeric))) : fallback;
+}
+
+export function projectFileProcessingState(document = {}) {
+  const status = String(document.processing_status || "ready");
+  if (status === "queued") {
+    return { status, label: "Queued for visual analysis", progress: boundedProgress(document.processing_progress, 0) };
+  }
+  if (status === "processing") {
+    return { status, label: "Visual analysis in progress", progress: boundedProgress(document.processing_progress, 0) };
+  }
+  if (status === "ready_with_warnings") {
+    return { status, label: "Ready with warnings", progress: 100 };
+  }
+  if (status === "failed") {
+    return { status, label: "Visual analysis failed", progress: boundedProgress(document.processing_progress, 100) };
+  }
+  return { status: "ready", label: "Ready", progress: 100 };
+}
+
+export function projectJobPresentation(job = {}) {
+  const requestedStatus = String(job.status || "queued");
+  const status = ["queued", "processing", "completed", "failed"].includes(requestedStatus)
+    ? requestedStatus
+    : "queued";
+  const statusLabel = {
+    queued: "Queued",
+    processing: "Processing",
+    completed: "Complete",
+    failed: "Failed",
+  }[status] || "Processing";
+  return {
+    label: "Project visual analysis",
+    status,
+    statusLabel,
+    progress: boundedProgress(job.processing_progress, 0),
+  };
+}
+
+export function projectMediaForChat(context) {
+  const evidence = Array.isArray(context?.visual_evidence) ? context.visual_evidence : [];
+  return evidence.slice(0, 4).flatMap((item) => {
+    const reference = typeof item?.reference === "string" ? item.reference : "";
+    if (!reference) return [];
+    return [{
+      type: "image",
+      reference,
+      label: typeof item.label === "string" && item.label.trim() ? item.label.trim() : "Project visual evidence",
+    }];
+  });
+}
+
+export function projectHistoryMetadata(context = {}) {
+  const project = context?.project || {};
+  return {
+    project_id: project.id,
+    project_name: project.name,
+    passages: projectContextPassages(context).map((passage) => ({
+      citation: passage.citation,
+      document_id: passage.document_id,
+      document_name: passage.document_name,
+      page: passage.page,
+      section: passage.section,
+      lines: passage.lines,
+    })),
+  };
 }
 
 export function contextPayloadParts(documents = [], projectContext = null) {

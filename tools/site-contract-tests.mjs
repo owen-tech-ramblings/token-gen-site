@@ -143,8 +143,8 @@ assert.match(chatHtml, /value="adult_ok"/, "Chat image content rating must use t
 assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include the API flexible value.");
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-multimodal-order-20260815-1/, "Chat HTML must cache-bust multi-image controls.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-multimodal-order-20260815-1/, "Chat HTML must cache-bust multi-image controls.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
@@ -214,6 +214,29 @@ assert.match(chatHtml, /id="chatProjectSelect"/, "Chat must expose a compact act
 assert.match(chatHtml, /id="chatProjectSettings"/, "Chat must expose structured project management in Settings.");
 assert.match(chatHtml, /id="chatAttachProjectDocument"/, "The existing attachment menu must support explicit reusable project uploads.");
 assert.match(chatHtml, /id="chatProjectDocuments"[^>]+multiple/, "Project uploads must support multiple documents without replacing quick chat attachments.");
+assert.match(chatHtml, /id="chatProjectDocuments"[^>]+\.pdf[^>]+\.png[^>]+\.jpe?g[^>]+\.webp/, "Project files must accept PNG, JPEG, WebP, PDF, and legacy project formats.");
+assert.match(chatHtml, /id="chatProjectAnalysisMode"/, "Project uploads must expose an explicit analysis mode control.");
+assert.match(chatHtml, /value="auto"[^>]*>Automatic for scanned and visual pages/, "Project uploads must retain automatic visual analysis.");
+assert.match(chatHtml, /value="visual"[^>]*>Every PDF page/, "Project uploads must support explicit every-page visual analysis.");
+assert.match(chatHtml, /Project files are encrypted/, "Project UI must call stored resources project files.");
+assert.doesNotMatch(chatHtml, /Project documents/, "Project UI must not retain the former Project documents wording.");
+assert.match(chatJs, /form\.append\("analysis_mode", analysisMode\)/, "Project uploads must submit the selected analysis mode.");
+assert.match(chatJs, /Add to project for visual analysis\. Quick document attachments use extracted text only\./, "A scanned quick PDF must offer project visual analysis instead of claiming OCR.");
+assert.match(chatJs, /projectFileProcessingState\(document\)/, "Project file rows must render safe visual processing states.");
+assert.match(chatJs, /data-project-document-retry/, "Failed visual project files must expose an explicit retry action.");
+assert.match(chatJs, /projectJobPresentation\(job\)/, "Visual project jobs must use a generic safe presentation.");
+assert.match(chatJs, /background job\$\{activeCount === 1 \? "" : "s"\} active/, "The jobs drawer must support non-image background work.");
+assert.match(chatJs, /projectMediaForChat\(retrieval\)/, "Only the current retrieval may shape visual project media.");
+assert.match(chatJs, /project_media: projectMedia/, "Visual references must be sent only in the top-level chat project_media field.");
+assert.match(chatJs, /if \(projectContext\) projectContext\.projectMedia = \[\];/, "Visual references must be cleared after payload construction.");
+assert.match(chatJs, /delete payload\.project_media;/, "Visual references must be removed from the in-memory payload after request serialization.");
+assert.doesNotMatch(chatJs, /data-[^"'`]*(?:reference|project-media)/, "Opaque visual references must never be placed in DOM data attributes.");
+assert.match(chatContextOptionsJs, /function projectHistoryMetadata/, "Project history must use a dedicated safe metadata mapper.");
+const projectHistoryMetadataSource = chatContextOptionsJs.slice(
+  chatContextOptionsJs.indexOf("export function projectHistoryMetadata"),
+  chatContextOptionsJs.indexOf("export function apiErrorMessage"),
+);
+assert.doesNotMatch(projectHistoryMetadataSource, /reference|visual_evidence|project_media/, "Saved project metadata must exclude opaque visual references.");
 assert.match(chatJs, /HISTORY_API_PATH\s*=\s*"\/api\/private\/conversations"/, "History must use the same-origin Access bridge.");
 assert.match(chatJs, /PROJECTS_API_PATH\s*=\s*"\/api\/private\/projects"/, "Projects must use the same-origin Access bridge.");
 assert.match(chatJs, /JOBS_API_PATH\s*=\s*"\/api\/private\/jobs"/, "Jobs must use the same-origin Access bridge.");

@@ -114,3 +114,83 @@ test("all forty-eight returned project passages remain available", async () => {
   }));
   assert.deepEqual(projectContextPassages({ passages }), passages);
 });
+
+test("project file picker accepts visual and legacy project files", async () => {
+  const { projectFileAccepted } = await loadContextOptions();
+  for (const filename of ["scan.pdf", "chart.PNG", "photo.jpeg", "diagram.webp", "notes.md", "budget.xlsx"]) {
+    assert.equal(projectFileAccepted(filename), true, `${filename} should be accepted for a project`);
+  }
+  assert.equal(projectFileAccepted("archive.exe"), false);
+});
+
+test("project upload analysis mode is explicitly auto or visual", async () => {
+  const { projectUploadAnalysisMode } = await loadContextOptions();
+  assert.equal(projectUploadAnalysisMode("auto"), "auto");
+  assert.equal(projectUploadAnalysisMode("visual"), "visual");
+  assert.equal(projectUploadAnalysisMode("every-page"), "auto");
+});
+
+test("project processing states use safe labels and bounded numeric progress", async () => {
+  const { projectFileProcessingState } = await loadContextOptions();
+  assert.deepEqual(projectFileProcessingState({ processing_status: "queued", processing_progress: "not a number" }), {
+    status: "queued", label: "Queued for visual analysis", progress: 0,
+  });
+  assert.deepEqual(projectFileProcessingState({ processing_status: "processing", processing_progress: 47.8 }), {
+    status: "processing", label: "Visual analysis in progress", progress: 47,
+  });
+  assert.deepEqual(projectFileProcessingState({ processing_status: "ready", processing_progress: -1 }), {
+    status: "ready", label: "Ready", progress: 100,
+  });
+  assert.deepEqual(projectFileProcessingState({ processing_status: "ready_with_warnings", processing_progress: 500 }), {
+    status: "ready_with_warnings", label: "Ready with warnings", progress: 100,
+  });
+  assert.deepEqual(projectFileProcessingState({ processing_status: "failed", processing_progress: 101 }), {
+    status: "failed", label: "Visual analysis failed", progress: 100,
+  });
+});
+
+test("project visual jobs use generic labels and safe progress", async () => {
+  const { projectJobPresentation } = await loadContextOptions();
+  assert.deepEqual(projectJobPresentation({
+    kind: "project_visual_analysis",
+    status: "processing",
+    processing_progress: "unsafe",
+    title: "private source name",
+  }), {
+    label: "Project visual analysis",
+    status: "processing",
+    statusLabel: "Processing",
+    progress: 0,
+  });
+  assert.equal(projectJobPresentation({ status: "private_job_state" }).status, "queued");
+});
+
+test("only current visual evidence becomes top-level project media", async () => {
+  const { projectMediaForChat } = await loadContextOptions();
+  const result = projectMediaForChat({
+    visual_evidence: [
+      { reference: "opaque-1", label: "Chart.pdf — page 2" },
+      { reference: "opaque-2", label: "Chart.pdf — page 3" },
+      { reference: "", label: "Missing" },
+    ],
+  });
+  assert.deepEqual(result, [
+    { type: "image", reference: "opaque-1", label: "Chart.pdf — page 2" },
+    { type: "image", reference: "opaque-2", label: "Chart.pdf — page 3" },
+  ]);
+});
+
+test("saved project metadata excludes opaque visual references", async () => {
+  const { projectHistoryMetadata } = await loadContextOptions();
+  const metadata = projectHistoryMetadata({
+    project: { id: "project-1", name: "Atlas" },
+    passages: [{ citation: "[Project 1]", document_id: "file-1", document_name: "Chart.pdf", page: 2 }],
+    visual_evidence: [{ reference: "opaque-token", label: "Chart.pdf — page 2" }],
+  });
+  assert.deepEqual(metadata, {
+    project_id: "project-1",
+    project_name: "Atlas",
+    passages: [{ citation: "[Project 1]", document_id: "file-1", document_name: "Chart.pdf", page: 2, section: undefined, lines: undefined }],
+  });
+  assert.doesNotMatch(JSON.stringify(metadata), /opaque-token/);
+});
