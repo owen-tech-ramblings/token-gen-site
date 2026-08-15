@@ -8,7 +8,6 @@ export function createScannedPdfHandoffState() {
 }
 
 export function stageScannedPdf(state, file, id) {
-  if (state?.activeAction) return state;
   const pending = createPendingScannedPdf(file, id);
   return pending ? { ...state, pending } : state;
 }
@@ -24,7 +23,7 @@ export function scannedPdfProjectAction(state, project) {
   return {
     kind: "upload",
     files: [state.pending.file],
-    pendingId: state.pending.id,
+    pending: state.pending,
     projectId: String(project.id),
   };
 }
@@ -41,7 +40,7 @@ export function beginScannedPdfUpload(state, project) {
 
 export function finishScannedPdfUpload(state, action, succeeded, destinationIsCurrent) {
   if (action?.kind !== "upload" || state?.activeAction?.token !== action.token) return state;
-  const clear = succeeded && destinationIsCurrent && state.pending?.id === action.pendingId;
+  const clear = succeeded && destinationIsCurrent && state.pending === action.pending;
   return { ...state, activeAction: null, pending: clear ? null : state.pending };
 }
 

@@ -5,13 +5,14 @@ Last updated: 2026-08-16 Australia/Sydney
 ## 2026-08-16 Cycle 4A Task 6 final-audit recovery
 
 The scanned-PDF project handoff now has an executable, page-memory-only,
-action-owned state machine. It captures the exact pending file ID and project
-ID, disables both actions while one upload is active, prevents a double click
-from posting twice, and refuses a replacement scan until that action finishes.
-A changed project retains the file for a later explicit action, while New Chat
-clears the pending file without allowing the old completion to alter newer
-state. Project busy ownership is tokenized, and refreshes capture both project
-and conversation generations before applying their response.
+action-owned state machine. It captures the exact pending object and project
+ID, disables both actions while one upload is active, and prevents a double
+click from posting twice. A newer selected scan can wait behind that upload;
+the old completion cannot clear it because only the exact captured pending
+object is eligible. A changed project retains the file for a later explicit
+action, while New Chat clears it without allowing the old completion to alter
+newer state. Project busy ownership is tokenized, and refreshes capture both
+project and conversation generations before applying their response.
 
 Project selection captures its intended ID and request generations without
 requiring an already-loaded `active` project, so initial and A-to-B selections
@@ -44,8 +45,8 @@ mutation, cancels its reader once, and best-effort aborts its per-send request
 signal. Only a current send may publish an error, completion status, or final
 control update.
 
-The cache-busted chat module key is `token-chat-final-audit-20260816-7`.
-Focused local verification passed `44/44` Node tests, the site contract,
+The cache-busted chat module key is `token-chat-final-audit-20260816-8`.
+Focused local verification passed `41/41` Node tests, the site contract,
 JavaScript syntax checks, and `git diff --check`. This audit deliberately did
 not run `npm test`, verify live routes, push, deploy, or promote `master`.
 

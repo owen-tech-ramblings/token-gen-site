@@ -5,11 +5,12 @@ Last updated: 2026-08-16 Australia/Sydney
 ## Cycle 4A Task 6 final-audit recovery - locally verified 2026-08-16
 
 - A scanned PDF awaiting explicit project upload remains only in current-page
-  memory. Its action token captures the pending ID and destination project ID,
-  prevents duplicate submission, and refuses a replacement scan while that
-  action is active. A switched project retains the first file for a later
-  explicit action; New Chat clears the pending file without letting the old
-  completion alter newer state.
+  memory. Its action token captures the pending object and destination project
+  ID and prevents duplicate submission. A newer selected scan can wait for its
+  own explicit action; completion clears only the exact object it started
+  with, so it cannot discard that newer scan. A switched project retains the
+  pending file for a later explicit action; New Chat clears it without letting
+  the old completion alter newer state.
 - Add and Cancel controls are disabled during the owned action. Project busy
   state is also token-owned, so an old upload finally block cannot clear a
   newer operation. File refreshes capture both project and conversation
@@ -39,12 +40,12 @@ Last updated: 2026-08-16 Australia/Sydney
   error body, and every SSE reader await. A stale completion cancels its reader
   once and aborts the per-send request signal best-effort; it cannot append an
   error, status, reasoning, response, or final control update into B.
-- Verified locally with the focused Node test set (`44/44`),
+- Verified locally with the focused Node test set (`41/41`),
   `node tools/site-contract-tests.mjs`, `node --check` for changed modules and
   the private bridge, and `git diff --check`. `npm test`, live checks, deploy,
   push, deployment, and branch promotion were intentionally not run in this
   audit pass. The current chat cache key is
-  `token-chat-final-audit-20260816-7`.
+  `token-chat-final-audit-20260816-8`.
 
 ## Dynamic 524,288-token allocation - live 2026-08-15
 

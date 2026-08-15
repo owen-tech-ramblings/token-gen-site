@@ -21,19 +21,33 @@ test("scanned PDF handoff action globally owns a deferred upload", async () => {
   assert.equal(first.action.kind, "upload");
   assert.equal(first.action.projectId, "project-1");
   state = first.state;
-  state = stageScannedPdf(state, { name: "replacement.pdf", size: 456 }, "pending-two");
-  assert.equal(state.pending.id, "pending-one", "an active upload cannot be replaced");
+  const replacement = { name: "replacement.pdf", size: 456 };
+  state = stageScannedPdf(state, replacement, "pending-two");
+  assert.equal(state.pending.file, replacement, "a newer scan waits behind the active upload");
   const second = beginScannedPdfUpload(state, { id: "project-1" });
   assert.equal(second.action.kind, "busy");
   const afterProjectSwitch = finishScannedPdfUpload(state, first.action, true, false);
-  assert.equal(afterProjectSwitch.pending?.id, "pending-one");
+  assert.equal(afterProjectSwitch.pending?.id, "pending-two");
   assert.equal(afterProjectSwitch.activeAction, null, "a switched project retains the file for a later explicit action");
-  let release;
-  const deferred = new Promise((resolve) => { release = resolve; });
-  const completion = deferred.then(() => finishScannedPdfUpload(state, first.action, true, true));
-  release();
-  state = await completion;
-  assert.equal(state.pending, null);
+});
+
+test("a completed upload cannot clear a newer scanned PDF selection", async () => {
+  const {
+    beginScannedPdfUpload,
+    createScannedPdfHandoffState,
+    finishScannedPdfUpload,
+    stageScannedPdf,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  const firstPending = { name: "first-scan.pdf", size: 123 };
+  const newerPending = { name: "newer-scan.pdf", size: 456 };
+  let state = stageScannedPdf(createScannedPdfHandoffState(), firstPending, "first-pending");
+  const started = beginScannedPdfUpload(state, { id: "project-1" });
+  state = stageScannedPdf(started.state, newerPending, "first-pending");
+
+  assert.equal(state.pending.file, newerPending, "a later selection replaces the file awaiting its next explicit Add");
+  state = finishScannedPdfUpload(state, started.action, true, true);
+
+  assert.equal(state.pending.file, newerPending, "the older success does not clear the newer selection");
   assert.equal(state.activeAction, null);
 });
 

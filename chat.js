@@ -24,7 +24,7 @@ import {
   projectViewIsCurrent,
   scannedPdfUploadAppliesToProject,
   stageScannedPdf,
-} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-7";
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-8";
 import {
   moveVisionImage,
   orderedVisionImages,
