@@ -2,6 +2,22 @@
 
 Last updated: 2026-08-15 Australia/Sydney
 
+## Preserved reasoning continuity - implemented; deployment pending
+
+- Streamed `reasoning_content` (and the legacy `reasoning` alias) is accumulated
+  separately from visible answer text and retained only as assistant message
+  state. It is never rendered, copied, exported, or logged.
+- Private history saves canonical `reasoning_content` and reload accepts the
+  canonical field before the alias. Thinking-enabled later turns resend and
+  budget the opaque state; turning Reasoning off omits it from that request
+  without mutating or deleting the saved value.
+- A repaired response discards reasoning from the rejected answer and retains
+  only canonical reasoning supplied with the replacement. Assistant messages
+  without reasoning do not gain an empty compatibility field.
+- The focused site contract and JavaScript syntax checks pass. The current
+  cache candidate is `token-chat-reasoning-20260815-1`; full `npm test`, Pages
+  publication, and authenticated save/reload canaries remain release gates.
+
 ## Qwen3.8 chat defaults - deployment pending
 
 - The site candidate reads the API's one-million-token Qwen3.8 model window,
@@ -85,9 +101,9 @@ Last updated: 2026-08-15 Australia/Sydney
   conversation. It no longer silently drops old turns using a character-count
   estimate. If the physical model limit is reached, the UI says so and confirms
   that no turns were discarded.
-- Internal reasoning is never rendered, saved as the assistant answer, or sent
-  back as ordinary conversation content. Only final answer tokens become the
-  assistant message.
+- Internal reasoning is never rendered or mixed into ordinary conversation
+  content. Cycle 2 now preserves it separately as opaque encrypted assistant
+  state while only final answer tokens remain visible.
 - Search and generation progress events keep the page responsive during long
   web work. A same-model repaired final response replaces a malformed fragment
   without repeating the web search.

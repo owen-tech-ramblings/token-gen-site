@@ -2,6 +2,21 @@
 
 Last updated: 2026-08-15 Australia/Sydney
 
+## 2026-08-15 preserved reasoning candidate
+
+`chat.js` now treats model reasoning as opaque assistant-only state. The SSE
+reader accumulates `reasoning_content`/`reasoning` separately from the final
+answer, history saves the canonical field, reload accepts canonical then alias,
+and thinking-enabled later turns resend and budget it. A thinking-off turn omits
+the field without changing saved state. Rendering, copy/export, status text,
+errors, and console output remain unaware of the reasoning string.
+
+`response_replacement` clears reasoning from the discarded answer and may
+replace it only with canonical replacement reasoning. Empty state is not sent.
+The cache key is `token-chat-reasoning-20260815-1`. Focused syntax and site
+contracts pass; run `npm test`, publish the exact aligned `master`, and complete
+an authenticated encrypted save/reload/re-enable canary before marking live.
+
 ## 2026-08-15 Qwen3.8 chat defaults candidate
 
 The candidate sets `DEFAULT_CONTEXT_WINDOW` to 1,000,000, checks Reasoning by
@@ -77,8 +92,9 @@ A live unmetered SearXNG route enables the always-on default; metered-only
 availability remains an explicit or automatic per-question route.
 
 The SSE reader recognizes `progress`, `web_context`, and
-`response_replacement`. Raw `reasoning_content` updates status only and must
-never enter `messages[].content`. Transient request errors use
+`response_replacement`. Raw `reasoning_content` must never enter
+`messages[].content`; the Cycle 2 section above supersedes the old behavior that
+discarded it entirely. Transient request errors use
 `excludeFromContext` and `excludeFromHistory`; keep both boundaries when
 changing conversation persistence.
 
