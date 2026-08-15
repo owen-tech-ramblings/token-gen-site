@@ -39,3 +39,11 @@ test("Iterate selects variation defaults before submitting another edit", () => 
   assert.match(iterateHandler, /applyImageIterationDefaults\(\)/);
   assert.match(iterateHandler, /Create a distinct variation of this image/);
 });
+
+test("comparison keeps every ordered attachment while edits use only the explicit target", () => {
+  assert.match(chatJs, /from "\.\/chat-multimodal-options\.mjs"/, "chat must use the shared ordered image helpers");
+  assert.match(chatJs, /visionContentParts\(resolvedImages\)/, "comparison payloads must include labelled images in composer order");
+  assert.match(chatJs, /const source = sourceVisionImages\.find\(\(image\) => image\.editTarget\)/, "image edits must choose the explicit target");
+  assert.match(chatJs, /sendImageMessage\(content, source \? \[source\] : \[\]\)/, "image edits must retain only the selected source attachment");
+  assert.doesNotMatch(chatJs, /const source = sourceVisionImages\[0\]/, "image edits must not silently use the first attachment");
+});

@@ -1,5 +1,11 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import {
+  moveVisionImage,
+  orderedVisionImages,
+  selectEditTarget,
+  visionContentParts,
+} from "./chat-multimodal-options.mjs";
+import {
   apiErrorMessage,
   contextPayloadParts,
   DEFAULT_CONTEXT_WINDOW,
@@ -1099,24 +1105,76 @@ async function readVisionImage(file) {
 
 function renderVisionPreview() {
   if (!els.visionPreview) return;
-  els.visionPreview.innerHTML = attachedVisionImages.map((image) => `
-    <div class="chat-vision-chip">
-      <img src="${escapeHtml(image.previewUrl || image.url || image.dataUrl || "")}" alt="" />
-      <div>
-        <strong>${escapeHtml(image.name || "Image")}</strong>
-        <span>${visionSupported ? "Ready for local image understanding" : "Ready for image tools"}</span>
-      </div>
-      <button type="button" data-vision-remove="${escapeHtml(image.id)}" title="Remove image" aria-label="Remove ${escapeHtml(image.name || "image")}">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
-      </button>
-    </div>
-  `).join("");
+  const images = orderedVisionImages(
+    attachedVisionImages,
+    attachedVisionImages.map((image) => image.id),
+    getVisionLimits().maxImages,
+  );
+  els.visionPreview.replaceChildren(...images.map((image, index) => {
+    const chip = document.createElement("div");
+    chip.className = "chat-vision-chip";
+
+    const preview = document.createElement("img");
+    preview.src = image.previewUrl || image.url || image.dataUrl || "";
+    preview.alt = "";
+
+    const details = document.createElement("div");
+    const order = document.createElement("span");
+    order.className = "chat-vision-order";
+    order.textContent = `Image ${index + 1}`;
+    const name = document.createElement("strong");
+    name.textContent = image.name || "Image";
+    const status = document.createElement("span");
+    status.textContent = visionSupported ? "Ready for local image understanding" : "Ready for image tools";
+    details.append(order, name, status);
+
+    const actions = document.createElement("div");
+    actions.className = "chat-vision-actions";
+    for (const [direction, label] of [["up", "Move image up"], ["down", "Move image down"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.visionMove = direction;
+      button.dataset.visionId = image.id;
+      button.textContent = direction === "up" ? "↑" : "↓";
+      button.title = label;
+      button.setAttribute("aria-label", label);
+      button.disabled = direction === "up" ? index === 0 : index === images.length - 1;
+      actions.append(button);
+    }
+    const target = document.createElement("label");
+    target.className = "chat-vision-edit-target";
+    target.dataset.visionEditTarget = image.id;
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "chatVisionEditTarget";
+    radio.dataset.visionEditTarget = image.id;
+    radio.checked = Boolean(image.editTarget);
+    const targetText = document.createElement("span");
+    targetText.textContent = "Edit target";
+    target.append(radio, targetText);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.dataset.visionRemove = image.id;
+    remove.textContent = "×";
+    remove.title = "Remove image";
+    remove.setAttribute("aria-label", `Remove ${image.name || "image"}`);
+    actions.append(target, remove);
+    chip.append(preview, details, actions);
+    return chip;
+  }));
 }
 
-function clearAttachedVisionImages({ release = true } = {}) {
-  if (release) attachedVisionImages.forEach(releaseImagePreviewUrl);
+function clearAttachedVisionImages({ release = true, preserveId = "" } = {}) {
+  if (release) attachedVisionImages
+    .filter((image) => image.id !== preserveId)
+    .forEach(releaseImagePreviewUrl);
   attachedVisionImages = [];
   renderVisionPreview();
+}
+
+function withVisionEditTarget(images) {
+  const target = images.find((image) => image.editTarget)?.id || images[0]?.id;
+  return selectEditTarget(images, target);
 }
 
 function releaseConversationVisionPreviews(conversationMessages = messages) {
@@ -2727,12 +2785,20 @@ function chatHistoryForPayload() {
       role: message.role,
       content: String(message.content || ""),
       reasoningContent: assistantReasoningContent(message),
-      visionImages: Array.isArray(message.visionImages) ? message.visionImages.slice(0, getVisionLimits().maxImages) : [],
+      visionImages: orderedVisionImages(
+        message.visionImages,
+        Array.isArray(message.visionImages) ? message.visionImages.map((image) => image.id) : [],
+        getVisionLimits().maxImages,
+      ),
     }));
 }
 
 async function chatPayloadMessage(message, includeReasoning) {
-  const images = Array.isArray(message.visionImages) ? message.visionImages : [];
+  const images = orderedVisionImages(
+    message.visionImages,
+    Array.isArray(message.visionImages) ? message.visionImages.map((image) => image.id) : [],
+    getVisionLimits().maxImages,
+  );
   const reasoningContent = assistantReasoningContent(message);
   if (!images.length || message.role !== "user") {
     const payload = { role: message.role, content: message.content };
@@ -2741,10 +2807,11 @@ async function chatPayloadMessage(message, includeReasoning) {
     }
     return payload;
   }
-  const content = [{ type: "text", text: message.content }];
-  for (const image of images) {
-    content.push({ type: "image_url", image_url: { url: await visionImageDataUrl(image) } });
-  }
+  const resolvedImages = await Promise.all(images.map(async (image) => ({
+    ...image,
+    dataUrl: await visionImageDataUrl(image),
+  })));
+  const content = [{ type: "text", text: message.content }, ...visionContentParts(resolvedImages)];
   return { role: message.role, content };
 }
 
@@ -3667,9 +3734,13 @@ els.form.addEventListener("submit", (event) => {
   els.input.value = "";
   autosizeInput();
   if (route.kind === "image") {
-    const sourceVisionImages = [...attachedVisionImages];
-    if (sourceVisionImages.length) {
-      const source = sourceVisionImages[0];
+    const sourceVisionImages = orderedVisionImages(
+      attachedVisionImages,
+      attachedVisionImages.map((image) => image.id),
+      getVisionLimits().maxImages,
+    );
+    const source = sourceVisionImages.find((image) => image.editTarget);
+    if (source) {
       setActiveImageSource({
         kind: source.dataUrl ? "base64" : "url",
         name: source.name,
@@ -3681,9 +3752,9 @@ els.form.addEventListener("submit", (event) => {
       if (els.imageSourceMode.value === "new") {
         els.imageSourceMode.value = IMAGE_EDIT_INTENT_PATTERN.test(content) ? "edit" : "style";
       }
-      clearAttachedVisionImages({ release: false });
+      clearAttachedVisionImages({ preserveId: source.id });
     }
-    sendImageMessage(content, sourceVisionImages);
+    sendImageMessage(content, source ? [source] : []);
   } else {
     sendMessage(content, route);
   }
@@ -3979,7 +4050,7 @@ els.visionImages.addEventListener("change", async () => {
       }
       next.push(image);
     }
-    attachedVisionImages = next;
+    attachedVisionImages = withVisionEditTarget(next);
     renderVisionPreview();
     setStatus(visionSupported
       ? `${attachedVisionImages.length} image${attachedVisionImages.length === 1 ? "" : "s"} ready for local understanding or editing`
@@ -3994,11 +4065,25 @@ els.visionImages.addEventListener("change", async () => {
 });
 
 els.visionPreview.addEventListener("click", (event) => {
+  const move = event.target.closest("[data-vision-move]");
+  if (move) {
+    attachedVisionImages = moveVisionImage(attachedVisionImages, move.dataset.visionId, move.dataset.visionMove);
+    renderVisionPreview();
+    updateSendState();
+    return;
+  }
+  const editTarget = event.target.closest("[data-vision-edit-target]");
+  if (editTarget) {
+    attachedVisionImages = selectEditTarget(attachedVisionImages, editTarget.dataset.visionEditTarget);
+    renderVisionPreview();
+    updateSendState();
+    return;
+  }
   const button = event.target.closest("[data-vision-remove]");
   if (!button) return;
   const image = attachedVisionImages.find((item) => item.id === button.dataset.visionRemove);
   if (image) releaseImagePreviewUrl(image);
-  attachedVisionImages = attachedVisionImages.filter((item) => item.id !== button.dataset.visionRemove);
+  attachedVisionImages = withVisionEditTarget(attachedVisionImages.filter((item) => item.id !== button.dataset.visionRemove));
   renderVisionPreview();
   updateSendState();
 });
@@ -4211,6 +4296,7 @@ els.thread.addEventListener("click", (event) => {
       url,
       previewUrl: url,
     });
+    attachedVisionImages = withVisionEditTarget(attachedVisionImages);
     els.mode.value = "auto";
     syncModeUI();
     renderVisionPreview();
