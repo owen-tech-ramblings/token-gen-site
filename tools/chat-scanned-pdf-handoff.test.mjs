@@ -68,6 +68,63 @@ test("owned operations and project views reject stale completions", async () => 
   assert.equal(await apply, false, "a refresh started before a project/conversation switch cannot apply");
 });
 
+test("deferred project selections accept their current response before active state is populated", async () => {
+  const {
+    captureProjectSelection,
+    projectSelectionIsCurrent,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof captureProjectSelection, "function");
+  assert.equal(typeof projectSelectionIsCurrent, "function");
+
+  let projectState = { viewGeneration: 1, activeId: null, active: null };
+  const firstSelection = captureProjectSelection(projectState, 5, "project-a");
+  projectState = { ...projectState, activeId: "project-a" };
+  let releaseFirst;
+  const firstResponse = new Promise((resolve) => { releaseFirst = resolve; });
+  const firstApplied = firstResponse.then(() => projectSelectionIsCurrent(projectState, 5, firstSelection));
+  releaseFirst();
+  assert.equal(await firstApplied, true, "the first selected project can populate an empty active state");
+
+  projectState = { ...projectState, viewGeneration: 2, active: { id: "project-a" } };
+  const secondSelection = captureProjectSelection(projectState, 5, "project-b");
+  projectState = { ...projectState, activeId: "project-b" };
+  let releaseSecond;
+  const secondResponse = new Promise((resolve) => { releaseSecond = resolve; });
+  const secondApplied = secondResponse.then(() => projectSelectionIsCurrent(projectState, 5, secondSelection));
+  releaseSecond();
+  assert.equal(await secondApplied, true, "an A-to-B selection can replace the old loaded A state");
+
+  const staleA = captureProjectSelection({ viewGeneration: 2, activeId: "project-a", active: { id: "project-a" } }, 5, "project-a");
+  projectState = { ...projectState, viewGeneration: 3, activeId: "project-b", active: { id: "project-b" } };
+  let releaseStale;
+  const staleResponse = new Promise((resolve) => { releaseStale = resolve; });
+  const staleApplied = staleResponse.then(() => projectSelectionIsCurrent(projectState, 5, staleA));
+  releaseStale();
+  assert.equal(await staleApplied, false, "a delayed A response cannot overwrite a later B selection");
+});
+
+test("a deferred New Chat save cannot reset a newer opened conversation", async () => {
+  const {
+    beginHistoryViewAction,
+    historyViewActionIsCurrent,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof beginHistoryViewAction, "function");
+  assert.equal(typeof historyViewActionIsCurrent, "function");
+
+  let historyState = { viewGeneration: 0, historyActionToken: null, nextHistoryActionToken: 0 };
+  const newChat = beginHistoryViewAction(historyState);
+  historyState = newChat.state;
+  let releaseSave;
+  const deferredSave = new Promise((resolve) => { releaseSave = resolve; });
+  const shouldReset = deferredSave.then(() => historyViewActionIsCurrent(historyState, newChat.action));
+
+  const newerOpen = beginHistoryViewAction(historyState);
+  historyState = newerOpen.state;
+  releaseSave();
+  assert.equal(await shouldReset, false, "the stale New Chat action yields to the newer conversation open");
+  assert.equal(historyViewActionIsCurrent(historyState, newerOpen.action), true);
+});
+
 test("chat renders a disabled real scanned-PDF project action and New Chat clears it", () => {
   const source = fs.readFileSync(new URL("../chat.js", import.meta.url), "utf8");
   assert.match(source, /data-scanned-pdf-add/);
@@ -78,5 +135,11 @@ test("chat renders a disabled real scanned-PDF project action and New Chat clear
   const newChatEnd = source.indexOf('renderMessages(false);', newChatStart);
   const newChat = source.slice(newChatStart, newChatEnd);
   assert.match(newChat, /clearPendingScannedPdf\(\)/);
+  assert.match(newChat, /historyViewActionIsCurrent\(historyState, newChatAction\.action\)/);
+  const selectionStart = source.indexOf("async function setActiveProject");
+  const selectionEnd = source.indexOf("async function refreshActiveProjectFiles", selectionStart);
+  const selection = source.slice(selectionStart, selectionEnd);
+  assert.match(selection, /captureProjectSelection\(projectState, historyState\.viewGeneration, nextId\)/);
+  assert.match(selection, /projectSelectionIsCurrent\(projectState, historyState\.viewGeneration, selection\)/);
   assert.match(source, /pagehide/);
 });

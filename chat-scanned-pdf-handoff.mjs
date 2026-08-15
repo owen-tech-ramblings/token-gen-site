@@ -76,3 +76,43 @@ export function projectViewIsCurrent(projectState, conversationGeneration, captu
     && Number(conversationGeneration || 0) === captured.conversationGeneration
   );
 }
+
+export function captureProjectSelection(projectState, conversationGeneration, projectId) {
+  return {
+    projectId: String(projectId || ""),
+    viewGeneration: Number(projectState?.viewGeneration || 0),
+    conversationGeneration: Number(conversationGeneration || 0),
+  };
+}
+
+export function projectSelectionIsCurrent(projectState, conversationGeneration, captured) {
+  return Boolean(
+    captured?.projectId
+    && projectState?.activeId === captured.projectId
+    && Number(projectState?.viewGeneration || 0) === captured.viewGeneration
+    && Number(conversationGeneration || 0) === captured.conversationGeneration
+  );
+}
+
+export function beginHistoryViewAction(state) {
+  const actionToken = Number(state?.nextHistoryActionToken || 0) + 1;
+  const viewGeneration = Number(state?.viewGeneration || 0) + 1;
+  const action = { actionToken, viewGeneration };
+  return {
+    state: {
+      ...state,
+      viewGeneration,
+      historyActionToken: actionToken,
+      nextHistoryActionToken: actionToken,
+    },
+    action,
+  };
+}
+
+export function historyViewActionIsCurrent(state, action) {
+  return Boolean(
+    action
+    && Number(state?.viewGeneration || 0) === action.viewGeneration
+    && Number(state?.historyActionToken || 0) === action.actionToken
+  );
+}

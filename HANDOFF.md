@@ -13,8 +13,15 @@ clears the pending file without allowing the old completion to alter newer
 state. Project busy ownership is tokenized, and refreshes capture both project
 and conversation generations before applying their response.
 
-The cache-busted chat module key is `token-chat-final-audit-20260816-3`.
-Focused local verification passed `34/34` Node tests, the site contract,
+Project selection captures its intended ID and request generations without
+requiring an already-loaded `active` project, so initial and A-to-B selections
+can populate while stale responses remain rejected. File refreshes keep their
+loaded-project check. New Chat and saved-conversation opens share action-token
+ownership: after an awaited save, an older New Chat action exits if a newer
+open advanced the history view.
+
+The cache-busted chat module key is `token-chat-final-audit-20260816-4`.
+Focused local verification passed `36/36` Node tests, the site contract,
 JavaScript syntax checks, and `git diff --check`. This audit deliberately did
 not run `npm test`, verify live routes, push, deploy, or promote `master`.
 

@@ -14,12 +14,18 @@ Last updated: 2026-08-16 Australia/Sydney
   state is also token-owned, so an old upload finally block cannot clear a
   newer operation. File refreshes capture both project and conversation
   generations and never reselect or apply a stale destination after awaiting.
-- Verified locally with the focused Node test set (`34/34`),
+- Project selection now captures its intended project and request generations,
+  allowing the successful initial or A-to-B response to populate `active` while
+  rejecting an older selection. Already-active file refreshes retain their
+  stricter loaded-project guard. New Chat and opening saved conversations share
+  an action token plus generation; after an awaited save, stale New Chat exits
+  before clearing a newer opened conversation.
+- Verified locally with the focused Node test set (`36/36`),
   `node tools/site-contract-tests.mjs`, `node --check` for changed modules and
   the private bridge, and `git diff --check`. `npm test`, live checks, deploy,
   push, deployment, and branch promotion were intentionally not run in this
   audit pass. The current chat cache key is
-  `token-chat-final-audit-20260816-3`.
+  `token-chat-final-audit-20260816-4`.
 
 ## Dynamic 524,288-token allocation - live 2026-08-15
 

@@ -3,17 +3,21 @@ import { requestChatStream } from "./chat-transport-options.mjs";
 import { announceVision } from "./chat-vision-announcements.mjs";
 import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
 import {
+  beginHistoryViewAction,
   beginOwnedOperation,
   beginScannedPdfUpload,
+  captureProjectSelection,
   captureProjectView,
   clearStagedScannedPdf,
   createScannedPdfHandoffState,
   finishOwnedOperation,
   finishScannedPdfUpload,
+  historyViewActionIsCurrent,
+  projectSelectionIsCurrent,
   projectViewIsCurrent,
   scannedPdfUploadAppliesToProject,
   stageScannedPdf,
-} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-3";
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-4";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -219,6 +223,8 @@ let historyState = {
   saving: false,
   saveQueued: false,
   viewGeneration: 0,
+  historyActionToken: null,
+  nextHistoryActionToken: 0,
 };
 let projectState = {
   available: false,
@@ -1819,7 +1825,7 @@ async function setActiveProject(id, { quiet = false } = {}) {
     if (!quiet) scheduleConversationSave(0);
     return;
   }
-  const view = captureActiveProjectView(nextId);
+  const selection = captureProjectSelection(projectState, historyState.viewGeneration, nextId);
   const busyToken = beginProjectBusy();
   projectState.activeId = nextId;
   renderProjectState();
@@ -1829,7 +1835,7 @@ async function setActiveProject(id, { quiet = false } = {}) {
       projectRequest(`/${encodeURIComponent(nextId)}`),
       projectRequest(`/${encodeURIComponent(nextId)}/documents`),
     ]);
-    if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return;
+    if (!projectSelectionIsCurrent(projectState, historyState.viewGeneration, selection)) return;
     const project = projectResult.json.project;
     if (!project?.id || !Array.isArray(documentsResult.json.documents)) throw new Error("Project library returned an invalid response.");
     projectState.active = project;
@@ -1842,7 +1848,7 @@ async function setActiveProject(id, { quiet = false } = {}) {
     setProjectStatus(`${project.name} / ${projectState.documents.length} project file${projectState.documents.length === 1 ? "" : "s"}`, "good");
     if (!quiet) scheduleConversationSave(0);
   } catch (error) {
-    if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return;
+    if (!projectSelectionIsCurrent(projectState, historyState.viewGeneration, selection)) return;
     projectState.activeId = null;
     projectState.active = null;
     projectState.documents = [];
@@ -2421,7 +2427,9 @@ async function openStoredConversation(id) {
     setRailOpen(false);
     return;
   }
-  const conversationGeneration = ++historyState.viewGeneration;
+  const openingAction = beginHistoryViewAction(historyState);
+  Object.assign(historyState, openingAction.state);
+  const conversationAction = openingAction.action;
   if (historyState.saveTimer) {
     clearTimeout(historyState.saveTimer);
     historyState.saveTimer = null;
@@ -2430,7 +2438,7 @@ async function openStoredConversation(id) {
   setHistoryStatus("Opening...", "neutral", "Opening your saved chat...");
   try {
     const { json, etag } = await historyRequest(`/${encodeURIComponent(id)}`);
-    if (historyState.viewGeneration !== conversationGeneration) return;
+    if (!historyViewActionIsCurrent(historyState, conversationAction)) return;
     const conversation = json.conversation;
     releaseConversationVisionPreviews();
     messages = conversation.messages?.length
@@ -2441,7 +2449,7 @@ async function openStoredConversation(id) {
     historyState.currentRetention = conversation.retention;
     els.historyRetention.value = historyState.currentRetention;
     await setActiveProject(conversation.project_id || "", { quiet: true });
-    if (historyState.viewGeneration !== conversationGeneration) return;
+    if (!historyViewActionIsCurrent(historyState, conversationAction)) return;
     uploadedDocuments = [];
     clearPendingScannedPdf();
     clearAttachedVisionImages();
@@ -2455,7 +2463,7 @@ async function openStoredConversation(id) {
     setStatus(`Opened ${conversation.title || "saved chat"}`, "good");
     els.input.focus();
   } catch (error) {
-    if (historyState.viewGeneration === conversationGeneration) setHistoryStatus("Could not open chat", "bad", error.message);
+    if (historyViewActionIsCurrent(historyState, conversationAction)) setHistoryStatus("Could not open chat", "bad", error.message);
   }
 }
 
@@ -4632,10 +4640,12 @@ els.imageMaskPreview.addEventListener("click", (event) => {
 });
 
 els.clear.addEventListener("click", async () => {
-  historyState.viewGeneration += 1;
+  const newChatAction = beginHistoryViewAction(historyState);
+  Object.assign(historyState, newChatAction.state);
   if (historyState.available && historyState.currentRetention !== "none") {
     await flushConversationSave();
   }
+  if (!historyViewActionIsCurrent(historyState, newChatAction.action)) return;
   releaseConversationVisionPreviews();
   messages = [welcomeMessage()];
   historyState.currentId = null;
