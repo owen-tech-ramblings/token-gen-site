@@ -41,6 +41,7 @@ const els = {
   visionImages: $("#chatVisionImages"),
   visionPreview: $("#chatVisionPreview"),
   visionStatus: $("#chatVisionStatus"),
+  visionActionStatus: $("#chatVisionActionStatus"),
   docStatus: $("#chatDocStatus"),
   docList: $("#chatDocList"),
   docClear: $("#chatDocClear"),
@@ -1117,7 +1118,7 @@ async function readVisionImage(file) {
   }
 }
 
-function renderVisionPreview() {
+function renderVisionPreview({ focus = null, announcement = "" } = {}) {
   if (!els.visionPreview) return;
   const images = orderedVisionImages(
     attachedVisionImages,
@@ -1149,9 +1150,10 @@ function renderVisionPreview() {
       button.type = "button";
       button.dataset.visionMove = direction;
       button.dataset.visionId = image.id;
+      button.dataset.visionFocus = `move-${direction}`;
       button.textContent = direction === "up" ? "↑" : "↓";
-      button.title = label;
-      button.setAttribute("aria-label", label);
+      button.title = `${label}: ${image.name || "image"}`;
+      button.setAttribute("aria-label", `Move ${image.name || "image"} ${direction}`);
       button.disabled = direction === "up" ? index === 0 : index === images.length - 1;
       actions.append(button);
     }
@@ -1162,6 +1164,8 @@ function renderVisionPreview() {
     radio.type = "radio";
     radio.name = "chatVisionEditTarget";
     radio.dataset.visionEditTarget = image.id;
+    radio.dataset.visionFocus = "edit-target";
+    radio.setAttribute("aria-label", `Set ${image.name || "image"} as edit target`);
     radio.checked = Boolean(image.editTarget);
     const targetText = document.createElement("span");
     targetText.textContent = "Edit target";
@@ -1169,6 +1173,7 @@ function renderVisionPreview() {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.dataset.visionRemove = image.id;
+    remove.dataset.visionFocus = "remove";
     remove.textContent = "×";
     remove.title = "Remove image";
     remove.setAttribute("aria-label", `Remove ${image.name || "image"}`);
@@ -1176,6 +1181,19 @@ function renderVisionPreview() {
     chip.append(preview, details, actions);
     return chip;
   }));
+  if (announcement && els.visionActionStatus) els.visionActionStatus.textContent = announcement;
+  if (focus?.id) {
+    const controls = Array.from(els.visionPreview.querySelectorAll("[data-vision-id], [data-vision-edit-target], [data-vision-remove]"));
+    const target = controls.find((control) => (
+      (control.dataset.visionId === focus.id || control.dataset.visionEditTarget === focus.id || control.dataset.visionRemove === focus.id)
+      && control.dataset.visionFocus === focus.control
+      && !control.disabled
+    )) || controls.find((control) => (
+      (control.dataset.visionEditTarget === focus.id || control.dataset.visionId === focus.id)
+      && !control.disabled
+    ));
+    target?.focus();
+  }
 }
 
 function clearAttachedVisionImages({ release = true, preserveId = "" } = {}) {
@@ -3233,6 +3251,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     }
 
     const payload = await buildPayload(chatUserId, projectContext, route);
+    const hasProjectMedia = Array.isArray(payload.project_media) && payload.project_media.length > 0;
     let requestBody = "";
     try {
       requestBody = JSON.stringify(payload);
@@ -3241,15 +3260,24 @@ async function sendMessage(content, route = routeRequest(content)) {
     }
     let res;
     try {
-      res = await fetch(`${API_BASE}/api/chat/stream`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-token-gen-user": chatUserId,
-          "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
-        },
-        body: requestBody,
-      });
+      if (hasProjectMedia) {
+        res = await fetch("/api/private/projects/chat/stream", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: requestBody,
+        });
+      } else {
+        res = await fetch(`${API_BASE}/api/chat/stream`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-token-gen-user": chatUserId,
+            "x-token-gen-user-source": isLoopbackHost() ? "local-development" : "cloudflare-access",
+          },
+          body: requestBody,
+        });
+      }
     } finally {
       requestBody = "";
     }
@@ -4224,15 +4252,24 @@ els.visionImages.addEventListener("change", async () => {
 els.visionPreview.addEventListener("click", (event) => {
   const move = event.target.closest("[data-vision-move]");
   if (move) {
+    const image = attachedVisionImages.find((item) => item.id === move.dataset.visionId);
     attachedVisionImages = moveVisionImage(attachedVisionImages, move.dataset.visionId, move.dataset.visionMove);
-    renderVisionPreview();
+    const direction = move.dataset.visionMove;
+    renderVisionPreview({
+      focus: { id: move.dataset.visionId, control: `move-${direction}` },
+      announcement: `${image?.name || "Image"} moved ${direction}.`,
+    });
     updateSendState();
     return;
   }
   const editTarget = event.target.closest("[data-vision-edit-target]");
   if (editTarget) {
+    const image = attachedVisionImages.find((item) => item.id === editTarget.dataset.visionEditTarget);
     attachedVisionImages = selectEditTarget(attachedVisionImages, editTarget.dataset.visionEditTarget);
-    renderVisionPreview();
+    renderVisionPreview({
+      focus: { id: editTarget.dataset.visionEditTarget, control: "edit-target" },
+      announcement: `${image?.name || "Image"} selected as the edit target.`,
+    });
     updateSendState();
     return;
   }
