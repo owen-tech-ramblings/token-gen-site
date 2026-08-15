@@ -20,8 +20,16 @@ loaded-project check. New Chat and saved-conversation opens share action-token
 ownership: after an awaited save, an older New Chat action exits if a newer
 open advanced the history view.
 
-The cache-busted chat module key is `token-chat-final-audit-20260816-4`.
-Focused local verification passed `36/36` Node tests, the site contract,
+A token-scoped save may complete its backend write after supersession, but its
+result cannot replace the current conversation ID/version, history status, or
+newer B messages. An open that owns a pending save checks ownership before
+Opening status or GET; a newer open can proceed while an older New Chat save is
+still resolving. During an A-to-B selection load, every project action uses
+only a loaded project whose ID equals `activeId`; project attach/upload, scanned
+PDF handoff, retrieval, and association metadata cannot use stale A.
+
+The cache-busted chat module key is `token-chat-final-audit-20260816-5`.
+Focused local verification passed `39/39` Node tests, the site contract,
 JavaScript syntax checks, and `git diff --check`. This audit deliberately did
 not run `npm test`, verify live routes, push, deploy, or promote `master`.
 

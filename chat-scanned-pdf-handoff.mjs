@@ -116,3 +116,23 @@ export function historyViewActionIsCurrent(state, action) {
     && Number(state?.historyActionToken || 0) === action.actionToken
   );
 }
+
+export function applySavedConversationResult(state, expectedAction, conversation, version) {
+  if (expectedAction && !historyViewActionIsCurrent(state, expectedAction)) {
+    return { state, applied: false };
+  }
+  return {
+    state: {
+      ...state,
+      currentId: conversation.id,
+      currentVersion: version || conversation.version,
+    },
+    applied: true,
+  };
+}
+
+export function loadedActiveProject(projectState) {
+  const active = projectState?.active;
+  if (!active?.id || String(projectState?.activeId || "") !== String(active.id)) return null;
+  return active;
+}

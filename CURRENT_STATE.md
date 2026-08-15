@@ -20,12 +20,18 @@ Last updated: 2026-08-16 Australia/Sydney
   stricter loaded-project guard. New Chat and opening saved conversations share
   an action token plus generation; after an awaited save, stale New Chat exits
   before clearing a newer opened conversation.
-- Verified locally with the focused Node test set (`36/36`),
+- A token-scoped New Chat save may still finish its backend write, but a
+  superseded result cannot replace the newer conversation ID/version or status.
+  A saved-conversation open checks ownership again after its pending flush and
+  before opening status or GET. While a selection is loading, only a project
+  whose loaded ID matches `activeId` can drive project context, upload, scanned
+  PDF handoff, or attachment controls; stale A cannot act for selected B.
+- Verified locally with the focused Node test set (`39/39`),
   `node tools/site-contract-tests.mjs`, `node --check` for changed modules and
   the private bridge, and `git diff --check`. `npm test`, live checks, deploy,
   push, deployment, and branch promotion were intentionally not run in this
   audit pass. The current chat cache key is
-  `token-chat-final-audit-20260816-4`.
+  `token-chat-final-audit-20260816-5`.
 
 ## Dynamic 524,288-token allocation - live 2026-08-15
 

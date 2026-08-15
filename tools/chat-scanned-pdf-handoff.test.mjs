@@ -125,6 +125,90 @@ test("a deferred New Chat save cannot reset a newer opened conversation", async 
   assert.equal(historyViewActionIsCurrent(historyState, newerOpen.action), true);
 });
 
+test("a superseded New Chat flush cannot rebind a newer opened conversation", async () => {
+  const {
+    applySavedConversationResult,
+    beginHistoryViewAction,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof applySavedConversationResult, "function");
+
+  let historyState = {
+    viewGeneration: 0,
+    historyActionToken: null,
+    nextHistoryActionToken: 0,
+    currentId: "old-chat",
+    currentVersion: "old-version",
+    messages: ["old message"],
+  };
+  const newChat = beginHistoryViewAction(historyState);
+  historyState = newChat.state;
+  let releaseOldSave;
+  const oldSave = new Promise((resolve) => { releaseOldSave = resolve; });
+  const oldResult = oldSave.then(() => applySavedConversationResult(
+    historyState,
+    newChat.action,
+    { id: "old-chat", version: "old-version-after-save" },
+    "old-etag-after-save",
+  ));
+
+  const openB = beginHistoryViewAction(historyState);
+  historyState = {
+    ...openB.state,
+    currentId: "chat-b",
+    currentVersion: "version-b",
+    messages: ["message from B"],
+  };
+  releaseOldSave();
+  const staleResult = await oldResult;
+  assert.equal(staleResult.applied, false);
+  assert.equal(staleResult.state.currentId, "chat-b");
+  assert.equal(staleResult.state.currentVersion, "version-b");
+  assert.deepEqual(staleResult.state.messages, ["message from B"]);
+});
+
+test("a deferred first open yields before a newer open issues its request", async () => {
+  const {
+    beginHistoryViewAction,
+    historyViewActionIsCurrent,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  let historyState = { viewGeneration: 0, historyActionToken: null, nextHistoryActionToken: 0 };
+  const firstOpen = beginHistoryViewAction(historyState);
+  historyState = firstOpen.state;
+  let releaseFlush;
+  const deferredFlush = new Promise((resolve) => { releaseFlush = resolve; });
+  const firstMayIssueRequest = deferredFlush.then(() => historyViewActionIsCurrent(historyState, firstOpen.action));
+
+  const secondOpen = beginHistoryViewAction(historyState);
+  historyState = secondOpen.state;
+  releaseFlush();
+  assert.equal(await firstMayIssueRequest, false, "the first open must stop before its GET after the flush");
+  assert.equal(historyViewActionIsCurrent(historyState, secondOpen.action), true);
+});
+
+test("project actions require the active ID to match the loaded project", async () => {
+  const {
+    createScannedPdfHandoffState,
+    loadedActiveProject,
+    scannedPdfProjectAction,
+    stageScannedPdf,
+  } = await import("../chat-scanned-pdf-handoff.mjs");
+  assert.equal(typeof loadedActiveProject, "function");
+  let projectState = { activeId: "project-a", active: { id: "project-a", name: "A" } };
+  let handoff = stageScannedPdf(createScannedPdfHandoffState(), { name: "scan.pdf" }, "scan-a");
+  assert.equal(loadedActiveProject(projectState)?.id, "project-a");
+  assert.equal(scannedPdfProjectAction(handoff, loadedActiveProject(projectState)).kind, "upload");
+
+  projectState = { ...projectState, activeId: "project-b" };
+  assert.equal(loadedActiveProject(projectState), null, "A cannot back a B selection while B loads");
+  assert.deepEqual(scannedPdfProjectAction(handoff, loadedActiveProject(projectState)), { kind: "choose_project" });
+
+  projectState = { ...projectState, active: { id: "project-a", name: "A" } };
+  assert.equal(loadedActiveProject(projectState), null, "a stale A response cannot enable project actions");
+  projectState = { ...projectState, active: { id: "project-b", name: "B" } };
+  assert.equal(loadedActiveProject(projectState)?.id, "project-b");
+  assert.equal(scannedPdfProjectAction(handoff, loadedActiveProject(projectState)).projectId, "project-b");
+});
+
 test("chat renders a disabled real scanned-PDF project action and New Chat clears it", () => {
   const source = fs.readFileSync(new URL("../chat.js", import.meta.url), "utf8");
   assert.match(source, /data-scanned-pdf-add/);
@@ -136,10 +220,29 @@ test("chat renders a disabled real scanned-PDF project action and New Chat clear
   const newChat = source.slice(newChatStart, newChatEnd);
   assert.match(newChat, /clearPendingScannedPdf\(\)/);
   assert.match(newChat, /historyViewActionIsCurrent\(historyState, newChatAction\.action\)/);
+  assert.match(newChat, /flushConversationSave\(newChatAction\.action\)/);
   const selectionStart = source.indexOf("async function setActiveProject");
   const selectionEnd = source.indexOf("async function refreshActiveProjectFiles", selectionStart);
   const selection = source.slice(selectionStart, selectionEnd);
   assert.match(selection, /captureProjectSelection\(projectState, historyState\.viewGeneration, nextId\)/);
   assert.match(selection, /projectSelectionIsCurrent\(projectState, historyState\.viewGeneration, selection\)/);
+  const saveStart = source.indexOf("async function saveConversation");
+  const saveEnd = source.indexOf("function scheduleConversationSave", saveStart);
+  const save = source.slice(saveStart, saveEnd);
+  assert.match(save, /async function saveConversation\(expectedAction = null\)/);
+  assert.match(save, /applySavedConversationResult\(historyState, expectedAction,/);
+  const openStart = source.indexOf("async function openStoredConversation");
+  const openEnd = source.indexOf("async function deleteStoredConversation", openStart);
+  const open = source.slice(openStart, openEnd);
+  assert.match(open, /if \(historyState\.saveTimer\) \{\s*await flushConversationSave\(conversationAction\);\s*\}/);
+  const flushIndex = open.indexOf("await flushConversationSave(conversationAction)");
+  const guardIndex = open.indexOf("if (!historyViewActionIsCurrent(historyState, conversationAction)) return;", flushIndex);
+  const openingStatusIndex = open.indexOf('setHistoryStatus("Opening..."');
+  const openRequestIndex = open.indexOf("await historyRequest", flushIndex);
+  assert.ok(flushIndex >= 0 && guardIndex > flushIndex && guardIndex < openingStatusIndex && openRequestIndex > guardIndex,
+    "a superseded open must stop after saving and before status or GET");
+  assert.match(source, /const active = loadedActiveProject\(projectState\)/);
+  assert.match(source, /beginScannedPdfUpload\(scannedPdfHandoff, loadedActiveProject\(projectState\)\)/);
+  assert.match(source, /if \(loadedActiveProject\(projectState\)\) els\.projectDocuments\.click\(\);/);
   assert.match(source, /pagehide/);
 });

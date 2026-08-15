@@ -3,6 +3,7 @@ import { requestChatStream } from "./chat-transport-options.mjs";
 import { announceVision } from "./chat-vision-announcements.mjs";
 import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
 import {
+  applySavedConversationResult,
   beginHistoryViewAction,
   beginOwnedOperation,
   beginScannedPdfUpload,
@@ -13,11 +14,12 @@ import {
   finishOwnedOperation,
   finishScannedPdfUpload,
   historyViewActionIsCurrent,
+  loadedActiveProject,
   projectSelectionIsCurrent,
   projectViewIsCurrent,
   scannedPdfUploadAppliesToProject,
   stageScannedPdf,
-} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-4";
+} from "./chat-scanned-pdf-handoff.mjs?v=token-chat-final-audit-20260816-5";
 import {
   moveVisionImage,
   orderedVisionImages,
@@ -476,7 +478,7 @@ function routeRequest(prompt) {
     mode,
     web,
     research,
-    project: !image && Boolean(projectState.active),
+    project: !image && Boolean(loadedActiveProject(projectState)),
     vision: !image && attachedVisionImages.length > 0,
     enableThinking: research || Boolean(els.reasoning.checked),
     ...webOptions,
@@ -1783,7 +1785,7 @@ function renderProjectState() {
     select.value = projectState.activeId || "";
     select.disabled = !projectState.available || projectState.loading || projectState.busy;
   });
-  const active = projectState.active;
+  const active = loadedActiveProject(projectState);
   els.projectEditor.hidden = !active;
   els.projectName.value = active?.name || "";
   els.projectInstructions.value = active?.instructions || "";
@@ -1793,8 +1795,10 @@ function renderProjectState() {
   els.projectAnalysisMode.disabled = !active || !projectState.available || projectState.busy;
   els.projectCreate.disabled = !projectState.available || projectState.busy;
   els.attachProjectDocument.hidden = !active || !projectState.available;
+  els.attachProjectDocument.disabled = !active || !projectState.available || projectState.busy;
   if (active) els.attachProjectHint.textContent = `Add to ${active.name}`;
   renderProjectDocuments();
+  renderDocuments();
 }
 
 function beginProjectBusy() {
@@ -1885,10 +1889,11 @@ async function loadProjects() {
 }
 
 function upsertProjectFile(document) {
-  if (!document?.id || !projectState.active) return;
+  const active = loadedActiveProject(projectState);
+  if (!document?.id || !active) return;
   projectState.documents = [...projectState.documents.filter((item) => item.id !== document.id), document];
   projectState.active = {
-    ...projectState.active,
+    ...active,
     document_count: projectState.documents.length,
   };
   renderProjectState();
@@ -1956,7 +1961,9 @@ async function createProject() {
 }
 
 async function saveProjectDetails() {
-  if (!projectState.active) return;
+  const active = loadedActiveProject(projectState);
+  if (!active) return;
+  const projectIsCurrent = () => loadedActiveProject(projectState)?.id === active.id;
   const body = { name: els.projectName.value.trim(), instructions: els.projectInstructions.value.trim() };
   if (!body.name) {
     setProjectStatus("Project name cannot be empty", "bad");
@@ -1966,11 +1973,12 @@ async function saveProjectDetails() {
   renderProjectState();
   setProjectStatus("Saving project...", "neutral");
   try {
-    const result = await projectRequest(`/${encodeURIComponent(projectState.active.id)}`, {
+    const result = await projectRequest(`/${encodeURIComponent(active.id)}`, {
       method: "PUT",
-      headers: { "if-match": projectState.etag || projectState.active.version },
+      headers: { "if-match": projectState.etag || active.version },
       body: JSON.stringify(body),
     });
+    if (!projectIsCurrent()) return;
     projectState.active = result.json.project;
     projectState.etag = result.etag || projectState.active.version;
     projectState.projects = projectState.projects.map((project) => (
@@ -1979,20 +1987,23 @@ async function saveProjectDetails() {
     setProjectStatus("Project details saved", "good");
     scheduleConversationSave(0);
   } catch (error) {
-    setProjectStatus(error.status === 412 ? "Project changed elsewhere. Reopen it and try again." : error.message, "bad");
+    if (projectIsCurrent()) setProjectStatus(error.status === 412 ? "Project changed elsewhere. Reopen it and try again." : error.message, "bad");
   } finally {
     if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
 async function deleteActiveProject() {
-  const project = projectState.active;
+  const project = loadedActiveProject(projectState);
   if (!project || !window.confirm(`Delete "${project.name}" and all its stored project files? This cannot be undone.`)) return;
+  const view = captureActiveProjectView(project.id);
+  const projectIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
   const busyToken = beginProjectBusy();
   renderProjectState();
   setProjectStatus("Deleting project...", "neutral");
   try {
     await projectRequest(`/${encodeURIComponent(project.id)}`, { method: "DELETE" });
+    if (!projectIsCurrent()) return;
     projectState.projects = projectState.projects.filter((item) => item.id !== project.id);
     projectState.activeId = null;
     projectState.active = null;
@@ -2001,17 +2012,17 @@ async function deleteActiveProject() {
     setProjectStatus("Project deleted", "good");
     scheduleConversationSave(0);
   } catch (error) {
-    setProjectStatus(error.message, "bad");
+    if (projectIsCurrent()) setProjectStatus(error.message, "bad");
   } finally {
     if (finishProjectBusy(busyToken)) renderProjectState();
   }
 }
 
-async function uploadProjectDocuments(files, { projectId = projectState.active?.id } = {}) {
+async function uploadProjectDocuments(files, { projectId = loadedActiveProject(projectState)?.id } = {}) {
+  const active = loadedActiveProject(projectState);
   const destinationId = String(projectId || "");
-  const destination = projectState.projects.find((item) => item.id === destinationId)
-    || (projectState.active?.id === destinationId ? projectState.active : null);
-  if (!destination || !files.length) return false;
+  if (!active || active.id !== destinationId || !files.length) return false;
+  const destination = active;
   const view = captureActiveProjectView(destinationId);
   const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
   const busyToken = beginProjectBusy();
@@ -2050,11 +2061,12 @@ async function uploadProjectDocuments(files, { projectId = projectState.active?.
 }
 
 async function downloadProjectDocument(documentId) {
+  const active = loadedActiveProject(projectState);
   const storedDocument = projectState.documents.find((item) => item.id === documentId);
-  if (!storedDocument || !projectState.active) return;
+  if (!storedDocument || !active) return;
   setProjectStatus(`Preparing ${storedDocument.name}...`, "neutral");
   try {
-    const response = await fetch(`${PROJECTS_API_PATH}/${encodeURIComponent(projectState.active.id)}/documents/${encodeURIComponent(storedDocument.id)}/download`, {
+    const response = await fetch(`${PROJECTS_API_PATH}/${encodeURIComponent(active.id)}/documents/${encodeURIComponent(storedDocument.id)}/download`, {
       credentials: "include",
       cache: "no-store",
     });
@@ -2074,9 +2086,10 @@ async function downloadProjectDocument(documentId) {
 }
 
 async function deleteProjectDocument(documentId) {
+  const active = loadedActiveProject(projectState);
   const document = projectState.documents.find((item) => item.id === documentId);
-  if (!document || !projectState.active || !window.confirm(`Delete "${document.name}" from this project?`)) return;
-  const destinationId = projectState.active.id;
+  if (!document || !active || !window.confirm(`Delete "${document.name}" from this project?`)) return;
+  const destinationId = active.id;
   const view = captureActiveProjectView(destinationId);
   const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
   const busyToken = beginProjectBusy();
@@ -2096,9 +2109,10 @@ async function deleteProjectDocument(documentId) {
 }
 
 async function retryProjectVisualAnalysis(documentId) {
+  const active = loadedActiveProject(projectState);
   const document = projectState.documents.find((item) => item.id === documentId);
-  if (!document || !projectState.active) return;
-  const destinationId = projectState.active.id;
+  if (!document || !active) return;
+  const destinationId = active.id;
   const view = captureActiveProjectView(destinationId);
   const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
   const busyToken = beginProjectBusy();
@@ -2310,45 +2324,48 @@ function historyMessagesArePrefix(remoteMessages, localMessages) {
   ));
 }
 
-async function saveConversation() {
-  if (!historyState.available || historyState.currentRetention === "none") return;
+async function saveConversation(expectedAction = null) {
+  const actionIsCurrent = () => !expectedAction || historyViewActionIsCurrent(historyState, expectedAction);
+  if (!actionIsCurrent() || !historyState.available || historyState.currentRetention === "none") return false;
   const storedMessages = storedHistoryMessages();
-  if (!storedMessages.some((message) => message.role === "user")) return;
+  if (!storedMessages.some((message) => message.role === "user")) return false;
   if (historyState.saving) {
     historyState.saveQueued = true;
-    return;
+    return false;
   }
   historyState.saving = true;
   setHistoryStatus("Saving...", "neutral", "Saving this chat privately...");
+  const retention = historyState.currentRetention;
+  const currentId = historyState.currentId;
+  const currentVersion = historyState.currentVersion;
+  const activeProject = loadedActiveProject(projectState);
   const body = {
     title: currentConversationTitle(),
-    retention: historyState.currentRetention,
+    retention,
     messages: storedMessages,
-    project_id: projectState.active?.id || null,
-    project_name: projectState.active?.name || null,
+    project_id: activeProject?.id || null,
+    project_name: activeProject?.name || null,
   };
   try {
     let result;
-    if (historyState.currentId) {
+    if (currentId) {
       try {
-        result = await historyRequest(`/${encodeURIComponent(historyState.currentId)}`, {
+        result = await historyRequest(`/${encodeURIComponent(currentId)}`, {
           method: "PUT",
-          headers: { "if-match": historyState.currentVersion },
+          headers: { "if-match": currentVersion },
           body: JSON.stringify(body),
         });
       } catch (error) {
         if (error.status !== 409) throw error;
-        const latest = await historyRequest(`/${encodeURIComponent(historyState.currentId)}`);
+        const latest = await historyRequest(`/${encodeURIComponent(currentId)}`);
         const remoteConversation = latest.json.conversation;
         if (historyMessagesArePrefix(remoteConversation?.messages, storedMessages)) {
-          result = await historyRequest(`/${encodeURIComponent(historyState.currentId)}`, {
+          result = await historyRequest(`/${encodeURIComponent(currentId)}`, {
             method: "PUT",
             headers: { "if-match": latest.etag || remoteConversation.version },
             body: JSON.stringify(body),
           });
         } else {
-          historyState.currentId = null;
-          historyState.currentVersion = null;
           body.title = `${body.title.slice(0, 106)} (continued)`;
           result = await historyRequest("", { method: "POST", body: JSON.stringify(body) });
         }
@@ -2358,13 +2375,16 @@ async function saveConversation() {
     }
     const conversation = result.json.conversation;
     if (!conversation?.id) throw new Error("Private history returned an invalid response.");
-    historyState.currentId = conversation.id;
-    historyState.currentVersion = result.etag || conversation.version;
+    const saved = applySavedConversationResult(historyState, expectedAction, conversation, result.etag || conversation.version);
+    if (!saved.applied) return false;
+    Object.assign(historyState, saved.state);
     upsertHistorySummary(conversation);
-    setHistoryStatus("Saved", "good", historyState.currentRetention === "forever"
+    setHistoryStatus("Saved", "good", retention === "forever"
       ? "This chat is encrypted and kept until you delete it."
       : "This chat is encrypted and kept for 30 days after its latest update.");
+    return true;
   } catch (error) {
+    if (!actionIsCurrent()) return false;
     if (error.status === 401 || error.status === 403 || error.status === 0) historyState.available = false;
     const rejected = error.status === 400 || error.status === 413;
     setHistoryStatus(
@@ -2373,6 +2393,7 @@ async function saveConversation() {
       rejected ? error.message : "This chat is still available in this tab, but could not be saved right now.",
     );
     renderConversationHistory();
+    return false;
   } finally {
     historyState.saving = false;
     updateHistoryControls();
@@ -2412,14 +2433,19 @@ async function waitForConversationSave() {
   }
 }
 
-async function flushConversationSave() {
+async function flushConversationSave(expectedAction = null) {
+  const actionIsCurrent = () => !expectedAction || historyViewActionIsCurrent(historyState, expectedAction);
+  if (!actionIsCurrent()) return false;
   if (historyState.saveTimer) {
     clearTimeout(historyState.saveTimer);
     historyState.saveTimer = null;
   }
   await waitForConversationSave();
-  await saveConversation();
+  if (!actionIsCurrent()) return false;
+  await saveConversation(expectedAction);
+  if (!actionIsCurrent()) return false;
   await waitForConversationSave();
+  return actionIsCurrent();
 }
 
 async function openStoredConversation(id) {
@@ -2431,10 +2457,9 @@ async function openStoredConversation(id) {
   Object.assign(historyState, openingAction.state);
   const conversationAction = openingAction.action;
   if (historyState.saveTimer) {
-    clearTimeout(historyState.saveTimer);
-    historyState.saveTimer = null;
-    await saveConversation();
+    await flushConversationSave(conversationAction);
   }
+  if (!historyViewActionIsCurrent(historyState, conversationAction)) return;
   setHistoryStatus("Opening...", "neutral", "Opening your saved chat...");
   try {
     const { json, etag } = await historyRequest(`/${encodeURIComponent(id)}`);
@@ -2661,7 +2686,8 @@ function renderDocuments() {
   `).join("");
   const scannedPdfAction = scannedPdfHandoff.pending ? (() => {
     const file = scannedPdfHandoff.pending.file;
-    const disabled = scannedPdfHandoff.activeAction ? " disabled" : "";
+    const selectionLoading = Boolean(projectState.activeId) && !loadedActiveProject(projectState);
+    const disabled = scannedPdfHandoff.activeAction || selectionLoading ? " disabled" : "";
     return `
     <div class="chat-doc-item">
       <div class="chat-doc-badge">PDF</div>
@@ -2684,7 +2710,7 @@ function clearPendingScannedPdf() {
 }
 
 async function addPendingScannedPdfToProject() {
-  const started = beginScannedPdfUpload(scannedPdfHandoff, projectState.active);
+  const started = beginScannedPdfUpload(scannedPdfHandoff, loadedActiveProject(projectState));
   const action = started.action;
   if (action.kind === "none") return;
   if (action.kind === "busy") return;
@@ -2700,7 +2726,7 @@ async function addPendingScannedPdfToProject() {
   try {
     uploaded = await uploadProjectDocuments(action.files, { projectId: action.projectId });
   } finally {
-    const capturedDestinationIsCurrent = scannedPdfUploadAppliesToProject(action, projectState.active);
+    const capturedDestinationIsCurrent = scannedPdfUploadAppliesToProject(action, loadedActiveProject(projectState));
     scannedPdfHandoff = finishScannedPdfUpload(
       scannedPdfHandoff, action, uploaded, capturedDestinationIsCurrent,
     );
@@ -3099,8 +3125,9 @@ function attachProjectContext(index, context) {
 }
 
 async function retrieveActiveProjectContext(query) {
-  const project = projectState.active;
+  const project = loadedActiveProject(projectState);
   if (!project) return null;
+  const view = captureActiveProjectView(project.id);
   let retrieval = { project, passages: [], context: "" };
   if (projectState.documents.length) {
     const retrievalOptions = projectRetrievalOptions(getDocumentBudgetTokens());
@@ -3108,6 +3135,7 @@ async function retrieveActiveProjectContext(query) {
       method: "POST",
       body: JSON.stringify({ query, ...retrievalOptions }),
     });
+    if (!projectViewIsCurrent(projectState, historyState.viewGeneration, view)) return null;
     if (!json.ok || !json.project || !Array.isArray(json.passages)) {
       throw new Error("Project retrieval returned an invalid response.");
     }
@@ -3156,7 +3184,7 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
     metadata: {
       source: "token_gen_chat",
       user_id: userId,
-      project_id: projectState.active?.id || undefined,
+      project_id: loadedActiveProject(projectState)?.id || undefined,
       requested_mode: route.mode,
       resolved_route: route.research ? "research" : route.web ? "web" : route.vision ? "vision" : "chat",
       context_window: contextWindow,
@@ -3327,6 +3355,8 @@ async function sendMessage(content, route = routeRequest(content)) {
     return;
   }
   let visionImages = [];
+  const activeProject = loadedActiveProject(projectState);
+  if (route.project && !activeProject) route = { ...route, project: false };
   if (attachedVisionImages.length) {
     setStatus("Preparing images locally...", "busy");
     visionImages = await prepareVisionImagesForSend(attachedVisionImages);
@@ -3343,7 +3373,7 @@ async function sendMessage(content, route = routeRequest(content)) {
       : route.web
         ? "Gathering web context..."
         : route.project
-          ? `Searching ${projectState.active?.name || "project"}...`
+          ? `Searching ${activeProject.name}...`
           : "Generating response...",
     "busy",
   );
@@ -3353,7 +3383,9 @@ async function sendMessage(content, route = routeRequest(content)) {
     const chatUserId = await getChatUserId();
     const projectContext = route.project
       ? await (async () => {
-          setStatus(`Searching ${projectState.active.name}...`, "busy");
+          const loadedProject = loadedActiveProject(projectState);
+          if (!loadedProject || loadedProject.id !== activeProject.id) return null;
+          setStatus(`Searching ${loadedProject.name}...`, "busy");
           return retrieveActiveProjectContext(content);
         })()
       : null;
@@ -4133,7 +4165,7 @@ els.attachDocument.addEventListener("click", () => {
 
 els.attachProjectDocument.addEventListener("click", () => {
   setAttachMenu(false);
-  if (projectState.active) els.projectDocuments.click();
+  if (loadedActiveProject(projectState)) els.projectDocuments.click();
 });
 
 els.attachImage.addEventListener("click", () => {
@@ -4184,7 +4216,7 @@ els.projectCreateName.addEventListener("keydown", (event) => {
 els.projectSave.addEventListener("click", saveProjectDetails);
 els.projectDelete.addEventListener("click", deleteActiveProject);
 els.projectUpload.addEventListener("click", () => {
-  if (projectState.active) els.projectDocuments.click();
+  if (loadedActiveProject(projectState)) els.projectDocuments.click();
 });
 els.projectDocuments.addEventListener("change", () => {
   uploadProjectDocuments(Array.from(els.projectDocuments.files || []));
@@ -4643,7 +4675,7 @@ els.clear.addEventListener("click", async () => {
   const newChatAction = beginHistoryViewAction(historyState);
   Object.assign(historyState, newChatAction.state);
   if (historyState.available && historyState.currentRetention !== "none") {
-    await flushConversationSave();
+    await flushConversationSave(newChatAction.action);
   }
   if (!historyViewActionIsCurrent(historyState, newChatAction.action)) return;
   releaseConversationVisionPreviews();
