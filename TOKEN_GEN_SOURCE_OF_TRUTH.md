@@ -21,22 +21,29 @@ generated client helpers.
 - Lil Zen, OpenClaw, SSH, a PC-side gateway, and a separate control plane are
   not Token Gen source, promotion, runtime, or release dependencies.
 
-## Cycle 4A product baseline
+## Cycle 4B product baseline
 
-- Active API product commit:
-  `4709b6d437ef3dd0db867e85551c146f976b90ea`.
-- Site product commit: `7e4fdaf31d0616260309036d494e1066d874e3f1`.
-- The API complete check passed 613 tests. Live Qwen processor/vLLM counts
-  matched 24/24, 984/984, and 313/313, with the four images interpreted in
-  supplied order.
-- The text-PDF fast path passed. The scanned/chart durable job completed with
-  visual page 1, page-cited passages, and a signed visual reference. The
-  private follow-up returned `Page 1: 34` with zero
-  reference/token/path/history leakage.
-- Headless Firefox passed the explicit edit-target canary: two ordered image
-  chips rendered and ownership transferred while exactly one target remained
-  selected.
-- MTP and video are not part of Cycle 4A.
+- The current four-way-aligned API and site tips are the golden source. The API
+  serves exactly one loopback-only `Qwen-Qwen3.8-27B` through vLLM 0.26 with
+  FP8 weights, BF16 activations/KV, 524,288 context, `xhigh` reasoning and no
+  offload, secondary model or MTP fallback.
+- Private Project videos accept resumable encrypted MP4/WebM/MOV/MKV uploads up
+  to 4 GiB and 30 minutes. One durable job processes one to six five-minute
+  segments sequentially. Sampling is server-owned at 2 fps, at most 768 frames
+  and 12,288 video tokens per segment; local CPU INT8 faster-whisper handles
+  audio.
+- The browser keeps video bytes and opaque references in current-page memory,
+  renders upload/job progress and timestamp citations, and exposes no FPS or
+  frame controls. Failed video jobs use the idempotent completion route.
+- `/api/agent.json` and `/.well-known/token-gen-api.json` are the authoritative
+  machine contract for limits, sampling, routes, job kind and stable errors.
+  Clients including Lil Zen must read that additive contract instead of
+  copying the policy.
+- Cycle 4A image ordering, scanned-PDF/chart project intelligence, signed visual
+  evidence and private follow-up behavior remain supported.
+- Release proof passed exact image and five-minute video token parity and one
+  complete 1,800-second/six-segment project job with signed-range follow-up and
+  full private cleanup. The site aggregate passed 119 tests plus its contract.
 
 ## Live surfaces
 

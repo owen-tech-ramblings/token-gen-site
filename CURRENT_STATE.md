@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-16 Australia/Sydney
 
-## Cycle 4B private-video site implementation - pending release review
+## Cycle 4B private-video site release - 2026-08-16
 
 - The `dev` worktree now has the private project-video client for MP4, WebM,
   MOV and MKV uploads up to the discovered limit (fixed older-contract defaults:
@@ -23,17 +23,20 @@ Last updated: 2026-08-16 Australia/Sydney
 - Focused verification passed 27 Node tests, the site contract, JavaScript
   syntax and `git diff --check`. A local headless Firefox check loaded the page,
   opened Settings, rendered `Add video`, showed the 30-minute/4 GiB guidance,
-  found no error overlay and confirmed there are no FPS/frame controls. The
-  aggregate `npm test`, live API flow, push, promotion and deployment remain
-  for the Cycle 4B release step.
+  found no error overlay and confirmed there are no FPS/frame controls. The one
+  aggregate `npm test` release check passed 119 tests plus the site contract.
+- The matching API live canary completed one exact 1,800-second upload as six
+  sequential five-minute Qwen calls, published six timestamp-cited scenes and
+  one signed range, streamed one private follow-up plus one DONE, leaked no
+  private identifier, and removed the project, job and staged plaintext.
 
-## Cycle 4A current release - 2026-08-16
+## Historical Cycle 4A release - 2026-08-16
 
 - Canonical site source is `/home/zenfree/token-gen-site`, remote
   `https://github.com/owen-tech-ramblings/token-gen-site.git`; canonical API
   source/runtime is `/home/zenfree/server-details-api`, remote
   `https://github.com/owen-tech-ramblings/token-gen-api.git`.
-- Cycle 4A product commits are site
+- Cycle 4A product commits were site
   `7e4fdaf31d0616260309036d494e1066d874e3f1` and active API
   `4709b6d437ef3dd0db867e85551c146f976b90ea`. The API aggregate passed 613
   tests.

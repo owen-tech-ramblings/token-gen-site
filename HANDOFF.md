@@ -2,7 +2,7 @@
 
 Last updated: 2026-08-16 Australia/Sydney
 
-## 2026-08-16 Cycle 4B private-video site handoff (pending review)
+## 2026-08-16 Cycle 4B private-video site handoff (authoritative)
 
 The site `dev` worktree implements the Cycle 4B project-video client without
 changing the API, Lil Zen or deployment. `chat-project-video.mjs` consumes the
@@ -35,9 +35,14 @@ Focused verification passed:
   overlay, `Add video` visible, 30-minute/4 GiB guidance visible and zero
   FPS/frame controls
 
-Do not deploy the site independently of the matching API discovery/analysis
-release. Independent diff review, the one final `npm test`, promotion, push and
-live end-to-end upload/chat verification remain with the Cycle 4B release.
+The site and matching API discovery/analysis contract are one release. The one
+aggregate `npm test` passed 119 tests plus the site contract. Keep client limits
+discovery-driven; do not duplicate sampling, route, or stable-error policy in a
+Lil Zen or browser fallback.
+
+The matching live API proof completed a 30-minute upload as six sequential
+segments, returned one signed five-minute range, streamed one private follow-up
+and one DONE, leaked no private identifier, and cleaned its project/job/plaintext.
 
 ## 2026-08-16 Cycle 4A release handoff (authoritative)
 
