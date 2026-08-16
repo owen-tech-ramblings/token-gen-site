@@ -20,11 +20,12 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   `origin/dev`, and `origin/master` must identify the same commit, the checkout
   must be clean, and no other local or remote branch may remain.
 - Complete check command: `npm test`
-  It is the sole aggregate check and must run unchanged in exact-commit
-  `quality / site` GitHub CI for `dev` and
-  `master`, plus feature-specific browser checks from a local static server. The
-  legacy `services/` examples are not production sources and are not an
-  alternative to the canonical `token-gen-api` suite.
+  It is the authoritative local aggregate and release check. GitHub
+  `quality / site` may mirror the same exact-commit command for `dev` and
+  `master` when quota is available, but CI is not a release prerequisite.
+  Feature-specific browser checks remain additional. The legacy `services/`
+  examples are not production sources and are not an alternative to the
+  canonical `token-gen-api` suite.
 - Live deployment path: GitHub Pages deployment from the repository
   root of `master`, serving `https://token-gen.owenonthenet.com` through the
   checked-in `CNAME`. A release is complete only when the latest Pages build
@@ -35,11 +36,11 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 - Rollback path: restore the prior immutable site release with a revert on
   `dev`, verify it, fast-forward `master`, wait for the
   exact Pages rebuild, and repeat the same live checks.
-- Forbidden actions: bypassing `quality / site`, creating extra branches or
-  feature worktrees, direct live edits, global GitHub-auth switching,
-  repository-local secrets, deployment from a mirror, PC-hosted production
-  API/search dependencies, silent fallbacks, or a release record that does not
-  match the Pages commit.
+- Forbidden actions: skipping the local `npm test` release check, creating
+  extra branches or feature worktrees, direct live edits, global GitHub-auth
+  switching, repository-local secrets, deployment from a mirror, PC-hosted
+  production API/search dependencies, silent fallbacks, or a release record
+  that does not match the Pages commit.
 
 ## Shared Codex Context
 
