@@ -2,6 +2,41 @@
 
 Last updated: 2026-08-16 Australia/Sydney
 
+## 2026-08-16 Cycle 4B private-video site handoff (pending review)
+
+The site `dev` worktree implements the Cycle 4B project-video client without
+changing the API, Lil Zen or deployment. `chat-project-video.mjs` consumes the
+additive `capabilities.video` discovery contract when present and otherwise
+uses only the fixed public 32 MiB/4 GiB/1,800-second defaults. It incrementally
+hashes one bounded slice at a time, creates one upload session, reconciles its
+received-chunk status, sends only missing chunks, completes it, and keeps a
+failed session resumable in current-page memory. Abort uses the same private
+projects route family.
+
+The project panel adds a single video picker and progress/resume/abort state;
+there are no sampling, FPS or frame controls. Project rows, durable jobs and
+the existing retry route handle `project_video_analysis`. Retrieval renders
+timestamped citations and passes at most one opaque `video_evidence` reference
+to project chat. Media, transcript and references are absent from saved chat
+metadata, local storage, logs and DOM data attributes; only safe citation
+timestamps may be retained.
+
+Focused verification passed:
+
+- `node --test tools/chat-project-video.test.mjs tools/chat-context-options.test.mjs`
+  (`26/26`)
+- `node tools/site-contract-tests.mjs`
+- `node --check chat.js`, `node --check chat-project-video.mjs` and
+  `node --check chat-context-options.mjs`
+- `git diff --check`
+- local headless Firefox page/Settings check: meaningful page content, no
+  overlay, `Add video` visible, 30-minute/4 GiB guidance visible and zero
+  FPS/frame controls
+
+Do not deploy the site independently of the matching API discovery/analysis
+release. Independent diff review, the one final `npm test`, promotion, push and
+live end-to-end upload/chat verification remain with the Cycle 4B release.
+
 ## 2026-08-16 Cycle 4A release handoff (authoritative)
 
 Use `/home/zenfree/token-gen-site` and `/home/zenfree/server-details-api` as the

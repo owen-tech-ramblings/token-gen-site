@@ -144,8 +144,8 @@ assert.match(chatHtml, /value="adult_ok"/, "Chat image content rating must use t
 assert.match(chatHtml, /value="flexible"/, "Chat image preservation must include the API flexible value.");
 assert.match(chatHtml, /Advanced image controls/, "Chat HTML must group detailed image controls in a collapsible settings area.");
 assert.match(chatHtml, /Lower preserves the source\. Higher allows more variation\./, "Chat HTML must explain lower edit values preserve more of the source image.");
-assert.match(chatHtml, /styles\.css\?v=token-chat-visual-projects-20260815-1/, "Chat HTML must cache-bust visual project controls.");
-assert.match(chatHtml, /chat\.js\?v=token-chat-final-audit-20260816-8/, "Chat HTML must cache-bust changed visual project controls.");
+assert.match(chatHtml, /styles\.css\?v=token-chat-private-video-20260816-1/, "Chat HTML must cache-bust private video controls.");
+assert.match(chatHtml, /chat\.js\?v=token-chat-private-video-20260816-1/, "Chat HTML must cache-bust private video behavior.");
 assert.match(chatHtml, /id="chatJobsOpen"/, "Chat HTML must include a compact background-jobs control.");
 assert.match(chatHtml, /id="chatJobsDrawer"/, "Chat HTML must include the background-jobs drawer.");
 assert.match(chatJs, /\/api\/image\/health/, "Chat must check image generation capability.");
@@ -220,7 +220,7 @@ assert.match(chatHtml, /id="chatProjectAnalysisMode"/, "Project uploads must exp
 assert.match(chatHtml, /value="auto"[^>]*>Automatic for scanned and visual pages/, "Project uploads must retain automatic visual analysis.");
 assert.match(chatHtml, /value="visual"[^>]*>Every PDF page/, "Project uploads must support explicit every-page visual analysis.");
 assert.match(chatHtml, /Project files are encrypted/, "Project UI must call stored resources project files.");
-assert.match(chatHtml, /Project files can be searched; images and scanned PDFs receive visual analysis./, "Project copy must distinguish general file search from visual analysis.");
+assert.match(chatHtml, /Project files can be searched; images, scanned PDFs, and private videos receive local analysis./, "Project copy must distinguish general file search from private media analysis.");
 assert.match(chatHtml, />Add to project</, "The general project upload action must not claim every file receives visual analysis.");
 assert.doesNotMatch(chatHtml, /Project documents/, "Project UI must not retain the former Project documents wording.");
 assert.match(chatJs, /form\.append\("analysis_mode", analysisMode\)/, "Project uploads must submit the selected analysis mode.");
@@ -247,7 +247,7 @@ assert.match(chatTransportOptionsJs, /delete payload\.project_media;/, "Visual r
 assert.doesNotMatch(chatJs, /data-[^"'`]*(?:reference|project-media)/, "Opaque visual references must never be placed in DOM data attributes.");
 assert.match(chatContextOptionsJs, /function projectHistoryMetadata/, "Project history must use a dedicated safe metadata mapper.");
 assert.match(chatContextOptionsJs, /hasOwnProperty\.call\(document, "processing_status"\)/, "Only a genuinely absent processing status may use the legacy Ready fallback.");
-assert.match(chatJs, /from "\.\/chat-context-options\.mjs\?v=token-chat-visual-projects-20260815-1"/, "Chat must cache-bust the visual project helper module with its script version.");
+assert.match(chatJs, /from "\.\/chat-context-options\.mjs\?v=token-chat-private-video-20260816-1"/, "Chat must cache-bust the project media helper module with its script version.");
 const projectHistoryMetadataSource = chatContextOptionsJs.slice(
   chatContextOptionsJs.indexOf("export function projectHistoryMetadata"),
   chatContextOptionsJs.indexOf("export function apiErrorMessage"),

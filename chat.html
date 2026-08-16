@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-visual-projects-20260815-1" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-private-video-20260816-1" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -262,7 +262,7 @@
         <section class="chat-settings-section" id="chatProjectSettings" aria-label="Project library settings">
           <div class="chat-settings-title">
             <span>Projects</span>
-            <small>Project files can be searched; images and scanned PDFs receive visual analysis.</small>
+            <small>Project files can be searched; images, scanned PDFs, and private videos receive local analysis.</small>
           </div>
           <div class="chat-project-create">
             <label class="chat-field" for="chatProjectCreateName">
@@ -295,6 +295,17 @@
               <span id="chatProjectDocumentCount">0</span>
             </div>
             <div class="chat-project-document-list" id="chatProjectDocumentList"></div>
+            <div class="chat-project-video-upload" id="chatProjectVideoUploadState" hidden>
+              <div>
+                <strong id="chatProjectVideoUploadLabel">Private video upload</strong>
+                <small id="chatProjectVideoUploadError"></small>
+              </div>
+              <progress id="chatProjectVideoUploadProgress" value="0" max="100" aria-label="Private video upload progress"></progress>
+              <div class="chat-project-video-upload-actions">
+                <button class="chat-secondary-button" id="chatProjectVideoResume" type="button" hidden>Resume</button>
+                <button class="chat-secondary-button chat-danger-button" id="chatProjectVideoAbort" type="button">Abort</button>
+              </div>
+            </div>
             <label class="chat-field" for="chatProjectAnalysisMode">
               <span>Visual analysis</span>
               <select id="chatProjectAnalysisMode">
@@ -302,10 +313,17 @@
                 <option value="visual">Every PDF page</option>
               </select>
             </label>
-            <button class="chat-secondary-button chat-project-upload" id="chatProjectUpload" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
-              Add to project
-            </button>
+            <div class="chat-project-upload-actions">
+              <button class="chat-secondary-button chat-project-upload" id="chatProjectUpload" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
+                Add to project
+              </button>
+              <button class="chat-secondary-button chat-project-upload" id="chatProjectVideoUpload" type="button">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z" /></svg>
+                Add video
+              </button>
+            </div>
+            <p class="chat-project-video-hint" id="chatProjectVideoHint">MP4, WebM, MOV, or MKV. One private video up to 30 minutes and 4 GB.</p>
           </div>
           <p class="chat-privacy-note" id="chatProjectStatus">Project files are encrypted before secure NAS storage and stay private to your account.</p>
         </section>
@@ -593,10 +611,11 @@ Keep responses clear and useful. Match detail to the request, use plain language
 
     <input class="chat-file-input" id="chatDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.pdf,.docx,.rtf,.js,.ts,.tsx,.jsx,.py,.ps1,.sh,.sql,.css" />
     <input class="chat-file-input" id="chatProjectDocuments" type="file" multiple accept=".txt,.md,.markdown,.csv,.json,.jsonl,.html,.htm,.xml,.yaml,.yml,.log,.rtf,.pdf,.docx,.xlsx,.pptx,.py,.js,.jsx,.ts,.tsx,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.rb,.php,.sh,.bash,.zsh,.sql,.css,.scss,.toml,.ini,.cfg,.png,.jpg,.jpeg,.webp" />
+    <input class="chat-file-input" id="chatProjectVideos" type="file" accept="video/mp4,video/webm,video/quicktime,video/x-matroska,.mp4,.webm,.mov,.mkv" />
     <input class="chat-file-input" id="chatVisionImages" type="file" multiple accept="image/png,image/jpeg,image/webp" />
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-final-audit-20260816-8"></script>
+    <script type="module" src="./chat.js?v=token-chat-private-video-20260816-1"></script>
   </body>
 </html>

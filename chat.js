@@ -1,5 +1,13 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import { requestChatStream } from "./chat-transport-options.mjs";
+import {
+  DEFAULT_PROJECT_VIDEO_CONTRACT,
+  formatVideoBytes,
+  projectVideoFileProblem,
+  projectVideoUploadPresentation,
+  resolveProjectVideoContract,
+  uploadProjectVideo,
+} from "./chat-project-video.mjs?v=token-chat-private-video-20260816-1";
 import { announceVision } from "./chat-vision-announcements.mjs";
 import { stageVisionAttachments } from "./chat-attachment-staging.mjs?v=token-chat-final-audit-20260816-1";
 import {
@@ -42,6 +50,7 @@ import {
   projectHistoryMetadata,
   projectJobPresentation,
   projectMediaForChat,
+  projectPassageLocation,
   projectContextPassages,
   projectRetrievalOptions,
   projectUploadAnalysisMode,
@@ -49,7 +58,7 @@ import {
   reasoningCapacity,
   webContextSources,
   withOptionalGenerationLimit,
-} from "./chat-context-options.mjs?v=token-chat-visual-projects-20260815-1";
+} from "./chat-context-options.mjs?v=token-chat-private-video-20260816-1";
 
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 
@@ -161,6 +170,15 @@ const els = {
   projectDelete: $("#chatProjectDelete"),
   projectUpload: $("#chatProjectUpload"),
   projectDocuments: $("#chatProjectDocuments"),
+  projectVideoUpload: $("#chatProjectVideoUpload"),
+  projectVideos: $("#chatProjectVideos"),
+  projectVideoHint: $("#chatProjectVideoHint"),
+  projectVideoUploadState: $("#chatProjectVideoUploadState"),
+  projectVideoUploadLabel: $("#chatProjectVideoUploadLabel"),
+  projectVideoUploadError: $("#chatProjectVideoUploadError"),
+  projectVideoUploadProgress: $("#chatProjectVideoUploadProgress"),
+  projectVideoResume: $("#chatProjectVideoResume"),
+  projectVideoAbort: $("#chatProjectVideoAbort"),
   projectAnalysisMode: $("#chatProjectAnalysisMode"),
   projectDocumentList: $("#chatProjectDocumentList"),
   projectDocumentCount: $("#chatProjectDocumentCount"),
@@ -258,6 +276,18 @@ let jobState = {
   pendingJobs: [],
   listRequestGeneration: 0,
   refreshTimer: null,
+};
+let projectVideoContract = { ...DEFAULT_PROJECT_VIDEO_CONTRACT, available: false };
+let projectVideoCapabilityLoaded = false;
+let projectVideoUploadState = {
+  file: null,
+  projectId: null,
+  session: null,
+  phase: "idle",
+  percent: 0,
+  error: "",
+  controller: null,
+  cancelRequested: false,
 };
 
 const IMAGE_POLL_INTERVAL_MS = 2200;
@@ -1496,18 +1526,21 @@ function renderBackgroundJobs() {
     return;
   }
   els.jobsList.innerHTML = jobs.map((job) => {
-    const visual = job.kind === "project_visual_analysis";
-    const visualPresentation = visual ? projectJobPresentation(job) : null;
+    const projectAnalysis = ["project_visual_analysis", "project_video_analysis"].includes(job.kind);
+    const videoAnalysis = job.kind === "project_video_analysis";
+    const visualPresentation = projectAnalysis ? projectJobPresentation(job) : null;
     const output = Array.isArray(job.outputs) ? job.outputs[0] : null;
     const outputUrl = output?.url ? absoluteImageUrl(output.url) : "";
     const isActive = backgroundJobIsActive(job);
-    const isComplete = job.status === "completed" && outputUrl;
+    const isComplete = !projectAnalysis && job.status === "completed" && outputUrl;
     const title = visualPresentation?.label || job.title || job.prompt || "Background job";
     const status = visualPresentation?.status || job.status;
     const statusLabel = visualPresentation?.statusLabel || jobStatusLabel(job.status);
     const sample = Number(job.sample_total || 1) > 1 ? ` / sample ${job.sample_index} of ${job.sample_total}` : "";
     const visualDetails = visualPresentation
-      ? `${formatNumber(job.page_count || 0)} page${Number(job.page_count || 0) === 1 ? "" : "s"} / ${visualPresentation.progress}%`
+      ? videoAnalysis
+        ? `${formatNumber(job.segment_count || 0)} segment${Number(job.segment_count || 0) === 1 ? "" : "s"} / ${visualPresentation.progress}%`
+        : `${formatNumber(job.page_count || 0)} page${Number(job.page_count || 0) === 1 ? "" : "s"} / ${visualPresentation.progress}%`
       : `${escapeHtml(job.kind || "image")}${escapeHtml(sample)} / ${escapeHtml(historyTimeLabel(job.updated_at))}`;
     return `
       <article class="chat-job-item" data-job-id="${escapeHtml(job.id)}">
@@ -1518,8 +1551,8 @@ function renderBackgroundJobs() {
             <span data-state="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
           </div>
           <small>${visualDetails}</small>
-          ${visualPresentation && isActive ? `<progress class="chat-job-progress" value="${visualPresentation.progress}" max="100" aria-label="Visual analysis progress ${visualPresentation.progress}%"></progress>` : ""}
-          ${job.error ? `<p>${escapeHtml(visualPresentation ? "Visual analysis needs attention. Retry from Project files." : job.error)}</p>` : ""}
+          ${visualPresentation && isActive ? `<progress class="chat-job-progress" value="${visualPresentation.progress}" max="100" aria-label="${videoAnalysis ? "Video" : "Visual"} analysis progress ${visualPresentation.progress}%"></progress>` : ""}
+          ${job.error ? `<p>${escapeHtml(visualPresentation ? `${videoAnalysis ? "Video" : "Visual"} analysis needs attention. Retry from Project files.` : job.error)}</p>` : ""}
           <div class="chat-job-actions">
             ${isComplete ? `
               <button class="chat-secondary-button" type="button" data-job-add="${escapeHtml(job.id)}">
@@ -1741,6 +1774,49 @@ function formatProjectBytes(value) {
   return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
 }
 
+function formatProjectDuration(value) {
+  const seconds = Math.max(0, Math.round(Number(value) || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor(seconds % 3600 / 60);
+  const remainder = seconds % 60;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+    : `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
+
+function renderProjectVideoUpload() {
+  if (!els.projectVideoUploadState) return;
+  const active = loadedActiveProject(projectState);
+  const state = projectVideoUploadState;
+  const belongsToActiveProject = Boolean(state.file && active?.id === state.projectId);
+  els.projectVideoUploadState.hidden = !belongsToActiveProject;
+  if (belongsToActiveProject) {
+    const presentation = projectVideoUploadPresentation({
+      fileName: state.file.name,
+      phase: state.phase,
+      percent: state.percent,
+    });
+    els.projectVideoUploadLabel.textContent = presentation.label;
+    els.projectVideoUploadLabel.dataset.state = presentation.state;
+    els.projectVideoUploadError.textContent = state.error || "Video stays in this tab while encrypted chunks are sent to Token Gen.";
+    els.projectVideoUploadError.dataset.state = state.error ? "bad" : "neutral";
+    els.projectVideoUploadProgress.value = presentation.progress;
+    els.projectVideoResume.hidden = !presentation.canResume;
+    els.projectVideoResume.disabled = Boolean(state.controller);
+    els.projectVideoAbort.hidden = !presentation.canAbort;
+    els.projectVideoAbort.disabled = false;
+  }
+  const durationMinutes = Math.round(projectVideoContract.maxDurationSeconds / 60);
+  els.projectVideoHint.textContent = projectVideoContract.available
+    ? `MP4, WebM, MOV, or MKV. One private video up to ${durationMinutes} minutes and ${formatVideoBytes(projectVideoContract.maxFileBytes)}.`
+    : projectVideoCapabilityLoaded ? "Private project-video analysis is unavailable." : "Checking private video capability...";
+  els.projectVideoUpload.disabled = !active
+    || !projectState.available
+    || projectState.busy
+    || !projectVideoContract.available
+    || Boolean(state.file);
+}
+
 function renderProjectDocuments() {
   if (!els.projectDocumentList) return;
   const documents = projectState.documents;
@@ -1751,9 +1827,10 @@ function renderProjectDocuments() {
   }
   els.projectDocumentList.innerHTML = documents.map((document) => {
     const processing = projectFileProcessingState(document);
-    const visual = document.media_class === "image" || document.extension === "pdf";
+    const video = document.media_class === "video";
+    const visual = video || document.media_class === "image" || document.extension === "pdf";
     const activeVisualJob = jobState.jobs.some((job) => (
-      job.kind === "project_visual_analysis"
+      job.kind === (video ? "project_video_analysis" : "project_visual_analysis")
       && job.project_id === projectState.active?.id
       && job.document_id === document.id
       && backgroundJobIsActive(job)
@@ -1763,7 +1840,9 @@ function renderProjectDocuments() {
       <div class="chat-project-document-icon" aria-hidden="true">${escapeHtml((document.extension || "file").slice(0, 4).toUpperCase())}</div>
       <div class="chat-project-document-copy">
         <strong title="${escapeHtml(document.name)}">${escapeHtml(document.name)}</strong>
-        <small>${formatProjectBytes(document.original_bytes)} / ${formatNumber(document.estimated_token_count || 0)} tokens / ${formatNumber(document.chunk_count || 0)} passages</small>
+        <small>${video
+          ? `${formatVideoBytes(document.original_bytes)} / ${formatProjectDuration(document.duration_seconds)} / ${formatNumber(document.scene_count || 0)} scenes`
+          : `${formatProjectBytes(document.original_bytes)} / ${formatNumber(document.estimated_token_count || 0)} tokens / ${formatNumber(document.chunk_count || 0)} passages`}</small>
         ${visual ? `
           <span class="chat-project-processing" data-state="${escapeHtml(processing.status)}">${escapeHtml(processing.label)}${processing.status === "processing" || processing.status === "queued" ? ` / ${processing.progress}%` : ""}</span>
           <progress class="chat-project-progress" value="${processing.progress}" max="100" aria-label="${escapeHtml(processing.label)} ${processing.progress}%"></progress>
@@ -1773,7 +1852,7 @@ function renderProjectDocuments() {
         <button type="button" data-project-document-download="${escapeHtml(document.id)}" title="Download project file" aria-label="Download ${escapeHtml(document.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14" /></svg>
         </button>
-        ${visual && !activeVisualJob && ["failed", "ready_with_warnings"].includes(processing.status) ? `<button type="button" data-project-document-retry="${escapeHtml(document.id)}" title="Retry visual analysis" aria-label="Retry visual analysis for ${escapeHtml(document.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg></button>` : ""}
+        ${visual && !activeVisualJob && ["failed", "ready_with_warnings"].includes(processing.status) ? `<button type="button" data-project-document-retry="${escapeHtml(document.id)}" title="Retry ${video ? "video" : "visual"} analysis" aria-label="Retry ${video ? "video" : "visual"} analysis for ${escapeHtml(document.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7" /></svg></button>` : ""}
         <button type="button" data-project-document-delete="${escapeHtml(document.id)}" title="Delete document" aria-label="Delete ${escapeHtml(document.name)}">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13" /></svg>
         </button>
@@ -1804,6 +1883,7 @@ function renderProjectState() {
   els.attachProjectDocument.disabled = !active || !projectState.available || projectState.busy;
   if (active) els.attachProjectHint.textContent = `Add to ${active.name}`;
   renderProjectDocuments();
+  renderProjectVideoUpload();
   renderDocuments();
 }
 
@@ -2066,6 +2146,131 @@ async function uploadProjectDocuments(files, { projectId = loadedActiveProject(p
   }
 }
 
+function clearProjectVideoUploadState() {
+  projectVideoUploadState = {
+    file: null,
+    projectId: null,
+    session: null,
+    phase: "idle",
+    percent: 0,
+    error: "",
+    controller: null,
+    cancelRequested: false,
+  };
+  if (els.projectVideos) els.projectVideos.value = "";
+  renderProjectVideoUpload();
+}
+
+async function discardProjectVideoUpload() {
+  const { projectId, session } = projectVideoUploadState;
+  if (session?.id && projectId) {
+    try {
+      await projectRequest(`/${encodeURIComponent(projectId)}/video-uploads/${encodeURIComponent(session.id)}`, { method: "DELETE" });
+    } catch {
+      // The server may already have consumed the upload into its encrypted project document.
+    }
+  }
+  clearProjectVideoUploadState();
+  if (projectId && loadedActiveProject(projectState)?.id === projectId) {
+    await refreshActiveProjectFiles(projectId);
+    setProjectStatus("Private video upload stopped", "neutral");
+  }
+}
+
+async function startProjectVideoUpload() {
+  const active = loadedActiveProject(projectState);
+  const state = projectVideoUploadState;
+  if (!active || !state.file || state.projectId !== active.id || state.controller) return;
+  const problem = projectVideoFileProblem(state.file, projectVideoContract);
+  if (problem) {
+    state.phase = "failed";
+    state.error = problem;
+    renderProjectVideoUpload();
+    return;
+  }
+  const projectGeneration = projectState.viewGeneration;
+  const destinationIsCurrent = () => (
+    projectState.viewGeneration === projectGeneration
+    && loadedActiveProject(projectState)?.id === active.id
+  );
+  const controller = new AbortController();
+  state.controller = controller;
+  state.cancelRequested = false;
+  state.phase = state.session ? "uploading" : "hashing";
+  state.error = "";
+  const busyToken = beginProjectBusy();
+  renderProjectState();
+  try {
+    const result = await uploadProjectVideo({
+      file: state.file,
+      projectId: active.id,
+      request: projectRequest,
+      contract: projectVideoContract,
+      session: state.session,
+      signal: controller.signal,
+      onSession: (session) => {
+        if (projectVideoUploadState.controller === controller) projectVideoUploadState.session = session;
+      },
+      onProgress: (progress) => {
+        if (projectVideoUploadState.controller !== controller) return;
+        projectVideoUploadState.phase = progress.phase;
+        projectVideoUploadState.percent = progress.percent;
+        renderProjectVideoUpload();
+      },
+    });
+    if (!destinationIsCurrent()) return;
+    if (result.document) upsertProjectFile(result.document);
+    if (result.job) trackBackgroundJob(result.job);
+    clearProjectVideoUploadState();
+    await refreshActiveProjectFiles(active.id);
+    if (destinationIsCurrent()) setProjectStatus(`${state.file.name} queued for private video analysis`, "good");
+  } catch (error) {
+    if (state.cancelRequested) {
+      await discardProjectVideoUpload();
+    } else if (destinationIsCurrent()) {
+      state.phase = "failed";
+      state.error = error.message || "Private video upload paused.";
+      setProjectStatus(state.error, "bad");
+    }
+  } finally {
+    if (projectVideoUploadState.controller === controller) projectVideoUploadState.controller = null;
+    if (finishProjectBusy(busyToken)) renderProjectState();
+  }
+}
+
+function selectProjectVideo(file) {
+  const active = loadedActiveProject(projectState);
+  if (!active || !file || projectVideoUploadState.file) return;
+  const problem = projectVideoFileProblem(file, projectVideoContract);
+  if (problem) {
+    setProjectStatus(problem, "bad");
+    els.projectVideos.value = "";
+    return;
+  }
+  projectVideoUploadState = {
+    file,
+    projectId: active.id,
+    session: null,
+    phase: "hashing",
+    percent: 0,
+    error: "",
+    controller: null,
+    cancelRequested: false,
+  };
+  renderProjectVideoUpload();
+  void startProjectVideoUpload();
+}
+
+function abortProjectVideoUpload() {
+  if (!projectVideoUploadState.file) return;
+  projectVideoUploadState.cancelRequested = true;
+  if (projectVideoUploadState.controller) {
+    projectVideoUploadState.controller.abort();
+  } else {
+    void discardProjectVideoUpload();
+  }
+}
+
 async function downloadProjectDocument(documentId) {
   const active = loadedActiveProject(projectState);
   const storedDocument = projectState.documents.find((item) => item.id === documentId);
@@ -2118,17 +2323,18 @@ async function retryProjectVisualAnalysis(documentId) {
   const active = loadedActiveProject(projectState);
   const document = projectState.documents.find((item) => item.id === documentId);
   if (!document || !active) return;
+  const mediaLabel = document.media_class === "video" ? "video" : "visual";
   const destinationId = active.id;
   const view = captureActiveProjectView(destinationId);
   const destinationIsCurrent = () => projectViewIsCurrent(projectState, historyState.viewGeneration, view);
   const busyToken = beginProjectBusy();
   renderProjectState();
-  setProjectStatus(`Retrying visual analysis for ${document.name}...`, "neutral");
+  setProjectStatus(`Retrying ${mediaLabel} analysis for ${document.name}...`, "neutral");
   try {
     const { json } = await projectRequest(`/${encodeURIComponent(destinationId)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
     if (destinationIsCurrent() && json.job) trackBackgroundJob(json.job);
     else if (destinationIsCurrent()) void loadBackgroundJobs();
-    if (destinationIsCurrent()) setProjectStatus(`Visual analysis queued for ${document.name}`, "good");
+    if (destinationIsCurrent()) setProjectStatus(`${mediaLabel === "video" ? "Video" : "Visual"} analysis queued for ${document.name}`, "good");
   } catch (error) {
     if (destinationIsCurrent()) setProjectStatus(error.message, "bad");
   } finally {
@@ -3058,13 +3264,7 @@ function renderProjectContext(context) {
         <div class="chat-web-context-body">
           <div class="chat-project-sources">
             ${passages.map((passage) => {
-              const location = passage.page
-                ? `Page ${passage.page}`
-                : passage.section
-                  ? passage.section
-                  : Array.isArray(passage.lines)
-                    ? `Lines ${passage.lines.join("-")}`
-                    : "Relevant passage";
+              const location = projectPassageLocation(passage);
               return `
                 <div>
                   <strong>${escapeHtml(passage.citation || "[Project]")} ${escapeHtml(passage.document_name || "Document")}</strong>
@@ -3222,6 +3422,19 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 6000) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function loadProjectVideoCapability() {
+  try {
+    const { res, json } = await fetchJsonWithTimeout(`${API_BASE}/api/agent.json`, { cache: "no-store" });
+    projectVideoContract = res.ok
+      ? resolveProjectVideoContract(json)
+      : { ...DEFAULT_PROJECT_VIDEO_CONTRACT };
+  } catch {
+    projectVideoContract = { ...DEFAULT_PROJECT_VIDEO_CONTRACT };
+  }
+  projectVideoCapabilityLoaded = true;
+  renderProjectVideoUpload();
 }
 
 function disableChat(reason = "Token Gen API model discovery failed") {
@@ -4292,9 +4505,21 @@ els.projectDelete.addEventListener("click", deleteActiveProject);
 els.projectUpload.addEventListener("click", () => {
   if (loadedActiveProject(projectState)) els.projectDocuments.click();
 });
+els.projectVideoUpload.addEventListener("click", () => {
+  if (loadedActiveProject(projectState) && projectVideoContract.available && !projectVideoUploadState.file) {
+    els.projectVideos.click();
+  }
+});
 els.projectDocuments.addEventListener("change", () => {
   uploadProjectDocuments(Array.from(els.projectDocuments.files || []));
 });
+els.projectVideos.addEventListener("change", () => {
+  selectProjectVideo(Array.from(els.projectVideos.files || [])[0]);
+});
+els.projectVideoResume.addEventListener("click", () => {
+  void startProjectVideoUpload();
+});
+els.projectVideoAbort.addEventListener("click", abortProjectVideoUpload);
 els.projectDocumentList.addEventListener("click", (event) => {
   const download = event.target.closest("[data-project-document-download]");
   if (download) {
@@ -4793,6 +5018,7 @@ syncWebUI();
 loadConversationHistory();
 loadProjects();
 loadBackgroundJobs();
+loadProjectVideoCapability();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });

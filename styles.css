@@ -3411,6 +3411,71 @@ body.chat-image-editor-open {
   width: 100%;
 }
 
+.chat-project-upload-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chat-project-video-hint {
+  margin: -5px 0 0;
+  color: var(--chat-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.chat-project-video-upload {
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(215, 181, 109, 0.28);
+  border-radius: 7px;
+  background: rgba(215, 181, 109, 0.055);
+}
+
+.chat-project-video-upload[hidden] {
+  display: none;
+}
+
+.chat-project-video-upload strong,
+.chat-project-video-upload small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.chat-project-video-upload strong {
+  color: var(--chat-gold);
+  font-size: 0.72rem;
+}
+
+.chat-project-video-upload strong[data-state="bad"],
+.chat-project-video-upload small[data-state="bad"] {
+  color: #e88b96;
+}
+
+.chat-project-video-upload small {
+  margin-top: 3px;
+  color: var(--chat-muted);
+  font-size: 0.62rem;
+  line-height: 1.4;
+}
+
+.chat-project-video-upload progress {
+  width: 100%;
+}
+
+.chat-project-video-upload-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.chat-project-video-upload-actions .chat-secondary-button {
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 0.68rem;
+}
+
 .chat-privacy-note {
   margin: 0;
   color: var(--chat-muted);

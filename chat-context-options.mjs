@@ -84,20 +84,46 @@ export function projectFileProcessingState(document = {}) {
     return { status: "unknown", label: "Processing state unavailable", progress: boundedProgress(document.processing_progress, 0) };
   }
   const status = suppliedStatus;
+  const video = document.media_class === "video";
   if (status === "queued") {
-    return { status, label: "Queued for visual analysis", progress: boundedProgress(document.processing_progress, 0) };
+    return { status, label: video ? "Queued for video analysis" : "Queued for visual analysis", progress: boundedProgress(document.processing_progress, 0) };
   }
   if (status === "processing") {
-    return { status, label: "Visual analysis in progress", progress: boundedProgress(document.processing_progress, 0) };
+    return { status, label: video ? "Video analysis in progress" : "Visual analysis in progress", progress: boundedProgress(document.processing_progress, 0) };
   }
   if (status === "ready_with_warnings") {
     return { status, label: "Ready with warnings", progress: 100 };
   }
   if (status === "failed") {
-    return { status, label: "Visual analysis failed", progress: boundedProgress(document.processing_progress, 100) };
+    return { status, label: video ? "Video analysis failed" : "Visual analysis failed", progress: boundedProgress(document.processing_progress, 100) };
   }
   if (status === "ready") return { status, label: "Ready", progress: 100 };
   return { status: "unknown", label: "Processing state unavailable", progress: boundedProgress(document.processing_progress, 0) };
+}
+
+function videoTimestamp(value) {
+  const seconds = Math.max(0, Math.round(Number(value) || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor(seconds % 3600 / 60);
+  const remainder = seconds % 60;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+}
+
+function hasVideoTimestamp(value) {
+  return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+}
+
+export function projectPassageLocation(passage = {}) {
+  if (hasVideoTimestamp(passage.start_seconds)) {
+    const start = videoTimestamp(passage.start_seconds);
+    return hasVideoTimestamp(passage.end_seconds) ? `${start}–${videoTimestamp(passage.end_seconds)}` : start;
+  }
+  if (passage.page) return `Page ${passage.page}`;
+  if (passage.section) return String(passage.section);
+  if (Array.isArray(passage.lines)) return `Lines ${passage.lines.join("-")}`;
+  return "Relevant passage";
 }
 
 export function projectJobPresentation(job = {}) {
@@ -112,7 +138,7 @@ export function projectJobPresentation(job = {}) {
     failed: "Failed",
   }[status] || "Processing";
   return {
-    label: "Project visual analysis",
+    label: job.kind === "project_video_analysis" ? "Project video analysis" : "Project visual analysis",
     status,
     statusLabel,
     progress: boundedProgress(job.processing_progress, 0),
@@ -129,7 +155,7 @@ export function backgroundJobLifecycle(jobs = [], job = {}) {
     .filter((item) => ACTIVE_BACKGROUND_JOB_STATUSES.has(item?.status))
     .map((item) => item.id)
     .filter(Boolean);
-  const refreshProjectId = job?.kind === "project_visual_analysis"
+  const refreshProjectId = ["project_visual_analysis", "project_video_analysis"].includes(job?.kind)
     && ["completed", "failed"].includes(job?.status)
     && typeof job.project_id === "string"
     && job.project_id
@@ -169,7 +195,7 @@ export function reconcileBackgroundJobList({
   const serverById = new Map(server.map((job) => [job.id, job]));
   const terminalProjectIds = previous
     .filter((job) => (
-      job.kind === "project_visual_analysis"
+      ["project_visual_analysis", "project_video_analysis"].includes(job.kind)
       && ACTIVE_BACKGROUND_JOB_STATUSES.has(job.status)
       && typeof job.project_id === "string"
       && job.project_id
@@ -185,7 +211,7 @@ export function reconcileBackgroundJobList({
 
 export function projectMediaForChat(context) {
   const evidence = Array.isArray(context?.visual_evidence) ? context.visual_evidence : [];
-  return evidence.slice(0, 4).flatMap((item) => {
+  const images = evidence.slice(0, 4).flatMap((item) => {
     const reference = typeof item?.reference === "string" ? item.reference : "";
     if (!reference) return [];
     return [{
@@ -194,6 +220,16 @@ export function projectMediaForChat(context) {
       label: typeof item.label === "string" && item.label.trim() ? item.label.trim() : "Project visual evidence",
     }];
   });
+  const videos = (Array.isArray(context?.video_evidence) ? context.video_evidence : []).slice(0, 1).flatMap((item) => {
+    const reference = typeof item?.reference === "string" ? item.reference : "";
+    if (!reference) return [];
+    return [{
+      type: "video",
+      reference,
+      label: typeof item.label === "string" && item.label.trim() ? item.label.trim() : "Project video evidence",
+    }];
+  });
+  return [...images, ...videos];
 }
 
 export function projectHistoryMetadata(context = {}) {
@@ -208,6 +244,8 @@ export function projectHistoryMetadata(context = {}) {
       page: passage.page,
       section: passage.section,
       lines: passage.lines,
+      ...(hasVideoTimestamp(passage.start_seconds) ? { start_seconds: Number(passage.start_seconds) } : {}),
+      ...(hasVideoTimestamp(passage.end_seconds) ? { end_seconds: Number(passage.end_seconds) } : {}),
     })),
   };
 }

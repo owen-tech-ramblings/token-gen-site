@@ -160,6 +160,27 @@ test("project processing states use safe labels and bounded numeric progress", a
   }
 });
 
+test("project video processing uses video-specific safe labels", async () => {
+  const { projectFileProcessingState } = await loadContextOptions();
+  assert.deepEqual(projectFileProcessingState({ media_class: "video", processing_status: "queued", processing_progress: 0 }), {
+    status: "queued", label: "Queued for video analysis", progress: 0,
+  });
+  assert.deepEqual(projectFileProcessingState({ media_class: "video", processing_status: "processing", processing_progress: 51 }), {
+    status: "processing", label: "Video analysis in progress", progress: 51,
+  });
+  assert.deepEqual(projectFileProcessingState({ media_class: "video", processing_status: "failed", processing_progress: 80 }), {
+    status: "failed", label: "Video analysis failed", progress: 80,
+  });
+});
+
+test("project passage locations render bounded video timestamps", async () => {
+  const { projectPassageLocation } = await loadContextOptions();
+  assert.equal(projectPassageLocation({ start_seconds: 65.2, end_seconds: 126.9 }), "01:05–02:07");
+  assert.equal(projectPassageLocation({ start_seconds: null, page: 3 }), "Page 3");
+  assert.equal(projectPassageLocation({ page: 3 }), "Page 3");
+  assert.equal(projectPassageLocation({ lines: [4, 8] }), "Lines 4-8");
+});
+
 test("project visual jobs use generic labels and safe progress", async () => {
   const { projectJobPresentation } = await loadContextOptions();
   assert.deepEqual(projectJobPresentation({
@@ -281,6 +302,45 @@ test("only current visual evidence becomes top-level project media", async () =>
   ]);
 });
 
+test("project chat keeps all current images but at most one opaque video reference", async () => {
+  const { projectMediaForChat } = await loadContextOptions();
+  const result = projectMediaForChat({
+    visual_evidence: [{ reference: "image-1", label: "Chart.pdf — page 2" }],
+    video_evidence: [
+      { reference: "video-1", label: "Demo.mp4 — 01:00–01:30" },
+      { reference: "video-2", label: "Demo.mp4 — 02:00–02:30" },
+    ],
+  });
+  assert.deepEqual(result, [
+    { type: "image", reference: "image-1", label: "Chart.pdf — page 2" },
+    { type: "video", reference: "video-1", label: "Demo.mp4 — 01:00–01:30" },
+  ]);
+});
+
+test("video jobs share project refresh and safe presentation with visual work", async () => {
+  const { backgroundJobLifecycle, projectJobPresentation, reconcileBackgroundJobList } = await loadContextOptions();
+  const video = {
+    id: "video-job",
+    kind: "project_video_analysis",
+    project_id: "project-1",
+    document_id: "video-1",
+    status: "completed",
+    processing_progress: 100,
+  };
+  assert.deepEqual(projectJobPresentation(video), {
+    label: "Project video analysis",
+    status: "completed",
+    statusLabel: "Complete",
+    progress: 100,
+  });
+  assert.equal(backgroundJobLifecycle([], video).refreshProjectId, "project-1");
+  const terminal = reconcileBackgroundJobList({
+    previousJobs: [{ ...video, status: "processing" }],
+    serverJobs: [video],
+  });
+  assert.deepEqual(terminal.terminalProjectIds, ["project-1"]);
+});
+
 test("saved project metadata excludes opaque visual references", async () => {
   const { projectHistoryMetadata } = await loadContextOptions();
   const metadata = projectHistoryMetadata({
@@ -294,4 +354,33 @@ test("saved project metadata excludes opaque visual references", async () => {
     passages: [{ citation: "[Project 1]", document_id: "file-1", document_name: "Chart.pdf", page: 2, section: undefined, lines: undefined }],
   });
   assert.doesNotMatch(JSON.stringify(metadata), /opaque-token/);
+});
+
+test("saved video citation metadata keeps timestamps but excludes transcript and reference", async () => {
+  const { projectHistoryMetadata } = await loadContextOptions();
+  const metadata = projectHistoryMetadata({
+    project: { id: "project-1", name: "Atlas" },
+    passages: [{
+      citation: "[Video 1]",
+      document_id: "video-1",
+      document_name: "Demo.mp4",
+      start_seconds: 60,
+      end_seconds: 90,
+      text: "private transcript",
+      reference: "opaque-video",
+    }],
+    video_evidence: [{ reference: "opaque-video" }],
+  });
+  assert.deepEqual(metadata.passages[0], {
+    citation: "[Video 1]",
+    document_id: "video-1",
+    document_name: "Demo.mp4",
+    page: undefined,
+    section: undefined,
+    lines: undefined,
+    start_seconds: 60,
+    end_seconds: 90,
+  });
+  assert.equal(JSON.stringify(metadata).includes("private transcript"), false);
+  assert.equal(JSON.stringify(metadata).includes("opaque-video"), false);
 });

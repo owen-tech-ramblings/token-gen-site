@@ -2,6 +2,29 @@
 
 Last updated: 2026-08-16 Australia/Sydney
 
+## Cycle 4B private-video site implementation - pending release review
+
+- The `dev` worktree now has the private project-video client for MP4, WebM,
+  MOV and MKV uploads up to the discovered limit (fixed older-contract defaults:
+  32 MiB chunks, 4 GiB and 1,800 seconds). SHA-256 is computed incrementally;
+  the browser creates one owner/project upload session, asks for its received
+  chunks before sending missing chunks, and exposes progress, resume and abort.
+- Video files and upload state remain in current-page memory only. No media
+  bytes, transcript, opaque media reference or video-evidence object is saved
+  to chat history, local storage, DOM data attributes or logs. Project chat
+  sends at most one current opaque video reference through the existing private
+  project-media route and deletes it from the in-memory payload after
+  serialization.
+- Project rows and the background-job drawer now show video processing,
+  segment/scene counts and retry state. Project citations render video time
+  ranges; saved citation metadata retains only safe timestamps and identifiers.
+- Focused verification passed 26 Node tests, the site contract, JavaScript
+  syntax and `git diff --check`. A local headless Firefox check loaded the page,
+  opened Settings, rendered `Add video`, showed the 30-minute/4 GiB guidance,
+  found no error overlay and confirmed there are no FPS/frame controls. The
+  aggregate `npm test`, live API flow, push, promotion and deployment remain
+  for the Cycle 4B release step.
+
 ## Cycle 4A current release - 2026-08-16
 
 - Canonical site source is `/home/zenfree/token-gen-site`, remote
