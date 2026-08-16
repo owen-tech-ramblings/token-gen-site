@@ -6,6 +6,7 @@ import {
   projectVideoFileProblem,
   projectVideoUploadPresentation,
   resolveProjectVideoContract,
+  retryProjectVideoAnalysis,
   uploadProjectVideo,
 } from "./chat-project-video.mjs?v=token-chat-private-video-20260816-1";
 import { announceVision } from "./chat-vision-announcements.mjs";
@@ -2331,7 +2332,10 @@ async function retryProjectVisualAnalysis(documentId) {
   renderProjectState();
   setProjectStatus(`Retrying ${mediaLabel} analysis for ${document.name}...`, "neutral");
   try {
-    const { json } = await projectRequest(`/${encodeURIComponent(destinationId)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" });
+    const json = document.media_class === "video"
+      ? await retryProjectVideoAnalysis({ projectId: destinationId, documentId: document.id, request: projectRequest })
+      : (await projectRequest(`/${encodeURIComponent(destinationId)}/documents/${encodeURIComponent(document.id)}/retry`, { method: "POST" })).json;
+    if (destinationIsCurrent() && json.document) upsertProjectFile(json.document);
     if (destinationIsCurrent() && json.job) trackBackgroundJob(json.job);
     else if (destinationIsCurrent()) void loadBackgroundJobs();
     if (destinationIsCurrent()) setProjectStatus(`${mediaLabel === "video" ? "Video" : "Visual"} analysis queued for ${document.name}`, "good");

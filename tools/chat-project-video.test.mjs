@@ -6,6 +6,7 @@ import {
   projectVideoFileProblem,
   projectVideoUploadPresentation,
   resolveProjectVideoContract,
+  retryProjectVideoAnalysis,
   sha256Blob,
   uploadProjectVideo,
 } from "../chat-project-video.mjs";
@@ -40,6 +41,32 @@ test("video discovery overrides only valid public limits and keeps the fixed rou
     acceptedMimeTypes: ["video/mp4", "video/webm"],
   });
   assert.deepEqual(resolveProjectVideoContract({}), DEFAULT_PROJECT_VIDEO_CONTRACT);
+});
+
+test("failed video retry uses the idempotent video completion route", async () => {
+  const calls = [];
+  const request = async (path, options) => {
+    calls.push([path, options]);
+    return {
+      json: {
+        ok: true,
+        recovered: true,
+        document: { id: "video-1", media_class: "video", processing_status: "queued" },
+        job: { id: "job-2", kind: "project_video_analysis", status: "queued" },
+      },
+    };
+  };
+
+  const result = await retryProjectVideoAnalysis({
+    projectId: "project-1",
+    documentId: "video-1",
+    request,
+  });
+
+  assert.equal(result.job.id, "job-2");
+  assert.deepEqual(calls.map(([path, options]) => [path, options.method]), [
+    ["/project-1/video-uploads/video-1/complete", "POST"],
+  ]);
 });
 
 test("upload presentation exposes hashing, resumable failure, and private processing states", () => {

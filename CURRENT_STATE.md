@@ -16,9 +16,11 @@ Last updated: 2026-08-16 Australia/Sydney
   project-media route and deletes it from the in-memory payload after
   serialization.
 - Project rows and the background-job drawer now show video processing,
-  segment/scene counts and retry state. Project citations render video time
+  segment/scene counts and retry state. Failed video analysis uses the API's
+  idempotent video-completion recovery route, while images and PDFs retain the
+  visual-document retry route. Project citations render video time
   ranges; saved citation metadata retains only safe timestamps and identifiers.
-- Focused verification passed 26 Node tests, the site contract, JavaScript
+- Focused verification passed 27 Node tests, the site contract, JavaScript
   syntax and `git diff --check`. A local headless Firefox check loaded the page,
   opened Settings, rendered `Add video`, showed the 30-minute/4 GiB guidance,
   found no error overlay and confirmed there are no FPS/frame controls. The

@@ -272,3 +272,12 @@ export async function uploadProjectVideo({
   onSession(null);
   return json;
 }
+
+export async function retryProjectVideoAnalysis({ projectId, documentId, request, signal }) {
+  const path = `/${encodeURIComponent(projectId)}/video-uploads/${encodeURIComponent(documentId)}/complete`;
+  const { json } = await request(path, { method: "POST", ...(signal ? { signal } : {}) });
+  if (!json?.document?.id || !json?.job?.id || json.job.kind !== "project_video_analysis") {
+    throw new Error("Project video retry returned an invalid response.");
+  }
+  return json;
+}

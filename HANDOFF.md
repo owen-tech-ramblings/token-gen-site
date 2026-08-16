@@ -15,7 +15,9 @@ projects route family.
 
 The project panel adds a single video picker and progress/resume/abort state;
 there are no sampling, FPS or frame controls. Project rows, durable jobs and
-the existing retry route handle `project_video_analysis`. Retrieval renders
+retry state handle `project_video_analysis`. Failed video analysis recovers via
+`POST /api/projects/{project_id}/video-uploads/{document_id}/complete`; the
+visual document retry route remains exclusive to images/PDFs. Retrieval renders
 timestamped citations and passes at most one opaque `video_evidence` reference
 to project chat. Media, transcript and references are absent from saved chat
 metadata, local storage, logs and DOM data attributes; only safe citation
@@ -24,7 +26,7 @@ timestamps may be retained.
 Focused verification passed:
 
 - `node --test tools/chat-project-video.test.mjs tools/chat-context-options.test.mjs`
-  (`26/26`)
+  (`27/27`)
 - `node tools/site-contract-tests.mjs`
 - `node --check chat.js`, `node --check chat-project-video.mjs` and
   `node --check chat-context-options.mjs`
