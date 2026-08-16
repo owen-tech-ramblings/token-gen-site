@@ -4,15 +4,14 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 
 ## Repository contract
 
-- Canonical root: `/home/jesse/.openclaw/workspace/token-gen-site-pages`
+- Canonical root: `/home/zenfree/token-gen-site`
 - Canonical remote:
   `https://github.com/owen-tech-ramblings/token-gen-site.git`
 - Release branch: `master`
 - Integration branch: `dev`
-- Expected GitHub identity: `owen-tech-ramblings`, using
-  `/home/jesse/.config/gh`
-- Approved secret locators: GSM project `lil-zen-oc` and `D:\openclaw`
-  (`/mnt/d/openclaw` in WSL) only. Browser source must contain no secret.
+- Expected GitHub identity: `owen-tech-ramblings`.
+- Browser source must contain no secret. The static-site release requires no
+  repository-local credential, remote shell, or separate control-plane source.
 - Branch and review flow: this one-developer repository has exactly two
   branches, `dev` and `master`. Develop directly on `dev`, run the complete
   check, then fast-forward `master` to the verified `dev` commit and push both.
@@ -26,23 +25,21 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   `master`, plus feature-specific browser checks from a local static server. The
   legacy `services/` examples are not production sources and are not an
   alternative to the canonical `token-gen-api` suite.
-- Live deployment path: GitHub Pages legacy deployment from the repository
+- Live deployment path: GitHub Pages deployment from the repository
   root of `master`, serving `https://token-gen.owenonthenet.com` through the
   checked-in `CNAME`. A release is complete only when the latest Pages build
   names the exact reviewed commit and the protected public routes pass.
-- Release path: pass the `token-gen-site` ecosystem release gate, promote the
-  exact fetched `origin/master` commit through the rollback-protected site
-  release transaction, verify the immutable release, GitHub Pages build, live
-  asset digests and public API integration, and then mirror the source to the
-  Windows copy when required.
+- Release path: work directly on local `dev`, run `npm test`, push `dev`,
+  fast-forward local `master` to that exact commit, push `master`, return to
+  `dev`, then verify four-way equality and the exact GitHub Pages build.
 - Rollback path: restore the prior immutable site release with a revert on
   `dev`, verify it, fast-forward `master`, wait for the
   exact Pages rebuild, and repeat the same live checks.
 - Forbidden actions: bypassing `quality / site`, creating extra branches or
-  feature worktrees, direct live edits,
-  global GitHub-auth switching, repository-local secrets, deployment from the
-  Windows mirror, PC-hosted production API/search dependencies, silent
-  fallbacks, or a release record that does not match the Pages commit.
+  feature worktrees, direct live edits, global GitHub-auth switching,
+  repository-local secrets, deployment from a mirror, PC-hosted production
+  API/search dependencies, silent fallbacks, or a release record that does not
+  match the Pages commit.
 
 ## Shared Codex Context
 
@@ -79,12 +76,18 @@ This repository owns only the browser/site side:
 - frontend Playwright/browser verification
 - cache-busting static assets when needed
 
-The API and server-side SearXNG source is the separate canonical
-`token-gen-api` repository. Any Codex or Codex CLI instance may build either
-product, but it must use that product's `dev` branch, repository instructions,
-verification, release and rollback path. Machine location
-does not create ownership. Never patch the Token Gen server runtime directly
-or work around missing API behaviour by inventing browser data.
+The API and server-side SearXNG source is the separate canonical repository at
+`/home/zenfree/server-details-api`, remote
+`https://github.com/owen-tech-ramblings/token-gen-api.git`. Any Codex or Codex
+CLI instance may build either product, but it must use that product's `dev`
+branch, repository instructions, verification, release and rollback path.
+Machine location does not create ownership. Never patch managed runtime files
+outside the API's local installer or work around missing API behaviour by
+inventing browser data.
+
+Token Gen site/API authoring and release are self-contained in the two
+`/home/zenfree` repositories. Lil Zen, OpenClaw, SSH, and a separate control
+plane are not source, promotion, or deployment dependencies.
 
 ## Architecture Rules
 
@@ -144,13 +147,10 @@ Expected remote:
 https://github.com/owen-tech-ramblings/token-gen-site.git
 ```
 
-Related paths:
+Related canonical path:
 
-- Windows source mirror: `/mnt/c/Users/User/Documents/New project/token-gen-site`
-- Canonical API source: `/home/jesse/.openclaw/workspace/token-gen-api`
-- Deployed local integration proxy source: the Lil Zen control plane; its live
-  path is not an authoring repository
+- API source/runtime: `/home/zenfree/server-details-api`
 
 Commit and push public-site changes only from this repository's `dev` branch,
-then fast-forward `master` after verification. The Windows source copy is a
-non-authoritative mirror and may never become the deploy source.
+then fast-forward `master` after verification. Mirrors and historical gateway
+copies are non-authoritative and may never become the deploy source.

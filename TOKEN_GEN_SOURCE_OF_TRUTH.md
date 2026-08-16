@@ -1,101 +1,106 @@
 # Token Gen Source Of Truth
 
-Last updated: 2026-08-11
+Last updated: 2026-08-16
 
-This file is the routing and ownership contract for Codex CLI, Codex app, and
-any other agent working on Token Gen. Read it before changing the website, API,
-Cloudflare tunnel, bot integration, or generated client helpers.
+This file is the current routing, source, and release authority for Token Gen.
+Read it before changing the site, API, Cloudflare routing, bot integration, or
+generated client helpers.
 
-## Live Surfaces
+## Canonical source and release contract
+
+- Site source: `/home/zenfree/token-gen-site`, remote
+  `https://github.com/owen-tech-ramblings/token-gen-site.git`.
+- API source and runtime: `/home/zenfree/server-details-api`, remote
+  `https://github.com/owen-tech-ramblings/token-gen-api.git`.
+- Both repositories develop directly on `dev`, run their complete check, then
+  fast-forward `master`. Stable rest has only `dev` and `master`, with local
+  `dev`, local `master`, `origin/dev`, and `origin/master` equal and clean.
+- The API deploys locally through the self-contained
+  `bash scripts/install_token_gen_api.sh --deploy` transaction. The site
+  deploys from `master` through GitHub Pages.
+- Lil Zen, OpenClaw, SSH, a PC-side gateway, and a separate control plane are
+  not Token Gen source, promotion, runtime, or release dependencies.
+
+## Cycle 4A product baseline
+
+- Active API product commit:
+  `4709b6d437ef3dd0db867e85551c146f976b90ea`.
+- Site product commit: `7e4fdaf31d0616260309036d494e1066d874e3f1`.
+- The API complete check passed 613 tests. Live Qwen processor/vLLM counts
+  matched 24/24, 984/984, and 313/313, with the four images interpreted in
+  supplied order.
+- The text-PDF fast path passed. The scanned/chart durable job completed with
+  visual page 1, page-cited passages, and a signed visual reference. The
+  private follow-up returned `Page 1: 34` with zero
+  reference/token/path/history leakage.
+- Headless Firefox passed the explicit edit-target canary: two ordered image
+  chips rendered and ownership transferred while exactly one target remained
+  selected.
+- MTP and video are not part of Cycle 4A.
+
+## Live surfaces
 
 - Website: `https://token-gen.owenonthenet.com`
 - Public API: `https://token-gen-api.owenonthenet.com`
 - API contract: `https://token-gen-api.owenonthenet.com/api/agent.json`
-- Well-known API contract: `https://token-gen-api.owenonthenet.com/.well-known/token-gen-api.json`
+- Well-known contract:
+  `https://token-gen-api.owenonthenet.com/.well-known/token-gen-api.json`
 
-## Active API source and runtime
+Production chat, projects, and web search run on the Token Gen server. The API
+uses its pinned loopback-only SearXNG service; the static-site repository and a
+development workstation are not production API, search, Tor, or page-fetch
+dependencies. Managed API runtime files must be changed only through the
+canonical repository and its installer.
 
-The canonical API source is the separate repository at
-`/home/jesse/.openclaw/workspace/token-gen-api`, remote
-`https://github.com/owen-tech-ramblings/token-gen-api.git`. Its
-rollback-protected release transaction installs the reviewed commit on the
-Token Gen server. The runtime path is a deployment target, not an authoring
-source. Never patch it directly.
+## Historical integrations (non-authoritative)
 
-Production chat and web search remain entirely on the Token Gen server. The
-API calls its pinned loopback-only SearXNG service; this PC is not a production
-API, search, Tor or page-fetch dependency.
+Older records refer to a Lil Zen/OpenClaw control plane, a PC-side Node gateway,
+and Windows mirrors. Those entries are retained in dated history only. They do
+not identify a current authoring root, release transport, fallback, or runtime
+dependency. The checked-in `services/` examples are also historical reference
+material and are not a deployment source.
 
-## Deployed and mirror code
+## Required preflight
 
-The local Node gateway is a deployed integration copy owned by the Lil Zen
-control-plane source. It is not the public API authority or a product commit
-source:
+Before changing API behaviour:
 
-```text
-/home/jesse/.openclaw/workspace/token-gen-api-proxy/server.js
+```bash
+git -C /home/zenfree/server-details-api rev-parse --show-toplevel
+git -C /home/zenfree/server-details-api remote -v
+git -C /home/zenfree/server-details-api status --short
+bash /home/zenfree/server-details-api/scripts/run_complete_checks.sh
 ```
 
-Do not repoint `token-gen-api.owenonthenet.com` to this gateway or edit the
-deployed copy. A deliberate routing migration requires a versioned
-control-plane decision and rollback-protected release.
+Before changing the site:
 
-The checked-in `services/` examples in this website repository are historical
-reference material. They are not installed by the website release and must not
-be treated as an API, SearXNG or worker deployment source.
-
-The Windows project copy is a non-authoritative mirror. It may be refreshed
-from a verified release, but it is never a source or deployment authority:
-
-```text
-C:\Users\User\Documents\New project\token-gen-site
-/mnt/c/Users/User/Documents/New project/token-gen-site
+```bash
+git -C /home/zenfree/token-gen-site rev-parse --show-toplevel
+git -C /home/zenfree/token-gen-site remote -v
+git -C /home/zenfree/token-gen-site status --short
+cd /home/zenfree/token-gen-site && npm test
 ```
 
-## Required Preflight
-
-Before changing Token Gen API behaviour, work directly on the canonical
-`token-gen-api` repository's `dev` branch and run that repository's full
-preflight and checks before fast-forwarding `master`. Do not create temporary
-feature or worktree branches. This website repository may perform read-only
-integration checks:
+For read-only integration verification, use the public API rather than a local
+gateway:
 
 ```bash
 curl -fsS https://token-gen-api.owenonthenet.com/api/agent.json
 curl -fsS https://token-gen-api.owenonthenet.com/api/web-search/health
 ```
 
-Do not use these checks to select an ad hoc patch location. Source ownership is
-fixed by the ecosystem contract even when the live service is unhealthy.
+## Safety rules
 
-Before changing the public website, verify the canonical repo:
+- Never put `SERVER_DETAILS_TOKEN`, `TOKEN_GEN_BOT_API_KEY`, Access assertions,
+  or another private token in browser JavaScript or tracked evidence.
+- Do not work around missing API behaviour with frontend fallback data; fix or
+  document the canonical API route.
+- Do not change Cloudflare tunnel, DNS, Worker, or Access state without proving
+  which service currently serves the hostname and having explicit authority.
+- Verify API changes against the public hostname, not only localhost or a
+  private network route.
+- vLLM stays private; public access goes through the canonical API.
 
-```bash
-git -C /home/jesse/.openclaw/workspace/token-gen-site-pages rev-parse --show-toplevel
-git -C /home/jesse/.openclaw/workspace/token-gen-site-pages remote -v
-git -C /home/jesse/.openclaw/workspace/token-gen-site-pages status --short
-```
-
-Expected deploy/source remote:
-
-```text
-https://github.com/owen-tech-ramblings/token-gen-site.git
-```
-
-## Safety Rules
-
-- Do not put `SERVER_DETAILS_TOKEN`, `TOKEN_GEN_BOT_API_KEY`, or any private
-  token in browser JavaScript.
-- Do not work around missing live API behavior by inventing frontend fallback
-  data. Fix or document the API route.
-- Do not make Cloudflare tunnel, DNS, Worker, or Access changes without proving
-  which service currently serves the hostname.
-- Do not use the deployed Node gateway as a reason to change the live site or
-  public API route.
-- After API changes, verify public routes from `https://token-gen-api.owenonthenet.com`,
-  not only localhost or Tailscale routes.
-
-## Current Required Public API Routes
+## Required public API routes
 
 - `/api/health`
 - `/api/public-status`
@@ -106,13 +111,12 @@ https://github.com/owen-tech-ramblings/token-gen-site.git
 - `/api/chat/stream`
 - `/api/web-search/health`
 
-## Current Protected Bot Routes
+## Required protected bot routes
 
 - `/api/discord-auth-check`
 - `/api/discord/chat/models`
 - `/api/discord/chat/completions`
 - `/api/discord/chat/stream`
 
-These require `Authorization: Bearer <TOKEN_GEN_BOT_API_KEY>`. If
-`TOKEN_GEN_BOT_API_KEY` is not configured on the active server, the current
-runtime falls back to `SERVER_DETAILS_TOKEN`.
+These routes require `Authorization: Bearer <TOKEN_GEN_BOT_API_KEY>`. The
+credential remains runtime-only and must never be printed or committed.

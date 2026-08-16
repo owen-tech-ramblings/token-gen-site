@@ -2,6 +2,34 @@
 
 Last updated: 2026-08-16 Australia/Sydney
 
+## Cycle 4A current release - 2026-08-16
+
+- Canonical site source is `/home/zenfree/token-gen-site`, remote
+  `https://github.com/owen-tech-ramblings/token-gen-site.git`; canonical API
+  source/runtime is `/home/zenfree/server-details-api`, remote
+  `https://github.com/owen-tech-ramblings/token-gen-api.git`.
+- Cycle 4A product commits are site
+  `7e4fdaf31d0616260309036d494e1066d874e3f1` and active API
+  `4709b6d437ef3dd0db867e85551c146f976b90ea`. The API aggregate passed 613
+  tests.
+- Live processor/vLLM parity passed at 24/24, 984/984, and 313/313 with exact
+  four-image ordering. Text-PDF fast-path retrieval passed. The chart-PDF job
+  completed with visual page 1, page-cited passages, and a signed reference;
+  the private follow-up returned `Page 1: 34` with zero
+  reference/token/path/history leakage.
+- Headless Firefox passed the explicit edit-target interaction with two ordered
+  image chips and exactly one selected target before and after transfer.
+- Both repositories use direct `dev` work followed by a verified fast-forward
+  to `master`; stable state has only those branches and four-way local/remote
+  equality. API activation uses its local self-contained installer. Lil Zen,
+  OpenClaw, SSH, and a separate control plane are not release dependencies.
+- MTP and video are outside Cycle 4A.
+
+## Historical implementation record (non-authoritative for current ownership)
+
+The dated sections below are retained as product history. The Cycle 4A block
+above supersedes conflicting older paths, ownership, or release status.
+
 ## Cycle 4A Task 6 final-audit recovery - locally verified 2026-08-16
 
 - A scanned PDF awaiting explicit project upload remains only in current-page

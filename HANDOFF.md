@@ -2,6 +2,33 @@
 
 Last updated: 2026-08-16 Australia/Sydney
 
+## 2026-08-16 Cycle 4A release handoff (authoritative)
+
+Use `/home/zenfree/token-gen-site` and `/home/zenfree/server-details-api` as the
+canonical site and API roots. Their remotes are
+`https://github.com/owen-tech-ramblings/token-gen-site.git` and
+`https://github.com/owen-tech-ramblings/token-gen-api.git`. Work directly on
+`dev`, run the repository's complete check, fast-forward `master`, and retain
+only `dev`/`master` with four equal local/remote refs at stable rest. API
+activation is the local self-contained installer; there is no Lil Zen,
+OpenClaw, SSH, or separate control-plane release dependency.
+
+Cycle 4A product commits are site
+`7e4fdaf31d0616260309036d494e1066d874e3f1` and active API
+`4709b6d437ef3dd0db867e85551c146f976b90ea`. The API aggregate passed 613
+tests. Live processor/vLLM counts matched 24/24, 984/984, and 313/313 with
+correct four-image ordering. Text-PDF and chart-PDF jobs passed; the chart
+committed visual page 1, page-cited passages, and a signed reference. The
+private follow-up returned `Page 1: 34` with zero reference/token/path/history
+leakage. Headless Firefox passed the explicit single edit-target transfer.
+MTP and video are outside Cycle 4A.
+
+## Historical handoff record (non-authoritative for current ownership)
+
+The dated sections below remain for implementation history. The authoritative
+Cycle 4A handoff above supersedes conflicting older paths, ownership, and
+release state.
+
 ## 2026-08-16 Cycle 4A Task 6 final-audit recovery
 
 The scanned-PDF project handoff now has an executable, page-memory-only,
