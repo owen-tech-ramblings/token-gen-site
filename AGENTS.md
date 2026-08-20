@@ -10,7 +10,7 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 - Release branch: `master`
 - Integration branch: `dev`
 - Expected GitHub identity: `owen-tech-ramblings`.
-- Browser source must contain no secret. Approved credential locators are
+- Browser source must contain no secret. Approved secret locators are
   Google Secret Manager project `lil-zen-oc` and `D:\openclaw`
   (`/mnt/d/openclaw` in WSL); never copy their values into this repository.
 - Branch and review flow: begin only when `dev` and `master` are aligned.
