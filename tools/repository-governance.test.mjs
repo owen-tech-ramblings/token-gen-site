@@ -15,6 +15,7 @@ test("CI is one targeted master-only run on the private runner", () => {
 test("repository instructions bind the governed authoring and release path", () => {
   assert.match(instructions, /Canonical root: `\/home\/jesse\/\.openclaw\/workspace\/token-gen-site-pages`/);
   assert.match(instructions, /receipt-bound `codex\/\*` worktrees/);
+  assert.match(instructions, /Approved secret locators are/);
   assert.match(instructions, /Google Secret Manager project `lil-zen-oc`/);
   assert.match(instructions, /`risk-based-targeted-v2`/);
   assert.match(instructions, /receipt-bound Token Gen Pages cutover/);
