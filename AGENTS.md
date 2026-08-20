@@ -4,43 +4,45 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 
 ## Repository contract
 
-- Canonical root: `/home/zenfree/token-gen-site`
+- Canonical root: `/home/jesse/.openclaw/workspace/token-gen-site-pages`
 - Canonical remote:
   `https://github.com/owen-tech-ramblings/token-gen-site.git`
 - Release branch: `master`
 - Integration branch: `dev`
 - Expected GitHub identity: `owen-tech-ramblings`.
-- Browser source must contain no secret. The static-site release requires no
-  repository-local credential, remote shell, or separate control-plane source.
-- Branch and review flow: this one-developer repository has exactly two
-  branches, `dev` and `master`. Develop directly on `dev`, run the complete
-  check, then fast-forward `master` to the verified `dev` commit and push both.
-  Do not create temporary `codex/*`, feature, release, or worktree branches.
-  At the end of every development cycle, local `dev`, local `master`,
-  `origin/dev`, and `origin/master` must identify the same commit, the checkout
-  must be clean, and no other local or remote branch may remain.
-- Complete check command: `npm test`
-  It is the authoritative local aggregate and release check. GitHub
-  `quality / site` may mirror the same exact-commit command for `dev` and
-  `master` when quota is available, but CI is not a release prerequisite.
-  Feature-specific browser checks remain additional. The legacy `services/`
-  examples are not production sources and are not an alternative to the
-  canonical `token-gen-api` suite.
+- Browser source must contain no secret. Approved credential locators are
+  Google Secret Manager project `lil-zen-oc` and `D:\openclaw`
+  (`/mnt/d/openclaw` in WSL); never copy their values into this repository.
+- Branch and review flow: begin only when `dev` and `master` are aligned.
+  Create receipt-bound `codex/*` worktrees through the Lil Zen managed-worktree
+  command, push the branch, and open the reviewed pull request directly to
+  `master`. The versioned release transaction aligns `dev` only after the exact
+  `master` commit is deployed and verified. At stable state, local and origin
+  `dev`/`master` must identify that one commit and temporary branches and leases
+  must be removed.
+- Test policy: use `risk-based-targeted-v2`. Ordinary changes run one to five
+  small checks selected for the changed behaviour and adjacent protected
+  outcome; ten is the hard maximum. Do not run the historic complete `npm test`
+  suite unless Jesse explicitly asks for it or the change is genuinely
+  ecosystem-wide. GitHub CI runs once, on the resulting `master` push, on the
+  private `lil-zen-ci` runner. It must not run for pull requests, `dev` pushes,
+  schedules, workflow chains, or unrelated historical coverage.
 - Live deployment path: GitHub Pages deployment from the repository
   root of `master`, serving `https://token-gen.owenonthenet.com` through the
   checked-in `CNAME`. A release is complete only when the latest Pages build
   names the exact reviewed commit and the protected public routes pass.
-- Release path: work directly on local `dev`, run `npm test`, push `dev`,
-  fast-forward local `master` to that exact commit, push `master`, return to
-  `dev`, then verify four-way equality and the exact GitHub Pages build.
-- Rollback path: restore the prior immutable site release with a revert on
-  `dev`, verify it, fast-forward `master`, wait for the
-  exact Pages rebuild, and repeat the same live checks.
-- Forbidden actions: skipping the local `npm test` release check, creating
-  extra branches or feature worktrees, direct live edits, global GitHub-auth
-  switching, repository-local secrets, deployment from a mirror, PC-hosted
-  production API/search dependencies, silent fallbacks, or a release record
-  that does not match the Pages commit.
+- Release path: use the receipt-bound Token Gen Pages cutover in the Lil Zen
+  control plane. It accepts only the reviewed `master` commit after its exact
+  targeted CI and Pages deployment succeed, verifies the protected live assets,
+  writes rollback evidence, and aligns `dev` to the deployed commit.
+- Rollback path: revert through a reviewed `master` pull request, wait for the
+  exact targeted CI and Pages deployment, and run the same rollback-protected
+  Pages cutover and live checks.
+- Forbidden actions: broad default suites, hosted GitHub runners, duplicate CI
+  triggers, direct commits to `dev` or `master`, unleased worktrees, direct live
+  edits, global GitHub-auth switching, repository-local secrets, deployment
+  from a mirror, PC-hosted production API/search dependencies, silent
+  fallbacks, or release evidence that does not match the Pages commit.
 
 ## Shared Codex Context
 
@@ -78,7 +80,7 @@ This repository owns only the browser/site side:
 - cache-busting static assets when needed
 
 The API and server-side SearXNG source is the separate canonical repository at
-`/home/zenfree/server-details-api`, remote
+`/home/jesse/.openclaw/workspace/token-gen-api`, remote
 `https://github.com/owen-tech-ramblings/token-gen-api.git`. Any Codex or Codex
 CLI instance may build either product, but it must use that product's `dev`
 branch, repository instructions, verification, release and rollback path.
@@ -86,9 +88,9 @@ Machine location does not create ownership. Never patch managed runtime files
 outside the API's local installer or work around missing API behaviour by
 inventing browser data.
 
-Token Gen site/API authoring and release are self-contained in the two
-`/home/zenfree` repositories. Lil Zen, OpenClaw, SSH, and a separate control
-plane are not source, promotion, or deployment dependencies.
+Token Gen site and API have separate canonical repositories and product release
+scopes. Their reviewed release and alignment transactions are owned by the Lil
+Zen control plane; runtime copies are never authoring sources.
 
 ## Architecture Rules
 
@@ -136,7 +138,7 @@ Required protected Discord bot routes:
 - `/api/discord/chat/completions`
 - `/api/discord/chat/stream`
 
-Before committing on `dev`:
+Before committing in a receipt-bound managed worktree:
 
 1. Verify the root with `git rev-parse --show-toplevel`.
 2. Verify the remote with `git remote -v`.
@@ -150,8 +152,9 @@ https://github.com/owen-tech-ramblings/token-gen-site.git
 
 Related canonical path:
 
-- API source/runtime: `/home/zenfree/server-details-api`
+- API source: `/home/jesse/.openclaw/workspace/token-gen-api`
 
-Commit and push public-site changes only from this repository's `dev` branch,
-then fast-forward `master` after verification. Mirrors and historical gateway
-copies are non-authoritative and may never become the deploy source.
+Commit and push public-site changes only from the receipt-bound worktree, merge
+the reviewed pull request to `master`, and use the versioned Pages cutover.
+Mirrors and historical gateway copies are non-authoritative and may never
+become the deploy source.

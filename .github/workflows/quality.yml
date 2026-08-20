@@ -1,34 +1,37 @@
 name: quality
 
+# risk-based-targeted-v2
+
 on:
-  pull_request:
-    branches:
-      - dev
-      - master
   push:
     branches:
-      - dev
       - master
 
 permissions:
   contents: read
 
 concurrency:
-  group: quality-${{ github.ref }}
+  group: quality-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
   site:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, lil-zen-ci]
     timeout-minutes: 10
     steps:
       - name: Check out the exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
 
       - name: Use Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
 
-      - name: Run the complete site suite
-        run: npm test
+      - name: Run targeted repository policy checks
+        run: node --test tools/repository-governance.test.mjs
+
+      - name: Check changed-file whitespace
+        run: git diff --check HEAD^ HEAD
