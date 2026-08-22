@@ -1,6 +1,18 @@
 # Token Gen Current State
 
-Last updated: 2026-08-16 Australia/Sydney
+Last updated: 2026-08-22 Australia/Sydney
+
+## Web Chat error telemetry - 2026-08-22
+
+- Each send creates one opaque request UUID and carries it through both public
+  chat and private project-media transports.
+- A failed current send reports only the UUID, failure stage, stable error
+  class, HTTP status, stream-started state, browser online state and chat mode
+  through the existing authenticated private API bridge. It never reports the
+  prompt, response, reasoning, raw exception text, URL, credential or email.
+- Telemetry failure is best-effort and cannot replace, retry or block the chat
+  result. Existing chat, history, Projects, images, video and web-search
+  behaviour remains unchanged.
 
 ## Cycle 4B private-video site release - 2026-08-16
 

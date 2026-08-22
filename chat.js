@@ -1,5 +1,10 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
-import { requestChatStream } from "./chat-transport-options.mjs";
+import { requestChatStream } from "./chat-transport-options.mjs?v=token-chat-error-telemetry-20260822-1";
+import {
+  buildChatClientErrorEvent,
+  createChatRequestId,
+  reportChatClientError,
+} from "./chat-error-telemetry.mjs?v=token-chat-error-telemetry-20260822-1";
 import {
   DEFAULT_PROJECT_VIDEO_CONTRACT,
   formatVideoBytes,
@@ -3584,6 +3589,10 @@ async function sendMessage(content, route = routeRequest(content)) {
     setStatus("The active local model is not running with image understanding", "bad");
     return;
   }
+  const requestId = createChatRequestId();
+  let telemetryStage = "payload";
+  let telemetryHttpStatus = null;
+  let telemetryStreamStarted = false;
   let visionImages = [];
   const streamAbortController = new AbortController();
   const projectScope = route.project
@@ -3626,6 +3635,7 @@ async function sendMessage(content, route = routeRequest(content)) {
 
   let assistantIndex = null;
   try {
+    telemetryStage = "identity";
     const userIdentity = await awaitCurrentSendStep(
       sendViewIsCurrent,
       () => getChatUserId(),
@@ -3634,6 +3644,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     if (!userIdentity.current) return;
     const chatUserId = userIdentity.value;
     if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
+    telemetryStage = route.project ? "project_context" : "payload";
     const preparedProjectStep = route.project
       ? await awaitCurrentSendStep(
           sendViewIsCurrent,
@@ -3664,13 +3675,16 @@ async function sendMessage(content, route = routeRequest(content)) {
     if (!preparedPayload.current) return;
     const payload = preparedPayload.value;
     if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
+    telemetryStage = "request";
     const streamedResponse = await awaitCurrentSendStep(
       sendViewIsCurrent,
-      () => requestChatStream(payload, chatUserId, isLoopbackHost(), fetch, streamAbortController.signal),
+      () => requestChatStream(payload, chatUserId, isLoopbackHost(), fetch, streamAbortController.signal, requestId),
       { controller: streamAbortController },
     );
     if (!streamedResponse.current) return;
     const res = streamedResponse.value;
+    telemetryHttpStatus = res.status;
+    telemetryStage = "response";
     if (!res.ok || !res.body) {
       const errorResponse = await awaitCurrentSendStep(
         sendViewIsCurrent,
@@ -3697,6 +3711,8 @@ async function sendMessage(content, route = routeRequest(content)) {
     let buffer = "";
     const decoder = new TextDecoder();
     const reader = res.body.getReader();
+    telemetryStage = "stream";
+    telemetryStreamStarted = true;
 
     while (true) {
       const readResult = await awaitCurrentSendStep(
@@ -3770,6 +3786,7 @@ async function sendMessage(content, route = routeRequest(content)) {
         : "The model returned an empty response.");
     }
     if (!sendViewIsCurrent()) return;
+    telemetryStage = "finalize";
     updateAssistantMessage(assistantIndex, assistantText, { reasoningContent: assistantReasoningContent });
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
@@ -3782,6 +3799,22 @@ async function sendMessage(content, route = routeRequest(content)) {
       if (assistantIndex !== null) messages[assistantIndex] = failure;
       else messages.push(failure);
       setStatus(`Chat request failed: ${error.message}`, "bad");
+      void reportChatClientError(buildChatClientErrorEvent({
+        error,
+        requestId,
+        stage: telemetryStage,
+        httpStatus: telemetryHttpStatus,
+        streamStarted: telemetryStreamStarted,
+        chatMode: route.project
+          ? "project"
+          : route.research
+            ? "research"
+            : route.web
+              ? "web"
+              : route.vision
+                ? "vision"
+                : "chat",
+      }));
     }
   } finally {
     if (sendViewIsCurrent()) {
