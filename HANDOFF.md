@@ -1,6 +1,25 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-16 Australia/Sydney
+Last updated: 2026-08-22 Australia/Sydney
+
+## 2026-08-22 Web Chat error telemetry
+
+`chat-error-telemetry.mjs` owns opaque request-ID generation, deterministic
+error classification and best-effort reporting. `chat.js` attaches one ID to
+each send, and `chat-transport-options.mjs` forwards it to both chat transport
+families. The report goes to
+`/api/private/conversations/client-errors`, which the existing generic
+Cloudflare bridge maps to the API. No Worker route change is needed.
+
+Keep telemetry content-free and non-blocking. Do not send raw error messages,
+prompts, responses, reasoning, URLs, credentials or email identities. A failed
+telemetry post must not retry the model, alter chat state or mask the original
+error.
+
+Author from `/home/jesse/.openclaw/workspace/token-gen-site-pages` via a
+receipt-bound managed worktree. Merge the reviewed feature to `master`, use
+the master-only targeted CI map and registered GitHub Pages cutover, then align
+`dev` to the deployed commit.
 
 ## 2026-08-16 Cycle 4B private-video site handoff (authoritative)
 

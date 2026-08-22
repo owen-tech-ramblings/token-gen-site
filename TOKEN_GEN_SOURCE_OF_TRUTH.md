@@ -1,6 +1,6 @@
 # Token Gen Source Of Truth
 
-Last updated: 2026-08-16
+Last updated: 2026-08-22
 
 This file is the current routing, source, and release authority for Token Gen.
 Read it before changing the site, API, Cloudflare routing, bot integration, or
@@ -8,18 +8,22 @@ generated client helpers.
 
 ## Canonical source and release contract
 
-- Site source: `/home/zenfree/token-gen-site`, remote
+- Site source: `/home/jesse/.openclaw/workspace/token-gen-site-pages`, remote
   `https://github.com/owen-tech-ramblings/token-gen-site.git`.
-- API source and runtime: `/home/zenfree/server-details-api`, remote
+- API source: `/home/jesse/.openclaw/workspace/token-gen-api`, remote
   `https://github.com/owen-tech-ramblings/token-gen-api.git`.
-- Both repositories develop directly on `dev`, run their complete check, then
-  fast-forward `master`. Stable rest has only `dev` and `master`, with local
-  `dev`, local `master`, `origin/dev`, and `origin/master` equal and clean.
-- The API deploys locally through the self-contained
-  `bash scripts/install_token_gen_api.sh --deploy` transaction. The site
-  deploys from `master` through GitHub Pages.
-- Lil Zen, OpenClaw, SSH, a PC-side gateway, and a separate control plane are
-  not Token Gen source, promotion, runtime, or release dependencies.
+- Development uses a receipt-bound managed worktree from an aligned `dev` and
+  `master`. The reviewed feature merges to `master`; the one master-only CI run
+  contains no more than ten change-specific checks. A successful release
+  aligns local and origin `dev` to the deployed `master` and removes the
+  temporary branch.
+- The API runtime target is `/home/zenfree/server-details-api` on `token-gen`;
+  it is never an authoring source. API activation uses the repository's
+  rollback-protected release command. The site uses the registered GitHub
+  Pages cutover from the exact reviewed `master` commit.
+- The Lil Zen control plane provides release admission and exact-source
+  reconciliation. Token Gen chat, vLLM and web search still run entirely on
+  the Token Gen server and never depend on a developer PC relay.
 
 ## Cycle 4B product baseline
 
@@ -61,30 +65,30 @@ canonical repository and its installer.
 
 ## Historical integrations (non-authoritative)
 
-Older records refer to a Lil Zen/OpenClaw control plane, a PC-side Node gateway,
-and Windows mirrors. Those entries are retained in dated history only. They do
-not identify a current authoring root, release transport, fallback, or runtime
-dependency. The checked-in `services/` examples are also historical reference
-material and are not a deployment source.
+Older records that name `/home/zenfree` as an authoring checkout, direct `dev`
+development, a PC-side Node gateway, or a Windows mirror are retained only as
+dated history. They do not override the current roots or release path above.
+The checked-in `services/` examples are reference material, not a deployment
+source.
 
 ## Required preflight
 
 Before changing API behaviour:
 
 ```bash
-git -C /home/zenfree/server-details-api rev-parse --show-toplevel
-git -C /home/zenfree/server-details-api remote -v
-git -C /home/zenfree/server-details-api status --short
-bash /home/zenfree/server-details-api/scripts/run_complete_checks.sh
+git -C /home/jesse/.openclaw/workspace/token-gen-api rev-parse --show-toplevel
+git -C /home/jesse/.openclaw/workspace/token-gen-api remote -v
+git -C /home/jesse/.openclaw/workspace/token-gen-api status --short
+# Run only the receipt-selected, change-specific checks in the managed worktree.
 ```
 
 Before changing the site:
 
 ```bash
-git -C /home/zenfree/token-gen-site rev-parse --show-toplevel
-git -C /home/zenfree/token-gen-site remote -v
-git -C /home/zenfree/token-gen-site status --short
-cd /home/zenfree/token-gen-site && npm test
+git -C /home/jesse/.openclaw/workspace/token-gen-site-pages rev-parse --show-toplevel
+git -C /home/jesse/.openclaw/workspace/token-gen-site-pages remote -v
+git -C /home/jesse/.openclaw/workspace/token-gen-site-pages status --short
+# Run only the receipt-selected, change-specific checks in the managed worktree.
 ```
 
 For read-only integration verification, use the public API rather than a local

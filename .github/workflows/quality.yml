@@ -30,8 +30,11 @@ jobs:
         with:
           node-version: 24
 
-      - name: Run targeted repository policy checks
-        run: node --test tools/repository-governance.test.mjs
+      - name: Run eight targeted chat telemetry checks
+        run: node --test tools/chat-error-telemetry.test.mjs tools/chat-transport-options.test.mjs tools/private-api-bridge.test.mjs
+
+      - name: Check changed chat modules
+        run: node --check chat.js && node --check chat-error-telemetry.mjs
 
       - name: Check changed-file whitespace
         run: git diff --check HEAD^ HEAD
