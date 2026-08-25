@@ -1,6 +1,37 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-22 Australia/Sydney
+Last updated: 2026-08-25 Australia/Sydney
+
+## 2026-08-25 Web Chat Agent mode
+
+`chat-agent-options.mjs` owns contract admission, request opt-in and safe
+activity normalization. The Agent button remains disabled unless the live
+contract exposes `agent` as the optional request field, `enabled: true`, safe
+`agent_step` and `tool_result` events, no hidden reasoning in trace and no shell
+access. Agent mode sends `agent: { enabled: true }` and otherwise uses the
+existing chat transport.
+
+The activity panel is deliberately page-memory-only. It accepts model step
+numbers; safe tool/status/elapsed/call identifiers; generated job identifiers
+and poll routes; and public citations. Never add raw tool arguments, complete
+tool results, credentials, media or hidden reasoning to that panel or saved
+conversation history. Selecting Agent is the per-request opt-in for Qwen to
+choose from the server's existing authorized tool catalogue; ordinary modes
+retain their deterministic behavior.
+
+Focused verification passed:
+
+- `node --test tools/chat-agent-options.test.mjs` (`3/3`)
+- `node --check chat.js`
+- `git diff --check`
+- headless Chromium layout review at 1440 x 1000 and 390 x 844
+
+The existing master-only quality workflow runs only those three Agent tests,
+syntax and changed-file whitespace. No workflow or branch trigger was added.
+The historical `node tools/site-contract-tests.mjs` command still fails on the
+unchanged released baseline because it asserts the retired pull-request CI
+policy; do not revive that policy or treat the historical aggregate as this
+feature's selected test.
 
 ## 2026-08-22 Web Chat error telemetry
 

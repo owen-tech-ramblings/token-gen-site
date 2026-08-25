@@ -1,6 +1,11 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import { requestChatStream } from "./chat-transport-options.mjs?v=token-chat-error-telemetry-20260822-1";
 import {
+  mergeAgentActivity,
+  resolveAgentContract,
+  withAgentRequest,
+} from "./chat-agent-options.mjs?v=token-chat-agent-mode-20260825-1";
+import {
   buildChatClientErrorEvent,
   createChatRequestId,
   reportChatClientError,
@@ -219,6 +224,7 @@ let messages = [welcomeMessage()];
 let webSearchSupported = false;
 let researchSupported = false;
 let webFetchModes = { direct: true, tor: false, proxy: false };
+let agentModeContract = resolveAgentContract({});
 let imageGenerationSupported = false;
 let visionSupported = false;
 let visionCapabilities = {};
@@ -482,7 +488,7 @@ function getMode() {
 function isImageModeForPrompt(prompt) {
   const mode = getMode();
   if (mode === "image") return true;
-  if (mode === "chat" || mode === "research") return false;
+  if (mode === "chat" || mode === "research" || mode === "agent") return false;
   if (attachedVisionImages.length && IMAGE_EDIT_INTENT_PATTERN.test(prompt)) return true;
   return IMAGE_INTENT_PATTERN.test(prompt) || DIRECT_IMAGE_COMMAND_PATTERN.test(prompt);
 }
@@ -506,10 +512,11 @@ function inferWebTimeRange(prompt) {
 
 function routeRequest(prompt) {
   const mode = getMode();
+  const agent = mode === "agent";
   const image = isImageModeForPrompt(prompt);
-  const research = !image && (mode === "research" || (mode === "auto" && promptNeedsResearch(prompt)));
-  const automaticWeb = !image && mode === "auto" && promptNeedsFreshWeb(prompt);
-  const web = !image && (research || automaticWeb || Boolean(els.webSearch.checked));
+  const research = !agent && !image && (mode === "research" || (mode === "auto" && promptNeedsResearch(prompt)));
+  const automaticWeb = !agent && !image && mode === "auto" && promptNeedsFreshWeb(prompt);
+  const web = !agent && !image && (research || automaticWeb || Boolean(els.webSearch.checked));
   const webOptions = normalizeWebRouteOptions({
     research,
     maxResults: els.webResults.value,
@@ -518,11 +525,12 @@ function routeRequest(prompt) {
   return {
     kind: image ? "image" : "chat",
     mode,
+    agent,
     web,
     research,
     project: !image && Boolean(loadedActiveProject(projectState)),
     vision: !image && attachedVisionImages.length > 0,
-    enableThinking: research || Boolean(els.reasoning.checked),
+    enableThinking: agent || research || Boolean(els.reasoning.checked),
     ...webOptions,
     timeRange: inferWebTimeRange(prompt),
   };
@@ -532,6 +540,7 @@ function canSendCurrentMode() {
   const mode = getMode();
   if (mode === "image") return imageGenerationSupported;
   if (mode === "research") return chatReady && webSearchSupported && researchSupported;
+  if (mode === "agent") return chatReady && agentModeContract.available;
   if (mode === "auto") return chatReady || imageGenerationSupported;
   return chatReady;
 }
@@ -543,6 +552,7 @@ function isImageGenerationRunning() {
 function syncModeUI() {
   const mode = getMode();
   els.modeButtons.forEach((button) => {
+    if (button.dataset.chatMode === "agent") button.disabled = !agentModeContract.available;
     button.setAttribute("aria-pressed", String(button.dataset.chatMode === mode));
   });
   document.body.classList.toggle("chat-image-active", mode === "image" || Boolean(activeImageSource));
@@ -551,6 +561,8 @@ function syncModeUI() {
       ? "Auto routes current questions, local vision, chat, and images"
       : mode === "image"
         ? "Create, edit, restyle, or enhance an image"
+        : mode === "agent"
+          ? "Let Qwen choose and chain the available Token Gen tools"
         : mode === "research"
           ? "Search, extract, rank, and answer locally with citations"
           : "Answer with the active local language model";
@@ -561,7 +573,7 @@ function syncWebUI() {
   if (!els.webQuickToggle) return;
   const enabled = Boolean(els.webSearch.checked);
   els.webQuickToggle.setAttribute("aria-pressed", String(enabled));
-  els.webQuickToggle.disabled = els.webSearch.disabled;
+  els.webQuickToggle.disabled = els.webSearch.disabled || getMode() === "agent";
   els.webQuickToggle.title = enabled ? "Always use web is on" : "Always use web for this chat";
 }
 
@@ -3102,6 +3114,57 @@ function renderVisionMessage(message) {
   `;
 }
 
+function renderAgentActivity(activity) {
+  const steps = Array.isArray(activity?.steps) ? activity.steps : [];
+  const tools = Array.isArray(activity?.tools) ? activity.tools : [];
+  const artifacts = Array.isArray(activity?.artifacts) ? activity.artifacts : [];
+  const citations = Array.isArray(activity?.citations) ? activity.citations : [];
+  if (!steps.length && !tools.length && !artifacts.length && !citations.length) return "";
+  const toolCount = tools.length;
+  const summary = toolCount
+    ? `${toolCount} tool${toolCount === 1 ? "" : "s"} / ${steps.length} model step${steps.length === 1 ? "" : "s"}`
+    : `${steps.length} model step${steps.length === 1 ? "" : "s"}`;
+  return `
+    <details class="chat-web-context chat-agent-activity" open>
+      <summary>
+        <span>Agent activity</span>
+        <span class="chat-web-mode">${escapeHtml(summary)}</span>
+      </summary>
+      <div class="chat-web-context-body chat-agent-activity-body">
+        ${tools.length ? `
+          <div class="chat-agent-tools">
+            ${tools.map((tool) => `
+              <div class="chat-agent-tool">
+                <strong>${escapeHtml(tool.tool.replaceAll("_", " "))}</strong>
+                <span>${escapeHtml(tool.status)}${Number.isFinite(tool.elapsedMs) ? ` / ${escapeHtml(tool.elapsedMs)} ms` : ""}</span>
+              </div>
+            `).join("")}
+          </div>
+        ` : `<p class="chat-web-query">Qwen is selecting the next action.</p>`}
+        ${artifacts.length ? `
+          <div class="chat-agent-artifacts">
+            ${artifacts.map((artifact) => `
+              <a href="${escapeHtml(absoluteImageUrl(artifact.pollUrl))}" target="_blank" rel="noreferrer">
+                <strong>${escapeHtml(artifact.tool.replaceAll("_", " "))}</strong>
+                <span>Open generated job ${escapeHtml(artifact.id)}</span>
+              </a>
+            `).join("")}
+          </div>
+        ` : ""}
+        ${citations.length ? `
+          <div class="chat-agent-citations">
+            ${citations.map((citation) => `
+              <a href="${escapeHtml(citation.url)}" target="_blank" rel="noreferrer">
+                ${citation.index ? `[${escapeHtml(citation.index)}] ` : ""}${escapeHtml(citation.title)}
+              </a>
+            `).join("")}
+          </div>
+        ` : ""}
+      </div>
+    </details>
+  `;
+}
+
 function renderMessages(pending = false) {
   const visibleMessages = messages.filter((message) => !message.isWelcome);
   if (!visibleMessages.length && !pending) {
@@ -3122,6 +3185,7 @@ function renderMessages(pending = false) {
         <div class="chat-bubble">
           <div class="chat-role">${message.role === "user" ? "You" : "Token Gen"}</div>
           ${renderVisionMessage(message)}
+          ${renderAgentActivity(message.agentActivity)}
           ${renderProjectContext(message.projectContext)}
           ${renderWebContext(message.webContext)}
           ${renderImageOutputs(message)}
@@ -3412,7 +3476,11 @@ async function buildPayload(userId, projectContext = null, route = routeRequest(
     },
     ...(projectMedia.length ? { project_media: projectMedia } : {}),
   };
-  return withOptionalGenerationLimit(payload, els.maxTokens.value, contextWindow);
+  return withAgentRequest(
+    withOptionalGenerationLimit(payload, els.maxTokens.value, contextWindow),
+    route.mode,
+    agentModeContract,
+  );
 }
 
 function extractAssistantMessage(data) {
@@ -3436,14 +3504,19 @@ async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 6000) {
 async function loadProjectVideoCapability() {
   try {
     const { res, json } = await fetchJsonWithTimeout(`${API_BASE}/api/agent.json`, { cache: "no-store" });
+    agentModeContract = resolveAgentContract(res.ok ? json : {});
     projectVideoContract = res.ok
       ? resolveProjectVideoContract(json)
       : { ...DEFAULT_PROJECT_VIDEO_CONTRACT };
   } catch {
+    agentModeContract = resolveAgentContract({});
     projectVideoContract = { ...DEFAULT_PROJECT_VIDEO_CONTRACT };
   }
   projectVideoCapabilityLoaded = true;
   renderProjectVideoUpload();
+  syncModeUI();
+  syncWebUI();
+  updateSendState();
 }
 
 function disableChat(reason = "Token Gen API model discovery failed") {
@@ -3623,7 +3696,9 @@ async function sendMessage(content, route = routeRequest(content)) {
   els.send.disabled = true;
   els.input.disabled = true;
   setStatus(
-    route.research
+    route.agent
+      ? "Agent is planning and choosing tools..."
+      : route.research
       ? "Researching sources and preparing local evidence..."
       : route.web
         ? "Gathering web context..."
@@ -3708,6 +3783,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     let assistantText = "";
     let reasoningSeen = false;
     let assistantReasoningContent = "";
+    let agentActivity = mergeAgentActivity();
     let buffer = "";
     const decoder = new TextDecoder();
     const reader = res.body.getReader();
@@ -3740,6 +3816,27 @@ async function sendMessage(content, route = routeRequest(content)) {
           chunk = JSON.parse(data);
         } catch {
           continue;
+        }
+        const hasAgentActivity = route.agent && (
+          chunk.type === "agent_step"
+          || chunk.type === "tool_result"
+          || Array.isArray(chunk.agent_trace)
+          || Array.isArray(chunk.agent_artifacts)
+          || Array.isArray(chunk.citations)
+        );
+        if (hasAgentActivity) {
+          agentActivity = mergeAgentActivity(agentActivity, chunk);
+          messages[assistantIndex].agentActivity = agentActivity;
+          renderMessages(false);
+          if (chunk.type === "agent_step") {
+            setStatus(`Agent model step ${chunk.step || agentActivity.steps.length}...`, "busy");
+            continue;
+          }
+          if (chunk.type === "tool_result") {
+            const toolLabel = String(chunk.tool || "tool").replaceAll("_", " ");
+            setStatus(`${toolLabel} ${chunk.status || "complete"}; continuing agent work...`, "busy");
+            continue;
+          }
         }
         if (chunk.error) throw new Error(apiErrorMessage(chunk.error));
         if (chunk.type === "progress") {
@@ -3787,7 +3884,10 @@ async function sendMessage(content, route = routeRequest(content)) {
     }
     if (!sendViewIsCurrent()) return;
     telemetryStage = "finalize";
-    updateAssistantMessage(assistantIndex, assistantText, { reasoningContent: assistantReasoningContent });
+    updateAssistantMessage(assistantIndex, assistantText, {
+      reasoningContent: assistantReasoningContent,
+      ...(route.agent ? { agentActivity } : {}),
+    });
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
     if (sendViewIsCurrent()) {
@@ -3795,6 +3895,9 @@ async function sendMessage(content, route = routeRequest(content)) {
         excludeFromContext: true,
         excludeFromHistory: true,
         isError: true,
+        ...(route.agent && assistantIndex !== null
+          ? { agentActivity: messages[assistantIndex]?.agentActivity }
+          : {}),
       });
       if (assistantIndex !== null) messages[assistantIndex] = failure;
       else messages.push(failure);
@@ -4399,9 +4502,14 @@ els.model.addEventListener("change", () => {
 
 els.mode.addEventListener("change", () => {
   syncModeUI();
+  syncWebUI();
   updateSendState();
   if (getMode() === "image" && !imageGenerationSupported) {
     setStatus("Image generation is unavailable", "bad");
+  } else if (getMode() === "agent" && !agentModeContract.available) {
+    setStatus("Agent mode is unavailable from the current API contract", "bad");
+  } else if (getMode() === "agent") {
+    setStatus("Agent mode can choose and chain Token Gen tools for this request", "good");
   } else if (getMode() === "research" && !researchSupported) {
     setStatus("Local Research mode is currently unavailable", "bad");
   } else if (getMode() === "research") {
