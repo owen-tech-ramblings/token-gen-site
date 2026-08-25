@@ -1,6 +1,27 @@
 # Token Gen Current State
 
-Last updated: 2026-08-22 Australia/Sydney
+Last updated: 2026-08-25 Australia/Sydney
+
+## Web Chat Agent mode - 2026-08-25
+
+- Chat now exposes a fifth, explicit Agent mode when the live
+  `/api/agent.json` contract advertises the documented opt-in and both safe
+  stream event types. Selecting it adds only `agent: { enabled: true }`; Auto,
+  Chat, Research and Image retain their existing request paths.
+- Agent mode makes Qwen responsible for choosing and chaining the server-owned
+  tools. The activity panel renders only model-step numbers and the documented
+  safe tool, status, elapsed-time, call-ID, artifact and citation fields. Raw
+  arguments, complete results, media, credentials and hidden reasoning are
+  neither rendered nor added to conversation history.
+- The existing master-only quality workflow was retargeted to three focused
+  Agent checks plus syntax and whitespace. No CI workflow or branch trigger was
+  added.
+- Focused verification passed `node --test tools/chat-agent-options.test.mjs`,
+  `node --check chat.js`, `git diff --check`, and headless Chromium review at
+  1440 x 1000 and 390 x 844. The unchanged historical aggregate
+  `node tools/site-contract-tests.mjs` remains pre-existingly incompatible with
+  the current master-only CI policy because it still demands pull-request runs
+  on `dev` and `master`; it is outside this change's verification map.
 
 ## Web Chat error telemetry - 2026-08-22
 

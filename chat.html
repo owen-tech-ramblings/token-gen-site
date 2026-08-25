@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=token-chat-private-video-20260816-1" />
+    <link rel="stylesheet" href="./styles.css?v=token-chat-agent-mode-20260825-1" />
   </head>
   <body class="chat-page">
     <main class="chat-app">
@@ -97,12 +97,20 @@
             <div class="chat-mode-control" role="group" aria-label="Response mode">
               <button type="button" data-chat-mode="auto" aria-pressed="true">Auto</button>
               <button type="button" data-chat-mode="chat" aria-pressed="false">Chat</button>
-              <button type="button" data-chat-mode="research" aria-pressed="false">Research</button>
-              <button type="button" data-chat-mode="image" aria-pressed="false">Image</button>
+              <button type="button" data-chat-mode="agent" aria-pressed="false" disabled>Agent</button>
+              <button type="button" data-chat-mode="research" aria-pressed="false">
+                <span class="chat-mode-label-full">Research</span>
+                <span class="chat-mode-label-short">Deep</span>
+              </button>
+              <button type="button" data-chat-mode="image" aria-pressed="false">
+                <span class="chat-mode-label-full">Image</span>
+                <span class="chat-mode-label-short">Img</span>
+              </button>
             </div>
             <select id="chatMode" class="chat-visually-hidden" aria-hidden="true" tabindex="-1">
               <option value="chat">Chat</option>
               <option value="auto" selected>Auto</option>
+              <option value="agent">Agent</option>
               <option value="research">Research</option>
               <option value="image">Image</option>
             </select>
@@ -616,6 +624,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-error-telemetry-20260822-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-agent-mode-20260825-1"></script>
   </body>
 </html>
