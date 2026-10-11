@@ -15,6 +15,26 @@ inspects actual default 3D and image POST payloads and verifies GLB download
 integrity, replay identity, health-dependent submission and mobile layout.
 No paid generation occurs in these browser fixtures. Source cache keys changed.
 
+The explicit preview browser scenario now opens the settings drawer and
+Advanced image controls through their visible UI before choosing Euler,
+then closes the drawer before sending. Passed on Node 24.21.0: two named
+3D/bridge checks, one protected Agent check, and desktop/mobile browser
+scenarios at 1365×900 and 390×844. Exact commands (Node executable
+`/home/zenfree/codex/site-quality-browser-20261011/node_modules/node/bin/node`):
+
+- `node --test tools/chat-three-d.test.mjs`
+- `node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs`
+- `PLAYWRIGHT_MODULE=/home/zenfree/codex/site-quality-browser-20261011/node_modules/playwright node tools/chat-three-d.browser.cjs`
+- `node --check chat.js`, `node --check chat-three-d.mjs`,
+  `node --check tools/chat-three-d.browser.cjs`, and
+  `node --check cloudflare/private-api-bridge/worker.js`
+- `git diff --check`
+
+No failures remain in these selected fixtures. The existing vision attachment
+path can still reduce resolution and JPEG-encode before an attachment becomes
+an image-edit source; this change does not alter that preprocessing. Actual
+GPU inference and the worker precision release remain separately governed.
+
 Authoring follows Jesse's explicit GitHub-source/continue-without-PC-blockers
 instructions using an isolated Token Gen checkout and reviewed PR; this work
 has no Lil Zen managed-worktree receipt and does not claim one. Existing local

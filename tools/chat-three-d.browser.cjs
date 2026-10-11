@@ -62,9 +62,13 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  assert.deepEqual([imagePayload.width,imagePayload.height],[2048,2048]);
  for(const key of ['steps','cfg','sampler_name','scheduler'])assert.equal(Object.hasOwn(imagePayload,key),false,`Use native model default for ${key}`);
  await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
  await page.locator('#chatImageQuality').selectOption('draft');
  await page.locator('#chatImageSize').selectOption('512');
+ await page.getByText('Advanced image controls',{exact:true}).click();
+ await page.locator('#chatImageSampler').waitFor({state:'visible'});
  await page.locator('#chatImageSampler').selectOption('euler');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
  await page.locator('#chatInput').fill('Quick dragon preview');
  const previewSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/generations')));
  await page.locator('#chatSend').click();
