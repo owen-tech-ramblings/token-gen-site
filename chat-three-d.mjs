@@ -162,7 +162,7 @@ export function mountThreeD(doc = document) {
   async function health() {
     try {
       const result = await api(`${THREE_D_BASE}/health`);
-      available = result.available === true;
+      available = result.ok === true && result.models?.some(model => model.id === 'trellis2' && model.available === true) === true;
       query('[data-health]').textContent = available ? 'TRELLIS.2 is ready for image-to-3D generation.' : '3D generation is currently unavailable. You can still view saved models.';
     } catch { available = false; query('[data-health]').textContent = 'Could not check 3D availability. Refresh to try again.'; }
     submit.disabled = busy || !available;
