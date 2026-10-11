@@ -2,25 +2,34 @@ const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const http = require('http'), fs = require('fs'), path = require('path'), assert = require('assert/strict'), crypto = require('crypto');
 const root = path.resolve(__dirname, '..');
 const jobId = 'a'.repeat(32), artifact = Buffer.from('glTF-fixture-download');
+const conversationId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',glbArtifactId='22222222-2222-4222-8222-222222222222';
+const savedGlb={artifact_id:glbArtifactId,kind:'three_d',format:'glb',state:'saved',sha256:crypto.createHash('sha256').update(artifact).digest('hex'),size_bytes:artifact.length,content_url:'https://untrusted.example/private',owner:'never show owner'};
+const nativeZip={artifact_id:'33333333-3333-4333-8333-333333333333',kind:'video',format:'zip',state:'saved',sha256:'3'.repeat(64),size_bytes:36000000000,native_metadata:{output_role:'master'},content_url:'https://untrusted.example/huge.zip',provider_token:'never show token'};
+const imageJobId='c'.repeat(32), imageArtifactId='44444444-4444-4444-8444-444444444444';
+const speechJobId='e'.repeat(32),speechArtifactId='55555555-5555-4555-8555-555555555555';
+const speechArtifact={artifact_id:speechArtifactId,kind:'audio',format:'wav',state:'temporary',sha256:'5'.repeat(64),size_bytes:1024,expires_at:1791691800,native_metadata:{sample_rate:24000,channels:1,encoding_fidelity:'native_float'}};
 const server = http.createServer((req,res)=>{ const name = decodeURIComponent(req.url.split('?')[0]); const file=path.join(root,name==='/'?'chat.html':name); try {res.setHeader('Content-Type',file.endsWith('.mjs')||file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end('missing');} });
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1365,height:900},acceptDownloads:true});
- const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,modelDiscoveryReady=true,imageFailure='Offline quality fixture',originalAssetBytes;
+ const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,modelDiscoveryReady=true,archiveContractReady=true,imageFailure='Offline quality fixture',originalAssetBytes,archiveReady=false,historyWriteFails=false,privateJobsAvailable=true,forceConflict=false,imageSucceeds=false,imageJob,imageReady=false,imageBytes;
+ const imageRecord=()=>({artifact_id:imageArtifactId,kind:'image',format:'png',state:'saved',sha256:crypto.createHash('sha256').update(imageBytes).digest('hex'),size_bytes:imageBytes.length,created_at:1791690000});
+ const hydrate=body=>({...body,messages:(body.messages||[]).map(message=>archiveReady&&message.id===jobs[0]?.artifact_context?.message_id?{...message,artifacts:[savedGlb]}:imageReady&&message.id===imageJob?.artifact_context?.message_id?{...message,artifacts:[imageRecord()]}:message)});
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const req=route.request(),url=new URL(req.url());calls.push({path:url.pathname,method:req.method(),body:req.postData(),headers:req.headers()});
   let data={ok:true};
   if(url.pathname.startsWith('/api/private/3d')){
-   if(url.pathname.endsWith('/health'))data={ok:available,nas_available:true,models:[{id:'trellis2',available,configured:available}]};
+   if(url.pathname.endsWith('/health'))data={ok:available,nas_available:true,models:[{id:'trellis2',available,configured:available,stl:{default_printer_profile:'snapmaker_a350t_quick_swap_single_pla_0_4_fine'},printer_profiles:[{id:'snapmaker_a350t_quick_swap_single_pla_0_4_fine',available:true,build_volume_mm:[320,335,310],nozzle_mm:0.4,material:'PLA',layer_height_mm:0.08,first_layer_height_mm:0.28,brim_margin_mm:12,validation:'native_dry_slice'}]}]};
    else if(url.pathname.endsWith('/content'))return route.fulfill({status:200,body:artifact,contentType:'model/gltf-binary'});
    else if(url.pathname.endsWith('/cancel')){jobs[0]={...jobs[0],status:'CANCELLED'};data={job:jobs[0]};}
    else if(url.pathname.endsWith('/generations')){
-    if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7}];data={job:jobs[0]};}
+    if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7,artifact_context:req.postDataJSON().artifact_context,archive_state:archiveReady?'saved':'pending'}];data={job:jobs[0]};}
     else data={jobs};
-   } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
-  } else if(url.pathname.endsWith('/chat/models')){
+   } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',archive_state:archiveReady?'saved':'pending',generated_artifacts:archiveReady?[savedGlb]:[],artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
+  } else if(url.pathname.endsWith('/agent.json'))data={capabilities:{artifacts:archiveContractReady?{list_url:'/api/artifacts',auth_required:true,context_schema:{type:'object'},agent_parent_context:true}:{}},agent_integration:{chat:{optional_request_field:'agent',enabled_value:{enabled:true}},streaming:{safe_event_names:['agent_step','tool_result']},guarantees:{hidden_reasoning_in_trace:false,shell_access:false}}};
+  else if(url.pathname.endsWith('/chat/models')){
    if(!modelDiscoveryReady)return route.fulfill({status:503,json:{ok:false,error:'Fixture model discovery unavailable'}});
    data={ok:true,data:{data:[
    {id:'fixture-model',name:'Fixture model',capabilities:{vision:{available:true,max_pixels:16777216}}},
@@ -34,20 +43,30 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
   }
   else if(/\/conversations\/assets\/[0-9a-f-]{36}$/.test(url.pathname)&&req.method()==='GET')return route.fulfill({status:200,body:originalAssetBytes,contentType:'image/png'});
   else if(/\/conversations(?:\/[0-9a-f-]{36})?$/.test(url.pathname)&&['POST','PUT'].includes(req.method())){
+   if(historyWriteFails)return route.fulfill({status:503,json:{ok:false,error:{message:'Fixture encrypted admission unavailable'}}});
+   if(forceConflict&&req.method()==='PUT'){forceConflict=false;return route.fulfill({status:409,json:{ok:false,error:{message:'Fixture concurrent capture'}}});}
    const body=req.postDataJSON();
    const attachments=body.messages.flatMap(message=>message.vision_images||[]);
    if(attachments.some(image=>!/^https:\/\/token-gen-api\.owenonthenet\.com\/api\/conversations\/assets\/[0-9a-f-]{36}$/.test(image.url)))return route.fulfill({status:400,json:{ok:false,error:{message:'Vision images must use a protected Token Gen URL.'}}});
    savedConversations.push(body);
-   data={ok:true,conversation:{...body,id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',version:'fixture',updated_at:new Date().toISOString()}};
+   data={ok:true,conversation:{...hydrate(body),id:conversationId,version:'fixture',updated_at:new Date().toISOString()}};
   }
-  else if(url.pathname.endsWith('/conversations/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'))data={ok:true,conversation:{...savedConversations.at(-1),id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',version:'fixture'}};
+  else if(url.pathname.endsWith('/conversations/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'))data={ok:true,conversation:{...hydrate(savedConversations.at(-1)),id:conversationId,version:'fixture'}};
   else if(url.pathname.endsWith('/conversations'))data={ok:true,conversations:[]};
   else if(url.pathname.endsWith('/projects'))data={ok:true,projects:[]};
   else if(url.pathname.endsWith('/jobs')){
-   if(req.method()==='POST')return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:{message:imageFailure}}});
-   data={ok:true,jobs:[]};
+   if(!privateJobsAvailable&&req.method()==='GET')return route.fulfill({status:503,json:{ok:false,error:{message:'Fixture queue unavailable'}}});
+   if(req.method()==='POST'){
+    if(imageSucceeds){imageJob={id:imageJobId,status:'queued_or_running',prompt_id:'fixture-image',kind:'generation',artifact_context:req.postDataJSON().request.artifact_context,archive_state:'pending'};data={ok:true,job:imageJob};}
+    else return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:{message:imageFailure}}});
+   }else data={ok:true,jobs:imageJob?[imageJob]:[]};
   }
+  else if(url.pathname.endsWith('/jobs/'+imageJobId)){imageJob={...imageJob,status:'completed',archive_state:imageReady?'saved':'pending',generated_artifacts:imageReady?[imageRecord()]:[],outputs:[{url:'https://token-gen-api.owenonthenet.com/api/image/view?filename=fixture.png',filename:'fixture.png'}]};data={ok:true,job:imageJob};}
+  else if(url.pathname.endsWith('/artifacts/'+imageArtifactId+'/content')||url.pathname.endsWith('/image/view'))return route.fulfill({status:200,body:imageBytes,contentType:'image/png'});
+  else if(url.pathname.endsWith('/artifacts'))data=url.searchParams.has('cursor')?{ok:true,artifacts:[{...nativeZip,artifact_id:'66666666-6666-4666-8666-666666666666',format:'mp4',size_bytes:4096,native_metadata:{output_role:'delivery'}}],cursor:null}:{ok:true,artifacts:[nativeZip],cursor:'fixture-cursor'};
   else if(url.pathname.endsWith('/image/generations')||url.pathname.endsWith('/image/edits'))return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:imageFailure}});
+  else if(url.pathname==='/api/private/chat/stream')return route.fulfill({status:200,contentType:'text/event-stream',body:'data: '+JSON.stringify({choices:[{delta:{content:'Native speech generated.'}}],agent_artifacts:[{tool:'generate_speech',job_id:speechJobId,poll_url:'/api/tts/generations/'+speechJobId}]})+'\n\ndata: [DONE]\n\n'});
+  else if(url.pathname.endsWith('/tts/generations/'+speechJobId))data={ok:true,job:{id:speechJobId,status:'COMPLETED',archive_state:'temporary',generated_artifacts:[speechArtifact]}};
   else if(url.pathname.endsWith('/chat/stream'))return route.fulfill({status:503,json:{ok:false,error:'Offline vision fixture'}});
   await route.fulfill({status:200,json:data});
  });
@@ -59,6 +78,8 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.locator('[name=output_format]').selectOption('both');
  assert(await page.locator('[name=stl_repair]').isVisible());
  assert.equal(await page.locator('[name=stl_repair]').inputValue(),'true');
+ assert.equal(await page.locator('[name=printer_profile]').inputValue(),'snapmaker_a350t_quick_swap_single_pla_0_4_fine');
+ await page.locator('[name=printer_profile]').selectOption('');
  await page.locator('[name=stl_repair]').selectOption('false');
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=8;c.height=8;const x=c.getContext('2d');x.fillStyle='#0f0';x.fillRect(2,2,4,4);return c.toDataURL().split(',')[1];});
  await page.locator('[name=image]').setInputFiles({name:'prop.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
@@ -66,18 +87,39 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.getByRole('button',{name:'Download GLB'}).waitFor();
  const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Download GLB'}).click();
  const download=await downloadEvent;assert.equal(download.suggestedFilename(),`token-gen-${jobId}.glb`);
+ assert(await page.locator('dialog [data-archive-state=pending]').isVisible(),'Provider terminal status is distinct from a durable archive');
+ assert.equal(await page.locator('a[href="/api/private/artifacts/'+glbArtifactId+'/content"]').count(),0);
+ archiveReady=true;
+ await page.getByRole('button',{name:'Refresh',exact:true}).click();
+ await page.getByRole('link',{name:'Saved GLB',exact:true}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'Saved GLB',exact:true}).getAttribute('href'),`/api/private/artifacts/${glbArtifactId}/content`);
  const retryResponse=page.waitForResponse(r=>r.url().endsWith('/api/private/3d/generations')&&r.request().method()==='POST');
  await page.getByRole('button',{name:'Generate model',exact:true}).click(); await retryResponse;
  await page.getByRole('button',{name:'Download GLB'}).waitFor();
  const posts=calls.filter(x=>x.path==='/api/private/3d/generations'&&x.method==='POST');
  const default3d=JSON.parse(posts[0].body);
+ assert.equal(default3d.artifact_context?.conversation_id,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Bind retained 3D output to a saved chat');
+ const placeholder=savedConversations.flatMap(body=>body.messages).find(message=>message.id===default3d.artifact_context?.message_id);
+ assert.equal(placeholder?.role,'assistant','Save the exact assistant placeholder before generation');
+ assert(calls.findIndex(call=>call.path.endsWith('/conversations')&&call.method==='POST')<calls.indexOf(posts[0]),'Durable placeholder admission precedes paid submission');
  assert.deepEqual([default3d.resolution,default3d.texture_size,default3d.triangle_target],[1536,4096,1000000]);
  assert.equal(posts.length,2);assert.equal(posts[0].headers['idempotency-key'],posts[1].headers['idempotency-key']);assert.equal(posts[0].body,posts[1].body);
  const payload=JSON.parse(posts[0].body);assert.equal(payload.resolution,1536);assert.equal(payload.texture_size,4096);
  assert.equal(payload.triangle_target,1000000);assert.equal(payload.sampling_steps,12);assert.equal(payload.stl_repair,false);
+ assert.equal(Object.hasOwn(payload,'printer_profile'),false,'Raw inspection explicitly uses generic geometry');
  assert(calls.some(x=>x.path===`/api/private/3d/generations/${jobId}`&&x.method==='GET'));
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-desktop.png')});
  await page.getByRole('button',{name:'Close 3D models'}).click();
+ await page.getByRole('link',{name:'Download 3D · GLB',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Open background jobs',exact:true}).click();
+ await page.getByRole('link',{name:'Download Native master · ZIP',exact:true}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'Download Native master · ZIP',exact:true}).getAttribute('href'),`/api/private/artifacts/${nativeZip.artifact_id}/content`);
+ assert.equal(calls.some(call=>call.path===`/api/private/artifacts/${nativeZip.artifact_id}/content`),false,'Listing a 36GB native master does not fetch its bytes');
+ await page.getByRole('button',{name:'Load more saved outputs',exact:true}).click();
+ await page.getByRole('link',{name:'Download Playback copy · MP4',exact:true}).waitFor();
+ assert.equal(await page.getByRole('button',{name:'Load more saved outputs',exact:true}).isVisible(),false);
+ assert(!await page.locator('body').textContent().then(text=>text.includes('never show token')||text.includes('never show owner')));
+ await page.getByRole('button',{name:'Close background jobs',exact:true}).click();
  assert.equal(await page.locator('#chatImageQuality').inputValue(),'ultra');
  assert.equal(await page.locator('#chatImageSize').inputValue(),'2048');
  assert.equal(await page.locator('#chatImageSampler').inputValue(),'');
@@ -86,12 +128,37 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.locator('#chatInput').fill('A detailed copper dragon');
  const imageSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/generations')));
  await page.locator('#chatSend').click();
- const imageRequest=(await imageSubmission).postDataJSON();
+ const submittedImage=await imageSubmission;
+ const imageRequest=submittedImage.postDataJSON();
  const imagePayload=imageRequest.request||imageRequest;
+ assert.equal(imagePayload.artifact_context?.conversation_id,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+ assert(savedConversations.at(-1).messages.some(message=>message.id===imagePayload.artifact_context.message_id&&message.role==='assistant'));
+ assert(submittedImage.headers()['idempotency-key'],'Private generation carries a stable admission key');
+ assert(savedConversations.at(-1).messages.find(message=>message.id===payload.artifact_context.message_id).artifacts.some(item=>item.artifact_id===glbArtifactId),'Later chat saves preserve captured typed refs');
  assert.equal(imagePayload.quality,'ultra');
  assert.deepEqual([imagePayload.width,imagePayload.height],[2048,2048]);
  for(const key of ['steps','cfg','sampler_name','scheduler'])assert.equal(Object.hasOwn(imagePayload,key),false,`Use native model default for ${key}`);
  await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ assert.equal(calls.some(call=>/\/api\/(?:private\/)?image\/generations$/.test(call.path)&&call.method==='POST'),false,'An ambiguous private error never falls back to another submission');
+ historyWriteFails=true;
+ const submittedBefore=calls.filter(call=>call.path==='/api/private/jobs'&&call.method==='POST').length;
+ await page.locator('#chatInput').fill('Do not spend when private history fails');
+ await page.locator('#chatSend').click();
+ await page.getByText(/Image request failed: The assistant message could not be saved/).waitFor();
+ assert.equal(calls.filter(call=>call.path==='/api/private/jobs'&&call.method==='POST').length,submittedBefore);
+ historyWriteFails=false;forceConflict=true;
+ imageBytes=Buffer.from(png,'base64');imageSucceeds=true;
+ await page.locator('#chatInput').fill('Archive the exact generated PNG');
+ await page.locator('#chatSend').click();
+ await page.getByText('Image generation complete.',{exact:true}).waitFor();
+ assert(await page.locator('#chatThread [data-archive-state=pending]').isVisible(),'Image completion is still archive pending');
+ assert.match(await page.locator('#chatThread .chat-image-card img').getAttribute('src'),/^\/api\/private\/image\/view\?/,'Pending managed previews use the authenticated bridge too');
+ imageSucceeds=false;imageReady=true;
+ await page.getByRole('button',{name:'Open background jobs',exact:true}).click();
+ await page.getByRole('button',{name:'Refresh background jobs',exact:true}).click();
+ await page.getByRole('link',{name:'Download image · PNG',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Close background jobs',exact:true}).click();
+ assert.equal(await page.locator('#chatThread .chat-image-card img').getAttribute('src'),`/api/private/artifacts/${imageArtifactId}/content`);
  await page.getByRole('button',{name:'Open settings',exact:true}).click();
  await page.locator('#chatImageQuality').selectOption('draft');
  await page.locator('#chatImageSize').selectOption('512');
@@ -191,6 +258,8 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.getByRole('button',{name:'New chat',exact:true}).click();
  await page.locator('[data-history-open="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]').click();
  await page.waitForFunction(()=>document.querySelector('#chatStatus').textContent.startsWith('Opened '));
+ await page.getByRole('link',{name:'Download 3D · GLB',exact:true}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'Download 3D · GLB',exact:true}).getAttribute('href'),`/api/private/artifacts/${glbArtifactId}/content`,'Reopened history uses durable protected output instead of provider expiry');
  await page.locator('[data-chat-mode=chat]').click();
  await page.locator('#chatInput').fill('Describe the saved images');
  const restoredVisionSubmission=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/chat/stream'));
@@ -217,6 +286,40 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.locator('#chatModel').selectOption('fixture-model');
  await page.getByRole('button',{name:'Close settings',exact:true}).click();
  await page.getByRole('button',{name:'New chat',exact:true}).click();
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatHistoryRetention').selectOption('none');
+ await page.locator('#chatImageSourceMode').selectOption('new');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ privateJobsAvailable=false;
+ await page.getByRole('button',{name:'Open background jobs',exact:true}).click();
+ const unavailableQueue=page.waitForResponse(response=>response.url().endsWith('/api/private/jobs')&&response.status()===503);
+ await page.getByRole('button',{name:'Refresh background jobs',exact:true}).click();await unavailableQueue;
+ await page.getByText('Background jobs are unavailable. Image tools still work in this tab.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Close background jobs',exact:true}).click();
+ await page.locator('[data-chat-mode=image]').click();
+ await page.locator('#chatInput').fill('Temporary native image');
+ const savesBeforeNone=savedConversations.length;
+ const temporarySubmission=page.waitForRequest(request=>request.method()==='POST'&&request.url().endsWith('/api/private/image/generations'));
+ await page.locator('#chatSend').click();const temporaryRequest=await temporarySubmission;
+ assert.deepEqual(temporaryRequest.postDataJSON().artifact_context,{retention:'none'});
+ assert(temporaryRequest.headers()['idempotency-key']);
+ await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+ assert.equal(savedConversations.length,savesBeforeNone,'None retention never creates a server placeholder');
+ assert.equal(calls.filter(call=>/^\/api\/image\//.test(call.path)&&call.method==='POST').length,0,'Fallback remains authenticated through Access');
+ await page.locator('[data-chat-mode=agent]').click();
+ await page.locator('#chatInput').fill('Speak this sentence at native quality');
+ const agentSubmission=page.waitForRequest(request=>request.method()==='POST'&&request.url().endsWith('/api/private/chat/stream'));
+ await page.locator('#chatSend').click();const agentRequest=await agentSubmission;
+ assert.deepEqual(agentRequest.postDataJSON().artifact_context,{retention:'none'});
+ assert(agentRequest.headers()['idempotency-key']);
+ assert(!agentRequest.postDataJSON().messages.some(message=>message.role==='assistant'&&message.content===''),'The delivery placeholder is excluded from model conditioning');
+ await page.getByRole('link',{name:'Download audio · WAV',exact:true}).waitFor();
+ assert.equal(await page.getByRole('link',{name:'Download audio · WAV',exact:true}).getAttribute('href'),`/api/private/artifacts/${speechArtifactId}/content`);
+ assert.equal(savedConversations.length,savesBeforeNone,'Temporary Agent outputs do not save the chat');
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatHistoryRetention').selectOption('30_days');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ await page.locator('[data-chat-mode=chat]').click();
  const oversizeFile={name:'oversize-original.png',mimeType:'image/png',buffer:Buffer.alloc(8*1024*1024+1)};
  await page.locator('#chatVisionImages').setInputFiles(oversizeFile);
  await page.getByText('oversize-original.png is larger than 8 MB.',{exact:true}).waitFor();
@@ -242,6 +345,15 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.locator('[data-chat-mode=chat]').click();
  assert(await page.locator('#chatInput').isDisabled()&&await page.locator('#chatSend').isDisabled(),'Failed discovery cannot use stale model or vision readiness');
  assert.equal(await page.locator('#chatVisionStatus').textContent(),'The active language model does not advertise image understanding.');
+ archiveContractReady=false;available=true;
+ const paidPostsBefore=calls.filter(call=>call.method==='POST'&&(call.path==='/api/private/3d/generations'||call.path==='/api/private/jobs'||call.path.startsWith('/api/private/image/'))).length;
+ await page.goto(page.url().split('?')[0].split('#')[0]+'?old-api-fixture#3d');
+ await page.getByText('TRELLIS.2 is ready for image-to-3D generation.').waitFor();
+ await page.getByRole('button',{name:'New model',exact:true}).click();
+ await page.locator('[name=image]').setInputFiles({name:'guard.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
+ await page.getByRole('button',{name:'Generate model',exact:true}).click();
+ await page.getByText('Private output archiving is unavailable in the current API release. Refresh after the service is restored.',{exact:true}).waitFor();
+ assert.equal(calls.filter(call=>call.method==='POST'&&(call.path==='/api/private/3d/generations'||call.path==='/api/private/jobs'||call.path.startsWith('/api/private/image/'))).length,paidPostsBefore,'An old API cannot silently ignore archive context and start paid work');
  assert.equal(errors.length,0,errors.join('\n'));
  console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844',sourceFidelity:{editModes:3,directUpload:true,originalPixels:3072*2048,visionPixels:visionWidth*visionHeight,originalVisionBytes:true,restoredVisionBytes:true,privateAssets:assetUploads.length}}));
  await browser.close();server.close();

@@ -10,11 +10,16 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
 - Release branch: `master`
 - Integration branch: `dev`
 - Expected GitHub identity: `owen-tech-ramblings`.
+- Jesse's 11 October 2026 instruction authorizes local GitHub authoring in an
+  isolated `codex/*` checkout with an aligned remote `dev`/`master` base. The
+  actual checkout is recorded in CURRENT_STATE/HANDOFF; do not invent a
+  PC-managed worktree receipt. Exact-source review and the versioned Pages
+  release path still apply.
 - Browser source must contain no secret. Approved secret locators are
   Google Secret Manager project `lil-zen-oc` and `D:\openclaw`
   (`/mnt/d/openclaw` in WSL); never copy their values into this repository.
 - Branch and review flow: begin only when `dev` and `master` are aligned.
-  Create receipt-bound `codex/*` worktrees through the Lil Zen managed-worktree
+  Normally create receipt-bound `codex/*` worktrees through the Lil Zen managed-worktree
   command, push the branch, and open the reviewed pull request directly to
   `master`. The versioned release transaction aligns `dev` only after the exact
   `master` commit is deployed and verified. At stable state, local and origin
@@ -39,7 +44,8 @@ This is the canonical deploy/source repo for `https://token-gen.owenonthenet.com
   exact targeted CI and Pages deployment, and run the same rollback-protected
   Pages cutover and live checks.
 - Forbidden actions: broad default suites, hosted GitHub runners, duplicate CI
-  triggers, direct commits to `dev` or `master`, unleased worktrees, direct live
+  triggers, direct commits to `dev` or `master`, unleased worktrees outside the
+  explicit owner-authorized local checkout exception, direct live
   edits, global GitHub-auth switching, repository-local secrets, deployment
   from a mirror, PC-hosted production API/search dependencies, silent
   fallbacks, or release evidence that does not match the Pages commit.
@@ -154,7 +160,8 @@ Related canonical path:
 
 - API source: `/home/jesse/.openclaw/workspace/token-gen-api`
 
-Commit and push public-site changes only from the receipt-bound worktree, merge
+Commit and push public-site changes only from the receipt-bound worktree or
+the explicitly owner-authorized isolated local checkout, merge
 the reviewed pull request to `master`, and use the versioned Pages cutover.
 Mirrors and historical gateway copies are non-authoritative and may never
 become the deploy source.

@@ -8,6 +8,12 @@ generated client helpers.
 
 ## Canonical source and release contract
 
+Jesse's 11 October 2026 GitHub authoring instruction permits isolated local
+`codex/*` source checkouts from verified aligned remote `dev`/`master`. Record
+the actual checkout and review head, without claiming a PC-managed receipt.
+This authorization does not change the exact-reviewed-commit Pages release,
+private targeted CI or protected live verification requirements below.
+
 - Site source: `/home/jesse/.openclaw/workspace/token-gen-site-pages`, remote
   `https://github.com/owen-tech-ramblings/token-gen-site.git`.
 - API source: `https://github.com/owen-tech-ramblings/token-gen-api.git`.

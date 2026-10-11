@@ -10,3 +10,8 @@
 .three-d-file{border:1px dashed #536a83;padding:16px;border-radius:12px}.three-d-file input{border:0;padding:0;background:transparent}.three-d-actions{display:flex;gap:8px;flex-wrap:wrap}
 .three-d-form [data-message]:empty{display:none}.three-d-form [data-message]{margin:0;overflow-wrap:anywhere}.three-d-job{margin-top:12px;padding:16px;border:1px solid #354251;border-radius:12px}.three-d-job p{color:#bfcbd9;overflow-wrap:anywhere}.three-d-dialog [hidden]{display:none!important}
 @media(max-width:520px){.three-d-dialog{padding:18px}.three-d-fields{grid-template-columns:1fr}.three-d-dialog h2{font-size:22px}#chatThreeDOpen{min-width:36px;padding:5px}}
+/* Native archives use browser downloads, including large streaming ZIP masters. */
+.chat-saved-artifacts { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .8rem; }
+.chat-artifact-state { flex-basis: 100%; margin: .2rem 0; font-size: .85rem; color: var(--muted, #a1a1aa); }
+.chat-saved-artifacts a { overflow-wrap: anywhere; }
+#chatSavedArtifactsMore[hidden] { display: none !important; }
