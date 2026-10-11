@@ -3976,9 +3976,15 @@ function imageSummary(settings) {
 
 function syncImageSizeControls() {
   const sourceAspect = ["edit", "restyle", "style"].includes(els.imageSourceMode.value);
-  els.imageSize.disabled = sourceAspect;
-  els.imageOrientation.disabled = sourceAspect;
-  if (els.imageSizingHint) els.imageSizingHint.hidden = !sourceAspect;
+  const factorUpscale = els.imageSourceMode.value === "upscale" && Number(els.imageUpscaleScale.value) !== 1;
+  els.imageSize.disabled = sourceAspect || factorUpscale;
+  els.imageOrientation.disabled = sourceAspect || factorUpscale;
+  if (els.imageSizingHint) {
+    els.imageSizingHint.hidden = !(sourceAspect || factorUpscale);
+    els.imageSizingHint.textContent = factorUpscale
+      ? "Upscale keeps the source aspect ratio. Choose Fit selected size to set Size and Shape."
+      : "Edits keep the source aspect ratio and use the selected native quality.";
+  }
 }
 
 function imageNegativePrompt(extra = []) {
@@ -4094,11 +4100,13 @@ async function buildImageUpscalePayload(settings, sampleIndex, source) {
   const payload = {
     image_base64: dataUrl,
     scale: settings.upscaleScale,
-    width: settings.width,
-    height: settings.height,
     method: settings.upscaleMethod,
     filename_prefix: `token_gen_chat_upscale_${sampleIndex + 1}`,
   };
+  if (settings.upscaleScale === 1) {
+    payload.width = settings.width;
+    payload.height = settings.height;
+  }
   return payload;
 }
 
@@ -4351,7 +4359,9 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
         ...(imageRef || {}),
         prompt,
         quality: "Deterministic enhance",
-        size: `${settings.width} x ${settings.height} / ${settings.upscaleScale}x / ${settings.upscaleMethod}`,
+        size: settings.upscaleScale === 1
+          ? `${settings.width} x ${settings.height} / Fit selected size / ${settings.upscaleMethod}`
+          : `${settings.upscaleScale}x / Source aspect / ${settings.upscaleMethod}`,
         alt: prompt,
         url: absoluteImageUrl(output.url),
       });
@@ -4538,6 +4548,8 @@ els.imageSourceMode.addEventListener("change", () => {
   }
   renderImageSourcePreview();
 });
+
+els.imageUpscaleScale.addEventListener("change", syncImageSizeControls);
 
 els.imageSamples.addEventListener("input", () => {
   els.imageSamples.value = String(Math.round(clampNumber(els.imageSamples.value, 1, 1, 4)));

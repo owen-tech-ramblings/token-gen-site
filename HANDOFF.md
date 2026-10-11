@@ -8,7 +8,10 @@ Direct image uploads also pass unchanged; the API reports native upload-limit
 errors instead of a browser resize/recompression retry. Edits retain source
 aspect and native quality, so Size/Shape controls are disabled for those three
 tasks and their prompt/summary no longer promise a chosen square canvas.
-Generation and upscale retain their explicit sizing controls.
+Generation and upscale's explicit Fit selected size retain sizing controls.
+Factor 2×/4× upscale disables Size/Shape and omits width/height from requests,
+so a fixed canvas cannot override the chosen factor or downscale a large source.
+Upscale result summaries distinguish the factor from explicit fit dimensions.
 
 Private attachment assets now save the original under existing retention and
 size limits. Conversation JSON contains canonical API asset references and
@@ -23,6 +26,9 @@ The two existing 3D/bridge checks and protected Agent check also pass on
 Node 24.21.0, using the exact commands in the next section. No named tests or
 paid jobs were added. The obsolete historical source-resize guards were
 removed; the historical aggregate remains unrun under the targeted-test policy.
+The same browser selector reproduced the old fixed-width override, then passed
+2×/4×/Fit payload and enabled/disabled control assertions after the correction;
+all five selected outcomes pass with no additional named checks.
 Integration of current master `62316e1` preserves its native 12-step sampling
 and repaired/raw STL controls; the same selected checks pass after integration.
 Legacy resized assets cannot recover already discarded pixels. GPU inference

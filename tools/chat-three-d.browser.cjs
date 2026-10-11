@@ -109,7 +109,8 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  for(const sourceMode of ['edit','restyle','style']){
   await page.getByRole('button',{name:'Open settings',exact:true}).click();
   await page.locator('#chatImageSourceMode').selectOption('upscale');
-  assert(await page.locator('#chatImageSize').isEnabled()&&await page.locator('#chatImageOrientation').isEnabled(),'Upscale retains explicit dimensions');
+  await page.locator('#chatImageUpscaleScale').selectOption('2');
+  assert(await page.locator('#chatImageSize').isDisabled()&&await page.locator('#chatImageOrientation').isDisabled(),'Factor upscale preserves source aspect');
   await page.locator('#chatImageSourceMode').selectOption('new');
   assert(await page.locator('#chatImageSize').isEnabled()&&await page.locator('#chatImageOrientation').isEnabled(),'Generation retains explicit dimensions');
   await page.locator('#chatImageQuality').selectOption('ultra');
@@ -143,6 +144,24 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  const uploadedEditRequest=(await uploadedEditSubmission).postDataJSON();
  assert.equal(digest((uploadedEditRequest.request||uploadedEditRequest).image_base64),digest(originalPng),'Preserve direct image-upload bytes');
  await page.getByText(`Image request failed: ${imageFailure}`,{exact:true}).waitFor();
+ for(const scale of ['2','4','1']){
+  await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+  await page.getByRole('button',{name:'Open settings',exact:true}).click();
+  await page.locator('#chatImageSourceMode').selectOption('upscale');
+  await page.locator('#chatImageUpscaleScale').selectOption(scale);
+  for(const field of ['#chatImageSize','#chatImageOrientation'])assert.equal(await page.locator(field).isEnabled(),scale==='1','Only Fit selected size accepts fixed dimensions');
+  if(scale!=='1')await page.getByText('Upscale keeps the source aspect ratio. Choose Fit selected size to set Size and Shape.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#chatInput').fill('Enlarge this image without changing it');
+  const upscaleSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/upscale')));
+  await page.locator('#chatSend').click();
+  const upscaleRequest=(await upscaleSubmission).postDataJSON();
+  const upscalePayload=upscaleRequest.request||upscaleRequest;
+  assert.equal(upscalePayload.scale,Number(scale));
+  assert.equal(digest(upscalePayload.image_base64),digest(originalPng),'Upscale retains the original source');
+  if(scale==='1')assert.deepEqual([upscalePayload.width,upscalePayload.height],[2048,2048],'Fit selected size honors dimensions');
+  else for(const field of ['width','height'])assert.equal(Object.hasOwn(upscalePayload,field),false,`${scale}x cannot be overridden by fixed ${field}`);
+ }
  await page.locator('[data-chat-mode=chat]').click();assert.equal(await page.locator('#chatMode').inputValue(),'chat');
  await page.locator('#chatVisionImages').setInputFiles(originalFile);
  await page.getByText(/^1 image ready for /).waitFor();
