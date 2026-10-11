@@ -7,7 +7,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1365,height:900},acceptDownloads:true});
- const calls=[],errors=[];let jobs=[],available=true;
+ const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,imageFailure='Offline quality fixture',originalAssetBytes;
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const req=route.request(),url=new URL(req.url());calls.push({path:url.pathname,method:req.method(),body:req.postData(),headers:req.headers()});
@@ -20,14 +20,28 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
     if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7}];data={job:jobs[0]};}
     else data={jobs};
    } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
-  } else if(url.pathname.endsWith('/chat/models'))data={ok:true,data:{data:[{id:'fixture-model',name:'Fixture model'}]},default_model:'fixture-model'};
+  } else if(url.pathname.endsWith('/chat/models'))data={ok:true,data:{data:[{id:'fixture-model',name:'Fixture model',capabilities:{vision:{available:true,max_pixels:1003520}}}]},default_model:'fixture-model'};
+  else if(url.pathname.endsWith('/conversations/assets')&&req.method()==='POST'){
+   assetUploads.push(req.postDataBuffer());
+   const id=crypto.randomUUID();data={ok:true,asset:{asset_id:id,url:`/api/conversations/assets/${id}`,mime_type:'image/png'}};
+  }
+  else if(/\/conversations\/assets\/[0-9a-f-]{36}$/.test(url.pathname)&&req.method()==='GET')return route.fulfill({status:200,body:originalAssetBytes,contentType:'image/png'});
+  else if(/\/conversations(?:\/[0-9a-f-]{36})?$/.test(url.pathname)&&['POST','PUT'].includes(req.method())){
+   const body=req.postDataJSON();
+   const attachments=body.messages.flatMap(message=>message.vision_images||[]);
+   if(attachments.some(image=>!/^https:\/\/token-gen-api\.owenonthenet\.com\/api\/conversations\/assets\/[0-9a-f-]{36}$/.test(image.url)))return route.fulfill({status:400,json:{ok:false,error:{message:'Vision images must use a protected Token Gen URL.'}}});
+   savedConversations.push(body);
+   data={ok:true,conversation:{...body,id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',version:'fixture',updated_at:new Date().toISOString()}};
+  }
+  else if(url.pathname.endsWith('/conversations/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'))data={ok:true,conversation:{...savedConversations.at(-1),id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',version:'fixture'}};
   else if(url.pathname.endsWith('/conversations'))data={ok:true,conversations:[]};
   else if(url.pathname.endsWith('/projects'))data={ok:true,projects:[]};
   else if(url.pathname.endsWith('/jobs')){
-   if(req.method()==='POST')return route.fulfill({status:503,json:{ok:false,error:'Offline quality fixture'}});
+   if(req.method()==='POST')return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:{message:imageFailure}}});
    data={ok:true,jobs:[]};
   }
-  else if(url.pathname.endsWith('/image/generations'))return route.fulfill({status:503,json:{ok:false,error:'Offline quality fixture'}});
+  else if(url.pathname.endsWith('/image/generations')||url.pathname.endsWith('/image/edits'))return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:imageFailure}});
+  else if(url.pathname.endsWith('/chat/stream'))return route.fulfill({status:503,json:{ok:false,error:'Offline vision fixture'}});
   await route.fulfill({status:200,json:data});
  });
  await page.goto(`http://127.0.0.1:${server.address().port}/chat.html#3d`);
@@ -76,7 +90,81 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  const previewPayload=previewRequest.request||previewRequest;
  assert.equal(previewPayload.quality,'draft');
  assert.deepEqual([previewPayload.width,previewPayload.height,previewPayload.sampler_name],[512,512,'euler']);
+ await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ const originalPng=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=3072;c.height=2048;const x=c.getContext('2d');x.fillStyle='#08f8';x.fillRect(1,1,3000,2000);return c.toDataURL('image/png');});
+ const originalFile={name:'transparent-large.png',mimeType:'image/png',buffer:Buffer.from(originalPng.split(',')[1],'base64')};
+ originalAssetBytes=originalFile.buffer;
+ const imageDetails=async data=>page.evaluate(async data=>{const i=new Image();i.src=data;await i.decode();const c=document.createElement('canvas');c.width=1;c.height=1;const x=c.getContext('2d');x.drawImage(i,0,0);return [i.naturalWidth,i.naturalHeight,x.getImageData(0,0,1,1).data[3]];},data);
+ assert.deepEqual(await imageDetails(originalPng),[3072,2048,0]);
+ const digest=data=>crypto.createHash('sha256').update(data||'').digest('hex');
+ for(const sourceMode of ['edit','restyle','style']){
+  await page.getByRole('button',{name:'Open settings',exact:true}).click();
+  await page.locator('#chatImageSourceMode').selectOption('upscale');
+  assert(await page.locator('#chatImageSize').isEnabled()&&await page.locator('#chatImageOrientation').isEnabled(),'Upscale retains explicit dimensions');
+  await page.locator('#chatImageSourceMode').selectOption('new');
+  assert(await page.locator('#chatImageSize').isEnabled()&&await page.locator('#chatImageOrientation').isEnabled(),'Generation retains explicit dimensions');
+  await page.locator('#chatImageQuality').selectOption('ultra');
+  await page.locator('#chatImageSize').selectOption('2048');
+  await page.locator('#chatImageSampler').selectOption('');
+  await page.locator('#chatImageSourceMode').selectOption(sourceMode);
+  assert(await page.locator('#chatImageSize').isDisabled()&&await page.locator('#chatImageOrientation').isDisabled(),`${sourceMode} uses source aspect and native quality`);
+  await page.getByText('Edits keep the source aspect ratio and use the selected native quality.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#chatVisionImages').setInputFiles(originalFile);
+  await page.getByText(/^1 image ready for /).waitFor();
+  await page.locator('#chatInput').fill('Change the blue object to copper');
+  const editSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/edits')));
+  await page.locator('#chatSend').click();
+  const editRequest=(await editSubmission).postDataJSON();
+  const editPayload=editRequest.request||editRequest;
+  assert.equal(digest(editPayload.image_base64),digest(originalPng),`Preserve original alpha and bytes for ${sourceMode}`);
+  assert(!editPayload.prompt.includes('2048 by 2048'),'Do not request contradictory edit canvas dimensions');
+  await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ }
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatImageSourceMode').selectOption('new');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ await page.locator('#chatImageUpload').setInputFiles(originalFile);
+ await page.getByText('transparent-large.png ready for image edits',{exact:true}).waitFor();
+ assert(await page.locator('#chatImageSize').isDisabled()&&await page.locator('#chatImageOrientation').isDisabled(),'Uploaded source selects native edit dimensions');
+ imageFailure='image exceeds max upload size of 14680064 bytes';
+ await page.locator('#chatInput').fill('Preserve the transparent detail');
+ const uploadedEditSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/edits')));
+ await page.locator('#chatSend').click();
+ const uploadedEditRequest=(await uploadedEditSubmission).postDataJSON();
+ assert.equal(digest((uploadedEditRequest.request||uploadedEditRequest).image_base64),digest(originalPng),'Preserve direct image-upload bytes');
+ await page.getByText(`Image request failed: ${imageFailure}`,{exact:true}).waitFor();
  await page.locator('[data-chat-mode=chat]').click();assert.equal(await page.locator('#chatMode').inputValue(),'chat');
+ await page.locator('#chatVisionImages').setInputFiles(originalFile);
+ await page.getByText(/^1 image ready for /).waitFor();
+ await page.locator('#chatInput').fill('Describe the shape in this image');
+ const visionSubmission=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/chat/stream'));
+ await page.locator('#chatSend').click();
+ const visionRequest=(await visionSubmission).postDataJSON();
+ const visionImage=visionRequest.messages.at(-1).content.find(part=>part.type==='image_url').image_url.url;
+ const [visionWidth,visionHeight]=await imageDetails(visionImage);
+ assert(visionWidth*visionHeight<=1003520,'Keep the existing LLM vision pixel limit');
+ assert.notEqual(digest(visionImage),digest(originalPng),'Keep a separate bounded LLM representation');
+ assert(assetUploads.length>=4&&assetUploads.every(body=>body.includes(originalFile.buffer)),'Private assets retain original PNG bytes');
+ await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+ const savedAttachment=savedConversations.flatMap(body=>body.messages).flatMap(message=>message.vision_images||[]).find(image=>image.width===3072);
+ assert(savedAttachment,'Save original attachment metadata');
+ assert.deepEqual([savedAttachment.width,savedAttachment.height,savedAttachment.mime_type,savedAttachment.size_bytes],[3072,2048,'image/png',originalFile.buffer.length]);
+ assert.match(savedAttachment.url,/^https:\/\/token-gen-api\.owenonthenet\.com\/api\/conversations\/assets\/[0-9a-f-]{36}$/);
+ assert(savedConversations.every(body=>!JSON.stringify(body).includes('data:image')),'Conversation JSON contains references, not inline image copies');
+ await page.getByRole('button',{name:'New chat',exact:true}).click();
+ await page.locator('[data-history-open="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]').click();
+ await page.waitForFunction(()=>document.querySelector('#chatStatus').textContent.startsWith('Opened '));
+ await page.locator('[data-chat-mode=chat]').click();
+ await page.locator('#chatInput').fill('Describe the saved images');
+ const restoredVisionSubmission=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/chat/stream'));
+ await page.locator('#chatSend').click();
+ const restoredVisionRequest=(await restoredVisionSubmission).postDataJSON();
+ const restoredImages=restoredVisionRequest.messages.flatMap(message=>Array.isArray(message.content)?message.content:[]).filter(part=>part.type==='image_url');
+ assert(restoredImages.length>=4,'Restore saved image context');
+ for(const part of restoredImages){const [w,h]=await imageDetails(part.image_url.url);assert(w*h<=1003520,'Bound original saved assets again before LLM use');}
+ assert(calls.some(call=>call.path.startsWith('/api/private/conversations/assets/')&&call.method==='GET'),'Restore original assets through the existing private bridge');
+ await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
  await page.setViewportSize({width:390,height:844});available=false;
  await page.getByRole('button',{name:'Open 3D models',exact:true}).click();
  await page.getByText('3D generation is currently unavailable. You can still view saved models.').waitFor();
@@ -86,6 +174,6 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-mobile.png')});
  await page.keyboard.press('Escape');assert.equal(await page.locator('dialog.three-d-dialog').evaluate(x=>x.open),false);
  assert.equal(errors.length,0,errors.join('\n'));
- console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844'}));
+ console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844',sourceFidelity:{editModes:3,directUpload:true,originalPixels:3072*2048,visionPixels:visionWidth*visionHeight,privateAssets:assetUploads.length}}));
  await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1);});

@@ -184,10 +184,6 @@ assert.match(chatJs, /imageUploadButton\.addEventListener\("click"/, "Image uplo
 assert.match(chatJs, /imageMaskUploadButton\.addEventListener\("click"/, "Mask upload must be opened by an explicit button click handler.");
 assert.match(chatJs, /source_filename_prefix/, "Uploaded image edits must send a source filename prefix, not an existing image reference.");
 assert.doesNotMatch(chatJs, /filename:\s*source\.name/, "Uploaded image edits must not send image.filename because the API treats it as an existing ComfyUI reference.");
-assert.match(chatJs, /resizeImageSourceForEdit/, "Image edits must resize the source image to the selected output dimensions before submission.");
-assert.match(chatJs, /canvas\.toDataURL\("image\/png"\)/, "Image edit source resizing must submit a browser-generated PNG data URL.");
-assert.match(chatJs, /settings\.width/, "Image edit source resizing must use the configured output width.");
-assert.match(chatJs, /settings\.height/, "Image edit source resizing must use the configured output height.");
 assert.match(chatJs, /strength:\s*settings\.editStrength/, "Image edits must use the configured edit strength.");
 assert.match(chatJs, /denoise:\s*settings\.editStrength/, "Image edits must use the configured edit strength for denoise.");
 assert.match(chatJs, /mask_base64/, "Image edits must send optional mask_base64 when a mask is selected.");

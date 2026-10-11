@@ -104,6 +104,7 @@ const els = {
   imageStyle: $("#chatImageStyle"),
   imageCreativity: $("#chatImageCreativity"),
   imageOrientation: $("#chatImageOrientation"),
+  imageSizingHint: $("#chatImageSizingHint"),
   imageContentFilter: $("#chatImageContentFilter"),
   imageEditPreservation: $("#chatImageEditPreservation"),
   imageEditStrength: $("#chatImageEditStrength"),
@@ -633,6 +634,7 @@ function syncSendButtonState() {
 }
 
 function updateSendState() {
+  syncImageSizeControls();
   syncSendButtonState();
   if (isImageGenerationRunning()) {
     els.send.disabled = false;
@@ -717,7 +719,9 @@ function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, 
   return [
     prompt,
     imageModeInstruction(sourceMode, settings),
-    `${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image`,
+    ["edit", "restyle", "style"].includes(sourceMode)
+      ? "original source aspect ratio"
+      : `${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image`,
     sourceMode === "edit" && activeImageMask
       ? "edit mask provided, white or light masked regions regenerated, black or dark unmasked regions preserved"
       : "",
@@ -767,6 +771,7 @@ function clearActiveImageMask() {
 }
 
 function renderImageSourcePreview() {
+  syncImageSizeControls();
   if (!els.imageSourcePreview) return;
   if (!activeImageSource) {
     els.imageSourcePreview.innerHTML = "";
@@ -1150,6 +1155,8 @@ async function readVisionImage(file) {
   }
   const previewObjectUrl = URL.createObjectURL(file);
   try {
+    // Image tools and retained assets use the original; the LLM uses dataUrl.
+    const originalDataUrl = await readBlobAsDataUrl(file);
     const image = await loadImageElement(previewObjectUrl);
     const sourcePixels = image.naturalWidth * image.naturalHeight;
     const pixelScale = sourcePixels > limits.maxPixels ? Math.sqrt(limits.maxPixels / sourcePixels) : 1;
@@ -1177,7 +1184,7 @@ async function readVisionImage(file) {
         dataUrl = canvas.toDataURL("image/jpeg", quality);
       }
     } else {
-      dataUrl = await readBlobAsDataUrl(file);
+      dataUrl = originalDataUrl;
     }
     const sizeBytes = dataUrlByteLength(dataUrl);
     if (sizeBytes > limits.maxImageBytes) {
@@ -1192,6 +1199,11 @@ async function readVisionImage(file) {
       width,
       height,
       dataUrl,
+      originalDataUrl,
+      originalMimeType: file.type,
+      originalSizeBytes: file.size,
+      originalWidth: image.naturalWidth,
+      originalHeight: image.naturalHeight,
       previewUrl: previewObjectUrl,
       previewObjectUrl,
     };
@@ -1301,7 +1313,7 @@ function releaseConversationVisionPreviews(conversationMessages = messages) {
 
 async function uploadVisionAsset(image) {
   if (image.url || !image.dataUrl || !historyState.available || historyState.currentRetention === "none") return image;
-  const blob = await (await fetch(image.dataUrl)).blob();
+  const blob = await (await fetch(image.originalDataUrl || image.dataUrl)).blob();
   const form = new FormData();
   form.append("file", blob, image.name || "image");
   const { json } = await historyRequest("/assets", { method: "POST", body: form });
@@ -1310,8 +1322,8 @@ async function uploadVisionAsset(image) {
     ...image,
     assetId: json.asset.asset_id,
     url: absolutePrivateUrl(json.asset.url),
-    mimeType: json.asset.mime_type || image.mimeType,
-    sizeBytes: json.asset.size_bytes || image.sizeBytes,
+    originalMimeType: json.asset.mime_type || image.originalMimeType || image.mimeType,
+    originalSizeBytes: json.asset.size_bytes || image.originalSizeBytes || image.sizeBytes,
   };
 }
 
@@ -1334,11 +1346,19 @@ async function prepareVisionImagesForSend(images) {
 
 async function visionImageDataUrl(image) {
   if (image.dataUrl) return image.dataUrl;
-  const url = absoluteImageUrl(image.url || image.previewUrl);
+  const url = image.assetId
+    ? `${HISTORY_API_PATH}/assets/${encodeURIComponent(image.assetId)}`
+    : absoluteImageUrl(image.url || image.previewUrl);
   if (!url) throw new Error("An attached image is no longer available.");
   const response = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!response.ok) throw new Error(`Attached image could not be loaded: HTTP ${response.status}`);
-  return readBlobAsDataUrl(await response.blob());
+  const file = new File([await response.blob()], image.name || "image", { type: image.mimeType || "image/png" });
+  const prepared = await readVisionImage(file);
+  try {
+    return prepared.dataUrl;
+  } finally {
+    releaseImagePreviewUrl(prepared);
+  }
 }
 
 async function sourceImageDataUrl(source) {
@@ -1350,39 +1370,15 @@ async function sourceImageDataUrl(source) {
   return readBlobAsDataUrl(await response.blob());
 }
 
-async function resizeImageSourceForEdit(source, settings) {
+async function prepareImageSourceForEdit(source) {
   const dataUrl = await sourceImageDataUrl(source);
-  const image = await loadImageElement(dataUrl);
-  if (image.naturalWidth === settings.width && image.naturalHeight === settings.height) {
-    return {
-      ...source,
-      kind: "base64",
-      image_base64: dataUrl,
-      previewUrl: dataUrl,
-    };
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = settings.width;
-  canvas.height = settings.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Image resizing is unavailable in this browser.");
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = Math.min(settings.width / image.naturalWidth, settings.height / image.naturalHeight);
-  const width = Math.round(image.naturalWidth * scale);
-  const height = Math.round(image.naturalHeight * scale);
-  const left = Math.round((settings.width - width) / 2);
-  const top = Math.round((settings.height - height) / 2);
-  ctx.drawImage(image, left, top, width, height);
-
-  const resizedDataUrl = canvas.toDataURL("image/png");
+  // The API validates native upload limits and the worker prepares model input.
+  // Keep the original encoded source and alpha intact through this transport.
   return {
     ...source,
     kind: "base64",
-    image_base64: resizedDataUrl,
-    previewUrl: resizedDataUrl,
-    resizedFor: `${settings.width}x${settings.height}`,
+    image_base64: dataUrl,
+    previewUrl: dataUrl,
   };
 }
 
@@ -2417,11 +2413,13 @@ function storedHistoryMessages() {
       ? message.visionImages.slice(0, getVisionLimits().maxImages).filter((image) => image.url).map((image) => ({
           asset_id: image.assetId,
           name: image.name,
-          mime_type: image.mimeType || "image/png",
-          url: image.url,
-          width: image.width,
-          height: image.height,
-          size_bytes: image.sizeBytes,
+          mime_type: image.originalMimeType || image.mimeType || "image/png",
+          url: image.assetId
+            ? `${API_BASE}/api/conversations/assets/${encodeURIComponent(image.assetId)}`
+            : image.url,
+          width: image.originalWidth || image.width,
+          height: image.originalHeight || image.height,
+          size_bytes: image.originalSizeBytes || image.sizeBytes,
         }))
       : [];
     if (visionImages.length) item.vision_images = visionImages;
@@ -2475,7 +2473,9 @@ function restoredHistoryMessage(message) {
       name: image.name || "Image",
       mimeType: image.mime_type || "image/png",
       url: absoluteImageUrl(image.url),
-      previewUrl: absoluteImageUrl(image.url),
+      previewUrl: image.asset_id
+        ? `${HISTORY_API_PATH}/assets/${encodeURIComponent(image.asset_id)}`
+        : absoluteImageUrl(image.url),
       width: image.width,
       height: image.height,
       sizeBytes: image.size_bytes,
@@ -3107,7 +3107,7 @@ function renderVisionMessage(message) {
     <div class="chat-vision-message${images.length > 1 ? " is-multiple" : ""}">
       ${images.map((image, index) => `
         <figure>
-          <img src="${escapeHtml(image.url || image.previewUrl || image.dataUrl || "")}" alt="${escapeHtml(image.name || `Attached image ${index + 1}`)}" loading="lazy" />
+          <img src="${escapeHtml(image.previewUrl || image.url || image.dataUrl || "")}" alt="${escapeHtml(image.name || `Attached image ${index + 1}`)}" loading="lazy" />
           <figcaption>${escapeHtml(image.name || `Image ${index + 1}`)}</figcaption>
         </figure>
       `).join("")}
@@ -3942,6 +3942,7 @@ function imageSettings() {
   const upscaleScale = Math.round(clampNumber(els.imageUpscaleScale.value, 2, 1, 4));
   return {
     ...dimensions,
+    sourceAspect: ["edit", "restyle", "style"].includes(els.imageSourceMode.value),
     samples,
     qualityKey,
     qualityLabel: quality.label,
@@ -3969,7 +3970,15 @@ function imageSettings() {
 }
 
 function imageSummary(settings) {
+  if (settings.sourceAspect) return `Source aspect / ${settings.qualityLabel} native quality / ${settings.creativityLabel}`;
   return `${settings.width} x ${settings.height} / ${settings.qualityLabel} / ${settings.orientationLabel} / ${settings.creativityLabel}`;
+}
+
+function syncImageSizeControls() {
+  const sourceAspect = ["edit", "restyle", "style"].includes(els.imageSourceMode.value);
+  els.imageSize.disabled = sourceAspect;
+  els.imageOrientation.disabled = sourceAspect;
+  if (els.imageSizingHint) els.imageSizingHint.hidden = !sourceAspect;
 }
 
 function imageNegativePrompt(extra = []) {
@@ -4047,7 +4056,7 @@ async function submitImageGeneration(prompt, settings, sampleIndex, signal) {
 
 async function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
   if (!source) throw new Error("Select or upload a source image first.");
-  const preparedSource = await resizeImageSourceForEdit(source, settings);
+  const preparedSource = await prepareImageSourceForEdit(source);
   const payload = {
     prompt: buildStyledImagePrompt(prompt, sourceMode, settings),
     negative_prompt: imageNegativePrompt([
@@ -4073,7 +4082,7 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
   payload.image_base64 = preparedSource.image_base64;
   payload.source_filename_prefix = preparedSource.name || "token-gen-source";
   if (sourceMode === "edit" && activeImageMask) {
-    const preparedMask = await resizeImageSourceForEdit(activeImageMask, settings);
+    const preparedMask = await prepareImageSourceForEdit(activeImageMask);
     payload.mask_base64 = preparedMask.image_base64;
   }
   return payload;
@@ -4461,11 +4470,11 @@ els.form.addEventListener("submit", (event) => {
     const source = sourceVisionImages.find((image) => image.editTarget);
     if (source) {
       setActiveImageSource({
-        kind: source.dataUrl ? "base64" : "url",
+        kind: (source.originalDataUrl || source.dataUrl) ? "base64" : "url",
         name: source.name,
-        mimeType: source.mimeType,
-        image_base64: source.dataUrl,
-        previewUrl: source.dataUrl || source.url || source.previewUrl,
+        mimeType: source.originalMimeType || source.mimeType,
+        image_base64: source.originalDataUrl || source.dataUrl,
+        previewUrl: source.previewUrl || source.url || source.originalDataUrl || source.dataUrl,
         url: source.url,
       });
       if (els.imageSourceMode.value === "new") {

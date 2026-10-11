@@ -1,5 +1,31 @@
 # Token Gen Handoff
 
+## Original image references — 2026-10-11
+
+Image edit, restyle and style-reference requests preserve original encoded
+bytes and transparency, including images first attached for chat vision.
+Direct image uploads also pass unchanged; the API reports native upload-limit
+errors instead of a browser resize/recompression retry. Edits retain source
+aspect and native quality, so Size/Shape controls are disabled for those three
+tasks and their prompt/summary no longer promise a chosen square canvas.
+Generation and upscale retain their explicit sizing controls.
+
+Private attachment assets now save the original under existing retention and
+size limits. Conversation JSON contains canonical API asset references and
+original metadata; browser display/retrieval uses the existing private bridge.
+New and restored attachments still derive a bounded copy for LLM vision.
+
+The existing desktop/mobile browser selector passed a 3072×2048 transparent
+PNG through all three edit tasks and direct upload, checked exact source
+digests and private asset bytes, exercised upload-limit errors, reopened saved
+assets, and confirmed both live/restored LLM inputs stay below 1,003,520 pixels.
+The two existing 3D/bridge checks and protected Agent check also pass on
+Node 24.21.0, using the exact commands in the next section. No named tests or
+paid jobs were added. The obsolete historical source-resize guards were
+removed; the historical aggregate remains unrun under the targeted-test policy.
+Legacy resized assets cannot recover already discarded pixels. GPU inference
+and the separate LLM capacity/worker precision releases remain unverified here.
+
 ## Highest-quality browser defaults — 2026-10-11
 
 The owner's explicit highest-quality policy now applies to both image and 3D
@@ -30,10 +56,10 @@ scenarios at 1365×900 and 390×844. Exact commands (Node executable
   `node --check cloudflare/private-api-bridge/worker.js`
 - `git diff --check`
 
-No failures remain in these selected fixtures. The existing vision attachment
-path can still reduce resolution and JPEG-encode before an attachment becomes
-an image-edit source; this change does not alter that preprocessing. Actual
-GPU inference and the worker precision release remain separately governed.
+No failures remain in these selected fixtures. The LLM vision copy retains its
+existing resolution/byte limits; image-edit sources preserve originals as
+described above. Actual GPU inference and worker precision remain separately
+governed.
 
 Authoring follows Jesse's explicit GitHub-source/continue-without-PC-blockers
 instructions using an isolated Token Gen checkout and reviewed PR; this work
