@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Check 3D lifecycle and existing private authentication
+      - name: Check current 3D quality limits, retry identity and private authentication
         run: node --test tools/chat-three-d.test.mjs
 
       - name: Preserve existing chat request behaviour
@@ -44,7 +44,7 @@ jobs:
           npm install --no-save --prefix ${{ runner.temp }}/three-d-${{ github.sha }}/runtime playwright@1.62.1
           ${{ runner.temp }}/three-d-${{ github.sha }}/runtime/node_modules/.bin/playwright install chromium
 
-      - name: Check desktop and mobile 3D workflows
+      - name: Check highest-quality settings and preserved desktop and mobile workflows
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/three-d-${{ github.sha }}/browsers
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/three-d-${{ github.sha }}/runtime/node_modules/playwright

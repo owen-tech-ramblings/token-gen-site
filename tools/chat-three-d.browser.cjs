@@ -28,6 +28,12 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  });
  await page.goto(`http://127.0.0.1:${server.address().port}/chat.html#3d`);
  await page.getByText('TRELLIS.2 is ready for image-to-3D generation.').waitFor();
+ assert.equal(await page.locator('[name=resolution]').inputValue(),'1536');
+ assert.equal(await page.locator('[name=texture_size]').inputValue(),'4096');
+ assert.equal(await page.locator('[name=triangle_target]').inputValue(),'1000000');
+ await page.locator('[name=output_format]').selectOption('both');
+ assert(await page.locator('[name=stl_repair]').isVisible());
+ await page.locator('[name=stl_repair]').selectOption('false');
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=8;c.height=8;const x=c.getContext('2d');x.fillStyle='#0f0';x.fillRect(2,2,4,4);return c.toDataURL().split(',')[1];});
  await page.locator('[name=image]').setInputFiles({name:'prop.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
  await page.getByRole('button',{name:'Generate model',exact:true}).click();
@@ -39,6 +45,8 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.getByRole('button',{name:'Download GLB'}).waitFor();
  const posts=calls.filter(x=>x.path==='/api/private/3d/generations'&&x.method==='POST');
  assert.equal(posts.length,2);assert.equal(posts[0].headers['idempotency-key'],posts[1].headers['idempotency-key']);assert.equal(posts[0].body,posts[1].body);
+ const payload=JSON.parse(posts[0].body);assert.equal(payload.resolution,1536);assert.equal(payload.texture_size,4096);
+ assert.equal(payload.triangle_target,1000000);assert.equal(payload.sampling_steps,12);assert.equal(payload.stl_repair,false);
  assert(calls.some(x=>x.path===`/api/private/3d/generations/${jobId}`&&x.method==='GET'));
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-desktop.png')});
  await page.getByRole('button',{name:'Close 3D models'}).click();

@@ -13,13 +13,19 @@ Focused commands: `node --test tools/chat-three-d.test.mjs`,
 `node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs`,
 `node --check chat-three-d.mjs`, and `git diff --check`. Browser verification
 passed desktop/mobile retry, partial-download and unavailable-worker flows.
-The worker is not enabled on the API at inspection time, so no real generation
-claim is made. Check `https://token-gen-api.owenonthenet.com/api/3d/health` for
-current availability. Client release does not configure or generate GPU work.
+The refreshed API supports 1536 resolution, 4096 textures, one million triangles,
+sampling steps and STL repair. The panel uses its highest-quality defaults and
+retains smaller settings. At 01:32 UTC the real API reported configured,
+available and historically inference-verified. No generation was submitted.
+Check `https://token-gen-api.owenonthenet.com/api/3d/health` for current availability.
 
 Deploy the existing `token-gen-private-api` Worker from
 `cloudflare/private-api-bridge/wrangler.jsonc`, retaining its prior deployment
-version for rollback. Deploy Pages and reconcile the exact commit through the
+version for rollback. The live owner account is `017717ec4c34e46041a4bf3dd0873e4a`:
+version `1f03bd9f-f43a-447e-aa06-422f691ab9f2` serves the reviewed bridge;
+`3e916373-e506-4802-8b00-5b00ea6cdc63` is the rollback version. Existing login
+successfully read 3D health/history, conversations, projects and jobs (HTTP 200).
+Deploy Pages and reconcile the exact commit through the
 existing Token Gen site cutover. No DNS, Access audience or API routing changes.
 
 ## 2026-08-25 Web Chat Agent mode
