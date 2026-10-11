@@ -7,7 +7,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1365,height:900},acceptDownloads:true});
- const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,imageFailure='Offline quality fixture',originalAssetBytes;
+ const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,modelDiscoveryReady=true,imageFailure='Offline quality fixture',originalAssetBytes;
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const req=route.request(),url=new URL(req.url());calls.push({path:url.pathname,method:req.method(),body:req.postData(),headers:req.headers()});
@@ -20,7 +20,14 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
     if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7}];data={job:jobs[0]};}
     else data={jobs};
    } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
-  } else if(url.pathname.endsWith('/chat/models'))data={ok:true,data:{data:[{id:'fixture-model',name:'Fixture model',capabilities:{vision:{available:true,max_pixels:1003520}}}]},default_model:'fixture-model'};
+  } else if(url.pathname.endsWith('/chat/models')){
+   if(!modelDiscoveryReady)return route.fulfill({status:503,json:{ok:false,error:'Fixture model discovery unavailable'}});
+   data={ok:true,data:{data:[
+   {id:'fixture-model',name:'Fixture model',capabilities:{vision:{available:true,max_pixels:16777216}}},
+   {id:'text-only-fixture',name:'Text only fixture',capabilities:{vision:{available:false}}},
+   {id:'unknown-vision-fixture',name:'Unknown vision fixture'},
+   {id:'invalid-vision-fixture',name:'Invalid vision fixture',capabilities:{vision:{available:'false'}}},
+  ]},default_model:'fixture-model'};}
   else if(url.pathname.endsWith('/conversations/assets')&&req.method()==='POST'){
    assetUploads.push(req.postDataBuffer());
    const id=crypto.randomUUID();data={ok:true,asset:{asset_id:id,url:`/api/conversations/assets/${id}`,mime_type:'image/png'}};
@@ -171,8 +178,9 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  const visionRequest=(await visionSubmission).postDataJSON();
  const visionImage=visionRequest.messages.at(-1).content.find(part=>part.type==='image_url').image_url.url;
  const [visionWidth,visionHeight]=await imageDetails(visionImage);
- assert(visionWidth*visionHeight<=1003520,'Keep the existing LLM vision pixel limit');
- assert.notEqual(digest(visionImage),digest(originalPng),'Keep a separate bounded LLM representation');
+ assert.deepEqual([visionWidth,visionHeight],[3072,2048],'Let the native processor handle original input dimensions');
+ assert.equal(digest(visionImage),digest(originalPng),'LLM input retains exact original bytes, MIME and alpha');
+ assert.deepEqual(await imageDetails(visionImage),[3072,2048,0]);
  assert(assetUploads.length>=4&&assetUploads.every(body=>body.includes(originalFile.buffer)),'Private assets retain original PNG bytes');
  await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
  const savedAttachment=savedConversations.flatMap(body=>body.messages).flatMap(message=>message.vision_images||[]).find(image=>image.width===3072);
@@ -190,9 +198,35 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  const restoredVisionRequest=(await restoredVisionSubmission).postDataJSON();
  const restoredImages=restoredVisionRequest.messages.flatMap(message=>Array.isArray(message.content)?message.content:[]).filter(part=>part.type==='image_url');
  assert(restoredImages.length>=4,'Restore saved image context');
- for(const part of restoredImages){const [w,h]=await imageDetails(part.image_url.url);assert(w*h<=1003520,'Bound original saved assets again before LLM use');}
+ for(const part of restoredImages){assert.equal(digest(part.image_url.url),digest(originalPng),'Restored LLM input preserves original bytes');assert.deepEqual(await imageDetails(part.image_url.url),[3072,2048,0]);}
  assert(calls.some(call=>call.path.startsWith('/api/private/conversations/assets/')&&call.method==='GET'),'Restore original assets through the existing private bridge');
  await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+ const priorVisionPosts=calls.filter(call=>call.path==='/api/chat/stream'&&call.method==='POST').length;
+ for(const model of ['text-only-fixture','unknown-vision-fixture','invalid-vision-fixture']){
+  await page.getByRole('button',{name:'Open settings',exact:true}).click();
+  await page.locator('#chatModel').selectOption(model);
+  assert.equal(await page.locator('#chatVisionStatus').textContent(),'The active language model does not advertise image understanding.','Missing or malformed capabilities cannot inherit another model\'s vision support');
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#chatInput').fill('Read the original images again');
+  await page.locator('#chatSend').click();
+  await page.getByText('The active local model is not running with image understanding',{exact:true}).waitFor();
+  assert.equal(calls.filter(call=>call.path==='/api/chat/stream'&&call.method==='POST').length,priorVisionPosts,'Unavailable vision cannot submit restored image context');
+  assert.equal(await page.locator('#chatInput').inputValue(),'Read the original images again','Keep the prompt when vision is unavailable');
+ }
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatModel').selectOption('fixture-model');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ await page.getByRole('button',{name:'New chat',exact:true}).click();
+ const oversizeFile={name:'oversize-original.png',mimeType:'image/png',buffer:Buffer.alloc(8*1024*1024+1)};
+ await page.locator('#chatVisionImages').setInputFiles(oversizeFile);
+ await page.getByText('oversize-original.png is larger than 8 MB.',{exact:true}).waitFor();
+ assert.equal(await page.locator('.chat-vision-chip').count(),0,'Reject originals beyond the existing per-file byte guard');
+ const paddedOriginal={name:'eight-mib-original.png',mimeType:'image/png',buffer:Buffer.concat([originalFile.buffer,Buffer.alloc(8*1024*1024-originalFile.buffer.length)])};
+ await page.locator('#chatVisionImages').setInputFiles([paddedOriginal,paddedOriginal,paddedOriginal]);
+ await page.getByText(/^3 images ready for /).waitFor();
+ await page.locator('#chatVisionImages').setInputFiles(originalFile);
+ await page.getByText('Attached images may total up to 24 MB.',{exact:true}).waitFor();
+ assert.equal(await page.locator('.chat-vision-chip').count(),3,'Reject aggregate original bytes without recompression');
  await page.setViewportSize({width:390,height:844});available=false;
  await page.getByRole('button',{name:'Open 3D models',exact:true}).click();
  await page.getByText('3D generation is currently unavailable. You can still view saved models.').waitFor();
@@ -201,7 +235,14 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  assert(await page.evaluate(()=>document.querySelector('dialog').scrollWidth<=document.querySelector('dialog').clientWidth));
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-mobile.png')});
  await page.keyboard.press('Escape');assert.equal(await page.locator('dialog.three-d-dialog').evaluate(x=>x.open),false);
+ modelDiscoveryReady=false;
+ await page.goto(page.url().split('#')[0]);
+ await page.waitForFunction(()=>document.querySelector('#chatStatus').textContent==='Fixture model discovery unavailable');
+ assert.equal(await page.locator('#chatActiveModel').textContent(),'API unavailable');
+ await page.locator('[data-chat-mode=chat]').click();
+ assert(await page.locator('#chatInput').isDisabled()&&await page.locator('#chatSend').isDisabled(),'Failed discovery cannot use stale model or vision readiness');
+ assert.equal(await page.locator('#chatVisionStatus').textContent(),'The active language model does not advertise image understanding.');
  assert.equal(errors.length,0,errors.join('\n'));
- console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844',sourceFidelity:{editModes:3,directUpload:true,originalPixels:3072*2048,visionPixels:visionWidth*visionHeight,privateAssets:assetUploads.length}}));
+ console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844',sourceFidelity:{editModes:3,directUpload:true,originalPixels:3072*2048,visionPixels:visionWidth*visionHeight,originalVisionBytes:true,restoredVisionBytes:true,privateAssets:assetUploads.length}}));
  await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1);});

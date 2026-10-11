@@ -264,8 +264,9 @@ assert.match(chatHtml, /id="chatVisionPreview"/, "Chat must render vision attach
 assert.match(chatHtml, /id="chatVisionStatus"/, "Settings must explain whether local image understanding is available.");
 assert.match(chatJs, /getVisionCapabilities/, "Chat must discover vision support from the active server model.");
 assert.doesNotMatch(chatJs, /sources\.slice\(0,\s*(?:6|10)\)/, "All API-returned web sources up to twenty must remain available for rendering and history.");
-assert.match(chatJs, /readVisionImage/, "Chat must prepare uploaded images locally before inference.");
-assert.match(chatJs, /maxPixels/, "Chat must bound local vision image resolution.");
+assert.match(chatJs, /readVisionImage/, "Chat must validate uploaded images locally before inference.");
+assert.match(chatJs, /dataUrl:\s*originalDataUrl/, "Vision conditioning must preserve original encoded bytes for the native processor.");
+assert.match(chatJs, /file\.size > limits\.maxImageBytes/, "Vision originals must retain explicit per-file byte admission.");
 assert.match(chatHtml, /id="chatVisionOptionsHint"/, "Chat must explain ordered comparison and explicit edit targeting.");
 assert.match(chatJs, /dataset\.visionMove/, "Vision attachments must expose explicit ordering controls.");
 assert.match(chatJs, /dataset\.visionEditTarget/, "Vision attachments must expose one explicit edit target control.");

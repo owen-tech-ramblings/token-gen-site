@@ -16,12 +16,21 @@ Upscale result summaries distinguish the factor from explicit fit dimensions.
 Private attachment assets now save the original under existing retention and
 size limits. Conversation JSON contains canonical API asset references and
 original metadata; browser display/retrieval uses the existing private bridge.
-New and restored attachments still derive a bounded copy for LLM vision.
+New and restored LLM inputs preserve the same original bytes, MIME, dimensions
+and alpha. The browser rejects originals beyond the existing 8 MiB per-image
+and 24 MiB aggregate guards; it never downsizes, flattens alpha or recompresses
+to fit. Spatial preprocessing belongs to the active server-owned model
+processor. Missing discovery disables chat, and missing, malformed or disabled
+vision support blocks image context without dropping the typed prompt.
 
 The existing desktop/mobile browser selector passed a 3072×2048 transparent
 PNG through all three edit tasks and direct upload, checked exact source
 digests and private asset bytes, exercised upload-limit errors, reopened saved
-assets, and confirmed both live/restored LLM inputs stay below 1,003,520 pixels.
+assets, and confirmed exact original new/restored LLM input digests and alpha
+with native 16,777,216-pixel processor discovery. It checks explicit original
+byte-limit rejection and unavailable/missing/malformed vision capability,
+including restored image context and failed model discovery. The previous
+browser resize regression was observed failing before the correction.
 The two existing 3D/bridge checks and protected Agent check also pass on
 Node 24.21.0, using the exact commands in the next section. No named tests or
 paid jobs were added. The obsolete historical source-resize guards were
@@ -64,10 +73,10 @@ scenarios at 1365×900 and 390×844. Exact commands (Node executable
   `node --check cloudflare/private-api-bridge/worker.js`
 - `git diff --check`
 
-No failures remain in these selected fixtures. The LLM vision copy retains its
-existing resolution/byte limits; image-edit sources preserve originals as
-described above. Actual GPU inference and worker precision remain separately
-governed.
+No failures remain in these selected fixtures. The browser preserves original
+conditioning for both image tools and the LLM under existing byte limits;
+the active API/model owns token admission and native preprocessing. Actual GPU
+inference, native LLM capacity and worker precision remain separately governed.
 
 Authoring follows Jesse's explicit GitHub-source/continue-without-PC-blockers
 instructions using an isolated Token Gen checkout and reviewed PR; this work

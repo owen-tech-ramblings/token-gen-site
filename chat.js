@@ -316,7 +316,6 @@ const PROJECT_SCOPE_RETRY_MESSAGE = "Project changed while preparing this reques
 const DEFAULT_VISION_MAX_IMAGES = 4;
 const DEFAULT_VISION_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_VISION_MAX_TOTAL_BYTES = 24 * 1024 * 1024;
-const DEFAULT_VISION_MAX_PIXELS = 1280 * 28 * 28;
 const IMAGE_QUALITY_SETTINGS = {
   draft: { label: "Draft", prompt: "quick clean preview" },
   standard: { label: "Standard", prompt: "balanced detail and prompt fidelity" },
@@ -432,7 +431,9 @@ function getSelectedModel() {
 }
 
 function getVisionCapabilities(model = getSelectedModel()) {
-  return model.capabilities?.vision || visionCapabilities || {};
+  // A legacy top-level contract can describe the sole active model. A model
+  // without its own contract must not inherit another catalog entry's support.
+  return model.capabilities?.vision || (availableModels.length === 1 ? visionCapabilities : {}) || {};
 }
 
 function getVisionLimits() {
@@ -441,7 +442,6 @@ function getVisionLimits() {
     maxImages: Math.max(1, Math.min(4, Number(capability.max_images || DEFAULT_VISION_MAX_IMAGES))),
     maxImageBytes: Number(capability.max_image_bytes || DEFAULT_VISION_MAX_IMAGE_BYTES),
     maxTotalBytes: Number(capability.max_total_bytes || DEFAULT_VISION_MAX_TOTAL_BYTES),
-    maxPixels: Number(capability.max_pixels || DEFAULT_VISION_MAX_PIXELS),
   };
 }
 
@@ -581,7 +581,7 @@ function syncWebUI() {
 
 function syncVisionCapability() {
   const capability = getVisionCapabilities();
-  visionSupported = Boolean(capability.available);
+  visionSupported = capability.available === true;
   if (els.visionStatus) {
     els.visionStatus.textContent = visionSupported
       ? `Image understanding runs locally with up to ${getVisionLimits().maxImages} images per message.`
@@ -1140,11 +1140,6 @@ function loadImageElement(src) {
   });
 }
 
-function dataUrlByteLength(dataUrl) {
-  const base64 = String(dataUrl || "").split(",")[1] || "";
-  return Math.max(0, Math.floor(base64.length * 3 / 4) - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0));
-}
-
 async function readVisionImage(file) {
   const limits = getVisionLimits();
   if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
@@ -1155,50 +1150,18 @@ async function readVisionImage(file) {
   }
   const previewObjectUrl = URL.createObjectURL(file);
   try {
-    // Image tools and retained assets use the original; the LLM uses dataUrl.
+    // Preserve encoded input; the server-owned model processor prepares it.
     const originalDataUrl = await readBlobAsDataUrl(file);
     const image = await loadImageElement(previewObjectUrl);
-    const sourcePixels = image.naturalWidth * image.naturalHeight;
-    const pixelScale = sourcePixels > limits.maxPixels ? Math.sqrt(limits.maxPixels / sourcePixels) : 1;
-    const scale = Math.min(pixelScale, 1, 2048 / image.naturalWidth, 2048 / image.naturalHeight);
-    let dataUrl;
-    let mimeType = file.type;
-    let width = image.naturalWidth;
-    let height = image.naturalHeight;
-
-    if (scale < 0.999) {
-      width = Math.max(1, Math.floor(image.naturalWidth * scale));
-      height = Math.max(1, Math.floor(image.naturalHeight * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Image preparation is unavailable in this browser.");
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, width, height);
-      context.drawImage(image, 0, 0, width, height);
-      dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-      mimeType = "image/jpeg";
-      for (const quality of [0.84, 0.74, 0.64]) {
-        if (dataUrlByteLength(dataUrl) <= limits.maxImageBytes) break;
-        dataUrl = canvas.toDataURL("image/jpeg", quality);
-      }
-    } else {
-      dataUrl = originalDataUrl;
-    }
-    const sizeBytes = dataUrlByteLength(dataUrl);
-    if (sizeBytes > limits.maxImageBytes) {
-      throw new Error(`${file.name} could not be prepared within the local vision size limit.`);
-    }
     return {
       id: globalThis.crypto?.randomUUID?.() || `vision-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       kind: "upload",
       name: file.name,
-      mimeType,
-      sizeBytes,
-      width,
-      height,
-      dataUrl,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      dataUrl: originalDataUrl,
       originalDataUrl,
       originalMimeType: file.type,
       originalSizeBytes: file.size,
@@ -1345,7 +1308,7 @@ async function prepareVisionImagesForSend(images) {
 }
 
 async function visionImageDataUrl(image) {
-  if (image.dataUrl) return image.dataUrl;
+  if (image.originalDataUrl || image.dataUrl) return image.originalDataUrl || image.dataUrl;
   const url = image.assetId
     ? `${HISTORY_API_PATH}/assets/${encodeURIComponent(image.assetId)}`
     : absoluteImageUrl(image.url || image.previewUrl);
@@ -3383,6 +3346,11 @@ function chatHistoryForPayload() {
     }));
 }
 
+function chatIncludesVisionImages() {
+  return attachedVisionImages.length > 0
+    || chatHistoryForPayload().some((message) => message.role === "user" && message.visionImages.length > 0);
+}
+
 async function chatPayloadMessage(message, includeReasoning) {
   const images = orderedVisionImages(
     message.visionImages,
@@ -3397,6 +3365,7 @@ async function chatPayloadMessage(message, includeReasoning) {
     }
     return payload;
   }
+  if (!visionSupported) throw new Error("The active local model is not running with image understanding");
   const resolvedImages = await Promise.all(images.map(async (image) => ({
     ...image,
     dataUrl: await visionImageDataUrl(image),
@@ -3523,12 +3492,14 @@ async function loadProjectVideoCapability() {
 function disableChat(reason = "Token Gen API model discovery failed") {
   chatReady = false;
   availableModels = [];
+  visionCapabilities = {};
   reasoningCapabilities = {};
   els.model.innerHTML = `<option value="">API unavailable</option>`;
   if (els.activeModel) els.activeModel.textContent = "API unavailable";
   syncMaxOutputControl({ max_model_len: DEFAULT_CONTEXT_WINDOW });
   els.input.disabled = true;
   els.send.disabled = true;
+  syncVisionCapability();
   setStatus(reason, "bad");
   renderDocuments();
 }
@@ -3659,7 +3630,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     setStatus("This question needs current web context, but web search is unavailable", "bad");
     return;
   }
-  if (attachedVisionImages.length && !visionSupported) {
+  if (chatIncludesVisionImages() && !visionSupported) {
     setStatus("The active local model is not running with image understanding", "bad");
     return;
   }
@@ -4469,6 +4440,12 @@ els.form.addEventListener("submit", (event) => {
   const content = els.input.value.trim();
   if (!content || els.send.disabled) return;
   const route = routeRequest(content);
+  if (route.kind !== "image" && chatIncludesVisionImages() && !visionSupported) {
+    setStatus(chatReady
+      ? "The active local model is not running with image understanding"
+      : "Token Gen API model discovery is unavailable", "bad");
+    return;
+  }
   els.input.value = "";
   autosizeInput();
   if (route.kind === "image") {
