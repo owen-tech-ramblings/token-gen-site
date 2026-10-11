@@ -56,7 +56,7 @@ test("agent availability requires the documented opt-in and safe stream contract
   assert.equal(incompatible?.available, false);
 });
 
-test("only Agent mode adds the server-owned agent request field", () => {
+test("only Agent mode adds the server-owned agent request field", async () => {
   const base = { model: "Qwen-Qwen3.8-27B", messages: [{ role: "user", content: "Check the server" }] };
 
   assert.deepEqual(subject.withAgentRequest?.(base, "agent", { available: true }), {
@@ -68,6 +68,20 @@ test("only Agent mode adds the server-owned agent request field", () => {
     () => subject.withAgentRequest?.(base, "agent", { available: false }),
     /Agent mode is unavailable/,
   );
+  const { requestChatStream } = await import('../chat-transport-options.mjs');
+  const calls = [];
+  const transport = async (...args) => { calls.push(args); return new Response('ok'); };
+  await requestChatStream({ ...base }, 'caller', false, transport, undefined, 'normal-request');
+  assert.equal(calls[0][0], 'https://token-gen-api.owenonthenet.com/api/chat/stream');
+  assert.equal(JSON.parse(calls[0][1].body).artifact_context, undefined);
+  const context = { retention: 'none' };
+  await requestChatStream({ ...base, agent: { enabled: true }, artifact_context: context }, 'caller', false, transport, undefined, 'agent-parent-key');
+  assert.equal(calls[1][0], '/api/private/chat/stream');
+  assert.equal(calls[1][1].headers['Idempotency-Key'], 'agent-parent-key');
+  assert.equal(calls[1][1].headers['x-token-gen-user'], undefined);
+  assert.equal(calls[1][1].credentials, 'include');
+  assert.equal(calls[1][1].redirect, 'error');
+  assert.deepEqual(JSON.parse(calls[1][1].body).artifact_context, context);
 });
 
 test("agent activity retains only documented safe trace and artifact fields", () => {

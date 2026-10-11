@@ -1,5 +1,7 @@
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
-import { requestChatStream } from "./chat-transport-options.mjs?v=token-chat-error-telemetry-20260822-1";
+import { archiveLabel, artifactContext, artifactReferences, mergeArtifacts, normalizeArtifacts, privateArtifactJobPath } from "./chat-artifacts.mjs?v=20261011-artifacts-1";
+import { mountThreeD } from "./chat-three-d.mjs?v=20261011-artifacts-1";
+import { requestChatStream } from "./chat-transport-options.mjs?v=20261011-artifacts-1";
 import {
   mergeAgentActivity,
   resolveAgentContract,
@@ -205,6 +207,8 @@ const els = {
   jobsBadge: $("#chatJobsBadge"),
   jobsStatus: $("#chatJobsStatus"),
   jobsList: $("#chatJobsList"),
+  savedArtifacts: $("#chatSavedArtifacts"),
+  savedArtifactsMore: $("#chatSavedArtifactsMore"),
 };
 
 function welcomeMessage() {
@@ -213,19 +217,25 @@ function welcomeMessage() {
 
 function createMessage(role, content, extra = {}) {
   return {
-    id: globalThis.crypto?.randomUUID?.() || `message-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     role,
     content,
     createdAt: new Date().toISOString(),
     ...extra,
+    id: typeof extra.id === "string" && extra.id.trim() && extra.id.length <= 256
+      ? extra.id : globalThis.crypto?.randomUUID?.() || `message-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   };
 }
 
 let messages = [welcomeMessage()];
+const artifactBindings = new Map();
+let artifactRefreshTimer = null;
+const artifactLibrary = { items: [], cursor: null, loading: false };
 let webSearchSupported = false;
 let researchSupported = false;
 let webFetchModes = { direct: true, tor: false, proxy: false };
 let agentModeContract = resolveAgentContract({});
+let agentArtifactBindingAvailable = false;
+let artifactCaptureAvailable = false;
 let imageGenerationSupported = false;
 let visionSupported = false;
 let visionCapabilities = {};
@@ -542,7 +552,7 @@ function canSendCurrentMode() {
   const mode = getMode();
   if (mode === "image") return imageGenerationSupported;
   if (mode === "research") return chatReady && webSearchSupported && researchSupported;
-  if (mode === "agent") return chatReady && agentModeContract.available;
+  if (mode === "agent") return chatReady && agentModeContract.available && agentArtifactBindingAvailable;
   if (mode === "auto") return chatReady || imageGenerationSupported;
   return chatReady;
 }
@@ -554,7 +564,7 @@ function isImageGenerationRunning() {
 function syncModeUI() {
   const mode = getMode();
   els.modeButtons.forEach((button) => {
-    if (button.dataset.chatMode === "agent") button.disabled = !agentModeContract.available;
+    if (button.dataset.chatMode === "agent") button.disabled = !agentModeContract.available || !agentArtifactBindingAvailable;
     button.setAttribute("aria-pressed", String(button.dataset.chatMode === mode));
   });
   document.body.classList.toggle("chat-image-active", mode === "image" || Boolean(activeImageSource));
@@ -614,6 +624,7 @@ function setJobsOpen(open) {
   if (els.jobsBackdrop) els.jobsBackdrop.hidden = !open;
   document.body.classList.toggle("chat-jobs-open", open);
   if (open && jobState.available) refreshActiveJobs({ immediate: true });
+  if (open) void loadSavedArtifacts();
 }
 
 function setRailOpen(open) {
@@ -645,6 +656,12 @@ function updateSendState() {
 
 function absoluteImageUrl(url) {
   if (!url) return "";
+  if (/^\/api\/private\/artifacts\/[a-f0-9-]{36}\/content$/i.test(url)) return url;
+  if (url.startsWith("/api/private/image/")) return url;
+  const imagePath = url.startsWith(`${API_BASE}/api/image/`) ? url.slice(API_BASE.length) : url.startsWith("/api/image/") ? url : null;
+  if (imagePath) return imagePath.replace("/api/image/", "/api/private/image/");
+  const artifactMatch = url.match(/^(?:https:\/\/token-gen-api\.owenonthenet\.com)?\/api\/artifacts\/([a-f0-9-]{36})\/content$/i);
+  if (artifactMatch) return `/api/private/artifacts/${artifactMatch[1]}/content`;
   return url.startsWith("http") ? url : `${API_BASE}${url}`;
 }
 
@@ -1476,6 +1493,10 @@ function backgroundJobIsActive(job) {
   return ["submitting", "queued_or_running", "queued", "running", "processing"].includes(job?.status);
 }
 
+function backgroundJobNeedsRefresh(job) {
+  return backgroundJobIsActive(job) || job?.archive_state === "pending";
+}
+
 function renderBackgroundJobs() {
   if (!els.jobsList) return;
   const jobs = jobState.jobs;
@@ -1529,6 +1550,7 @@ function renderBackgroundJobs() {
             <span data-state="${escapeHtml(status)}">${escapeHtml(statusLabel)}</span>
           </div>
           <small>${visualDetails}</small>
+          ${archiveLabel(job.archive_state) ? `<p class="chat-artifact-state" data-archive-state="${escapeHtml(job.archive_state)}">${escapeHtml(archiveLabel(job.archive_state))}</p>` : ""}
           ${visualPresentation && isActive ? `<progress class="chat-job-progress" value="${visualPresentation.progress}" max="100" aria-label="${videoAnalysis ? "Video" : "Visual"} analysis progress ${visualPresentation.progress}%"></progress>` : ""}
           ${job.error ? `<p>${escapeHtml(visualPresentation ? `${videoAnalysis ? "Video" : "Visual"} analysis needs attention. Retry from Project files.` : job.error)}</p>` : ""}
           <div class="chat-job-actions">
@@ -1585,6 +1607,7 @@ async function jobRequest(path = "", options = {}) {
 
 function upsertBackgroundJob(job) {
   if (!job?.id) return;
+  applyArtifactJob(job);
   if (!backgroundJobIsActive(job)) {
     jobState.pendingJobs = jobState.pendingJobs.filter((entry) => entry.job?.id !== job.id);
   }
@@ -1613,7 +1636,7 @@ function trackBackgroundJob(job) {
 function scheduleActiveJobRefresh() {
   if (jobState.refreshTimer) clearTimeout(jobState.refreshTimer);
   jobState.refreshTimer = null;
-  if (!jobState.available || !jobState.jobs.some(backgroundJobIsActive)) return;
+  if (!jobState.available || !jobState.jobs.some(backgroundJobNeedsRefresh)) return;
   jobState.refreshTimer = setTimeout(() => refreshActiveJobs(), JOB_REFRESH_INTERVAL_MS);
 }
 
@@ -1622,7 +1645,7 @@ async function refreshActiveJobs({ immediate = false } = {}) {
   if (jobState.refreshTimer) clearTimeout(jobState.refreshTimer);
   jobState.refreshTimer = null;
   if (!immediate) await new Promise((resolve) => setTimeout(resolve, 0));
-  const active = jobState.jobs.filter(backgroundJobIsActive).slice(0, 4);
+  const active = jobState.jobs.filter(backgroundJobNeedsRefresh).slice(0, 4);
   if (!active.length) {
     renderBackgroundJobs();
     return;
@@ -1656,6 +1679,7 @@ async function loadBackgroundJobs() {
       requestGeneration,
     });
     jobState.jobs = reconciliation.jobs;
+    jobState.jobs.forEach((job) => applyArtifactJob(job));
     jobState.pendingJobs = reconciliation.pendingJobs;
     new Set(reconciliation.terminalProjectIds).forEach((projectId) => {
       void refreshActiveProjectFiles(projectId);
@@ -1671,11 +1695,12 @@ async function loadBackgroundJobs() {
   }
 }
 
-async function createBackgroundJob(kind, request, title, sampleIndex, sampleTotal, signal) {
+async function createBackgroundJob(kind, request, title, sampleIndex, sampleTotal, signal, admission) {
   if (!jobState.available) return null;
   try {
     const { json } = await jobRequest("", {
       method: "POST",
+      headers: { "Idempotency-Key": admission.key },
       body: JSON.stringify({
         kind,
         request,
@@ -1686,11 +1711,12 @@ async function createBackgroundJob(kind, request, title, sampleIndex, sampleTota
       signal,
     });
     if (!json.job?.id) throw new Error("The background job queue returned an invalid response.");
+    artifactBindings.set(json.job.id, admission);
     upsertBackgroundJob(json.job);
     scheduleActiveJobRefresh();
     return json.job;
   } catch (error) {
-    if (error.job) upsertBackgroundJob(error.job);
+    if (error.job) { artifactBindings.set(error.job.id, admission); upsertBackgroundJob(error.job); }
     throw error;
   }
 }
@@ -2342,7 +2368,7 @@ function restoredAssistantReasoning(message) {
 
 function historyImageMetadata(output) {
   return {
-    url: output.url,
+    url: output.url?.startsWith("/api/private/") ? `${API_BASE}${output.url.replace("/api/private/", "/api/")}` : output.url,
     filename: output.filename,
     subfolder: output.subfolder || "",
     type: output.type || "output",
@@ -2351,6 +2377,128 @@ function historyImageMetadata(output) {
     quality: output.quality,
     size: output.size,
   };
+}
+
+function useSavedArtifactImages(message) {
+  const images = normalizeArtifacts(message.artifacts).filter((item) => item.kind === "image" && item.content_url);
+  if (!images.length) return;
+  const previous = Array.isArray(message.imageOutputs) ? message.imageOutputs : [];
+  message.imageOutputs = images.map((item, index) => ({
+    ...previous[index], url: item.content_url, filename: `token-gen-${item.artifact_id}.${item.format}`,
+    artifactId: item.artifact_id, alt: message.imagePrompt || "Saved generated image",
+  })).concat(previous.slice(images.length));
+  if (!message.archiveState) message.archiveState = images.some((item) => item.state === "temporary") ? "temporary" : "saved";
+}
+
+function hydrateMessageArtifacts(remoteMessages) {
+  for (const remote of Array.isArray(remoteMessages) ? remoteMessages : []) {
+    const message = messages.find((item) => item.id === remote.id);
+    if (!message || !Array.isArray(remote.artifacts)) continue;
+    message.artifacts = mergeArtifacts(message.artifacts, remote.artifacts);
+    useSavedArtifactImages(message);
+    const states = message.artifacts.map((item) => item.state).filter(Boolean);
+    if (states.length && !Object.values(message.archiveJobs || {}).includes("pending")) message.archiveState = states.includes("saved") ? "saved" : states[0];
+  }
+}
+
+async function prepareArtifactSubmission(message, expectedAction = captureHistoryViewAction(historyState)) {
+  await artifactCapabilityPromise;
+  if (!artifactCaptureAvailable) throw new Error("Private output archiving is unavailable in the current API release. Refresh after the service is restored.");
+  const current = () => historyViewActionIsCurrent(historyState, expectedAction) && messages.some((item) => item.id === message.id);
+  if (!current()) throw new Error("This chat changed before the output could be submitted.");
+  const retention = historyState.currentRetention;
+  if (retention === "none") return { context: artifactContext({ retention }), messageId: message.id };
+  await historyLoadPromise;
+  if (!current() || historyState.currentRetention !== retention) throw new Error("The chat or its retention changed. Try again in this chat.");
+  if (!historyState.available) throw new Error("Private history is unavailable. Restore it before generating a retained output, or choose Don't save.");
+  if (historyState.saveTimer) clearTimeout(historyState.saveTimer);
+  historyState.saveTimer = null;
+  await waitForConversationSave();
+  if (!current() || historyState.currentRetention !== retention) throw new Error("The chat or its retention changed. Try again in this chat.");
+  if (historyState.saveTimer) clearTimeout(historyState.saveTimer);
+  historyState.saveTimer = null;
+  const saved = await saveConversation(expectedAction);
+  if (!saved || !current() || historyState.currentRetention !== retention)
+    throw new Error("The assistant message could not be saved. No generation was submitted; try again when private history is available.");
+  return { context: artifactContext({ retention, conversationId: historyState.currentId, messageId: message.id }), messageId: message.id };
+}
+
+function applyArtifactJob(job, explicitBinding = null) {
+  const binding = explicitBinding || artifactBindings.get(job.id) || { context: job.artifact_context, messageId: job.artifact_context?.message_id };
+  const context = binding.context;
+  if (!context || (context.retention !== "none" && context.conversation_id !== historyState.currentId)) return;
+  const message = messages.find((item) => item.id === (binding.messageId || context.message_id));
+  if (!message || message.role !== "assistant") return;
+  if (Array.isArray(job.generated_artifacts)) message.artifacts = mergeArtifacts(message.artifacts, job.generated_artifacts);
+  if (archiveLabel(job.archive_state)) {
+    message.archiveJobs ||= {};
+    message.archiveJobs[job.id] = job.archive_state;
+    const states = Object.values(message.archiveJobs);
+    message.archiveState = states.includes("pending") ? "pending" : states.includes("failed") ? "failed" : states.includes("saved") ? "saved" : job.archive_state;
+  }
+  useSavedArtifactImages(message);
+  renderMessages(false);
+  scheduleArtifactRefresh();
+}
+
+async function refreshConversationArtifacts() {
+  const id = historyState.currentId;
+  if (!id || !historyState.available || historyState.saving) return;
+  try {
+    const { json } = await historyRequest(`/${encodeURIComponent(id)}`);
+    if (historyState.currentId !== id) return;
+    hydrateMessageArtifacts(json.conversation?.messages);
+    // Only a full conversation open/save can acknowledge its revision. This
+    // refresh applies artifact metadata without accepting remote text edits.
+    renderMessages(false);
+  } catch { /* Preserve generated previews while the archive can be retried. */ }
+}
+
+async function refreshAgentArtifacts(message) {
+  if (!message?.artifactBinding) return;
+  const references = (message.agentActivity?.artifacts || []).slice(0, 16);
+  const action = captureHistoryViewAction(historyState);
+  await Promise.allSettled(references.map(async (reference) => {
+    const path = privateArtifactJobPath(reference.pollUrl);
+    if (!path) return;
+    const response = await fetch(path, { credentials: "same-origin", redirect: "error", cache: "no-store" });
+    const json = await response.json();
+    if (!response.ok || !historyViewActionIsCurrent(historyState, action) || !messages.includes(message)) return;
+    const job = json.job || json;
+    applyArtifactJob({ ...job, id: job.id || reference.id }, { context: message.artifactBinding.context, messageId: message.id });
+  }));
+}
+
+function scheduleArtifactRefresh() {
+  clearTimeout(artifactRefreshTimer);
+  if (!messages.some((message) => message.archiveState === "pending")) return;
+  artifactRefreshTimer = setTimeout(async () => {
+    await refreshConversationArtifacts();
+    await Promise.allSettled(messages.filter((message) => message.archiveState === "pending" && message.artifactBinding && message.agentActivity?.artifacts?.length).map(refreshAgentArtifacts));
+    scheduleArtifactRefresh();
+  }, 10000);
+}
+
+async function prepareThreeDSubmission({ filename }) {
+  if (activeImageAbortController || els.input.disabled && chatReady) throw new Error("Finish the current request before starting a model in this chat.");
+  const action = captureHistoryViewAction(historyState);
+  messages.push(createMessage("user", `Create a 3D model from ${filename || "the transparent PNG"}.`));
+  const message = createMessage("assistant", "Preparing a 3D model request…");
+  messages.push(message); renderMessages(false);
+  try { return await prepareArtifactSubmission(message, action); }
+  catch (error) { message.content = `3D request not submitted: ${error.message}`; renderMessages(false); throw error; }
+}
+
+function applyThreeDJob(job, binding) {
+  if (binding) artifactBindings.set(job.id, binding);
+  applyArtifactJob(job, binding);
+  const context = binding?.context || job.artifact_context;
+  if (context?.retention !== "none" && context?.conversation_id !== historyState.currentId) return;
+  const message = messages.find((item) => item.id === (binding?.messageId || context?.message_id));
+  if (!message) return;
+  message.content = job.status === "FAILED" ? `3D generation needs attention: ${typeof job.error === "string" ? job.error : job.error?.message || "Generation failed."}`
+    : job.status === "COMPLETED" ? "3D generation complete." : `3D model ${job.status.toLowerCase().replaceAll("_", " ")}.`;
+  renderMessages(false);
 }
 
 function storedHistoryMessages() {
@@ -2363,10 +2511,12 @@ function storedHistoryMessages() {
       content: String(message.content || ""),
       created_at: message.createdAt,
     };
+    // Omission preserves server attachments captured after an earlier save.
+    if (Array.isArray(message.artifacts)) item.artifacts = artifactReferences(message.artifacts);
     const reasoningContent = assistantReasoningContent(message);
     if (message.role === "assistant" && reasoningContent) item.reasoning_content = reasoningContent;
     const images = Array.isArray(message.imageOutputs)
-      ? message.imageOutputs.slice(0, 4).map(historyImageMetadata)
+      ? message.imageOutputs.filter((output) => !output.artifactId).slice(0, 4).map(historyImageMetadata)
       : [];
     if (images.length) {
       item.image = images[0];
@@ -2422,7 +2572,7 @@ function restoredHistoryMessage(message) {
   const images = Array.isArray(message.images) && message.images.length
     ? message.images
     : message.image ? [message.image] : [];
-  return createMessage(message.role, message.content || "", {
+  const restored = createMessage(message.role, message.content || "", {
     id: message.id,
     createdAt: message.created_at,
     reasoningContent: restoredAssistantReasoning(message),
@@ -2430,6 +2580,7 @@ function restoredHistoryMessage(message) {
     projectContext: message.project_context,
     imageOutputs: images.map((image) => ({ ...image, url: absoluteImageUrl(image.url) })),
     imagePrompt: images[0]?.prompt || "",
+    ...(Array.isArray(message.artifacts) ? { artifacts: normalizeArtifacts(message.artifacts) } : {}),
     visionImages: (Array.isArray(message.vision_images) ? message.vision_images : []).map((image) => ({
       id: image.asset_id || globalThis.crypto?.randomUUID?.() || `vision-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       assetId: image.asset_id,
@@ -2444,6 +2595,8 @@ function restoredHistoryMessage(message) {
       sizeBytes: image.size_bytes,
     })),
   });
+  useSavedArtifactImages(restored);
+  return restored;
 }
 
 function currentConversationTitle() {
@@ -2559,6 +2712,10 @@ async function saveConversation(expectedAction = captureHistoryViewAction(histor
         if (!actionIsCurrent()) return false;
         const remoteConversation = latest.json.conversation;
         if (historyMessagesArePrefix(remoteConversation?.messages, storedMessages)) {
+          for (const local of body.messages) {
+            const remote = remoteConversation.messages.find((item) => item.id === local.id);
+            if (Array.isArray(remote?.artifacts)) local.artifacts = artifactReferences(mergeArtifacts(remote.artifacts, local.artifacts));
+          }
           result = await historyRequest(`/${encodeURIComponent(currentId)}`, {
             method: "PUT",
             headers: { "if-match": latest.etag || remoteConversation.version },
@@ -2580,6 +2737,7 @@ async function saveConversation(expectedAction = captureHistoryViewAction(histor
     const saved = applySavedConversationResult(historyState, expectedAction, conversation, result.etag || conversation.version);
     if (!saved.applied) return false;
     Object.assign(historyState, saved.state);
+    hydrateMessageArtifacts(conversation.messages);
     upsertHistorySummary(conversation);
     setHistoryStatus("Saved", "good", retention === "forever"
       ? "This chat is encrypted and kept until you delete it."
@@ -2689,6 +2847,9 @@ async function openStoredConversation(id) {
     setRailOpen(false);
     setHistoryStatus("Saved", "good", "This saved chat is private to your signed-in account.");
     setStatus(`Opened ${conversation.title || "saved chat"}`, "good");
+    void threeDConsumer?.refresh();
+    jobState.jobs.forEach((job) => applyArtifactJob(job));
+    scheduleArtifactRefresh();
     els.input.focus();
   } catch (error) {
     if (historyViewActionIsCurrent(historyState, conversationAction)) setHistoryStatus("Could not open chat", "bad", error.message);
@@ -3108,7 +3269,7 @@ function renderAgentActivity(activity) {
         ${artifacts.length ? `
           <div class="chat-agent-artifacts">
             ${artifacts.map((artifact) => `
-              <a href="${escapeHtml(absoluteImageUrl(artifact.pollUrl))}" target="_blank" rel="noreferrer">
+              <a href="${escapeHtml(privateArtifactJobPath(artifact.pollUrl) || '#')}" target="_blank" rel="noreferrer">
                 <strong>${escapeHtml(artifact.tool.replaceAll("_", " "))}</strong>
                 <span>Open generated job ${escapeHtml(artifact.id)}</span>
               </a>
@@ -3153,6 +3314,7 @@ function renderMessages(pending = false) {
           ${renderProjectContext(message.projectContext)}
           ${renderWebContext(message.webContext)}
           ${renderImageOutputs(message)}
+          ${renderSavedArtifacts(message)}
           <div class="chat-content">${content}</div>
           ${message.role === "assistant" && message.content ? `
             <div class="chat-message-actions">
@@ -3250,6 +3412,50 @@ function renderImageOutputs(message) {
   `;
 }
 
+function renderSavedArtifacts(message) {
+  const artifacts = normalizeArtifacts(message.artifacts);
+  const state = archiveLabel(message.archiveState);
+  if (!artifacts.length && !state) return "";
+  return `<section class="chat-saved-artifacts" aria-label="Generated outputs">
+    ${state ? `<p class="chat-artifact-state" data-archive-state="${escapeHtml(message.archiveState)}">${escapeHtml(state)}</p>` : ""}
+    ${artifacts.map((item) => {
+      const role = item.native_metadata?.output_role === "delivery" ? "Playback copy" : item.kind === "video" && item.format === "zip" ? "Native master" : item.kind.replace("three_d", "3D");
+      const label = `${role} · ${item.format.toUpperCase()}`;
+      return item.content_url ? `<a class="chat-secondary-button" href="${escapeHtml(item.content_url)}" download="token-gen-${escapeHtml(item.artifact_id)}.${escapeHtml(item.format)}">Download ${escapeHtml(label)}</a>`
+        : `<span>${escapeHtml(label)} · ${escapeHtml(archiveLabel(item.state) || "Archive pending")}</span>`;
+    }).join("")}
+    ${artifacts.filter((item) => item.expires_at != null).map((item) => {
+      const date = new Date(typeof item.expires_at === "number" ? item.expires_at * 1000 : item.expires_at);
+      return Number.isFinite(date.getTime()) ? `<small>${escapeHtml(item.format.toUpperCase())} available until ${escapeHtml(date.toLocaleString())}</small>` : "";
+    }).join("")}
+  </section>`;
+}
+
+async function loadSavedArtifacts(more = false) {
+  if (artifactLibrary.loading || !els.savedArtifacts) return;
+  artifactLibrary.loading = true;
+  els.savedArtifactsMore.disabled = true;
+  if (!more) els.savedArtifacts.textContent = "Loading saved outputs…";
+  try {
+    const params = new URLSearchParams({ limit: "50" });
+    if (more && artifactLibrary.cursor) params.set("cursor", artifactLibrary.cursor);
+    const response = await fetch(`/api/private/artifacts?${params}`, { credentials: "same-origin", redirect: "error", cache: "no-store" });
+    const json = await response.json();
+    if (!response.ok || !json.ok || !Array.isArray(json.artifacts)) throw new Error("Saved outputs are currently unavailable.");
+    const page = normalizeArtifacts(json.artifacts);
+    const items = new Map((more ? artifactLibrary.items : []).map((item) => [item.artifact_id, item]));
+    page.forEach((item) => items.set(item.artifact_id, item));
+    artifactLibrary.items = [...items.values()];
+    artifactLibrary.cursor = typeof json.cursor === "string" && json.cursor.length <= 1024 ? json.cursor : null;
+    // Render in page-sized groups without downloading any native output bytes.
+    els.savedArtifacts.innerHTML = artifactLibrary.items.length
+      ? Array.from({ length: Math.ceil(artifactLibrary.items.length / 50) }, (_, index) => renderSavedArtifacts({ artifacts: artifactLibrary.items.slice(index * 50, (index + 1) * 50) })).join("")
+      : '<p class="chat-jobs-empty">Your private generated outputs will appear here.</p>';
+    els.savedArtifactsMore.hidden = !artifactLibrary.cursor;
+  } catch (error) { if (!more) els.savedArtifacts.textContent = error.message; }
+  finally { artifactLibrary.loading = false; els.savedArtifactsMore.disabled = false; }
+}
+
 function renderWebContext(context) {
   if (!context) return "";
   const sources = webContextSources(context);
@@ -3321,8 +3527,11 @@ function updateAssistantMessage(index, content, extra = {}) {
   renderMessages(false);
 }
 
-function updateAssistantImageMessage(index, updates) {
-  messages[index] = { ...messages[index], ...updates };
+function updateAssistantImageMessage(target, updates) {
+  const index = typeof target === "number" ? target : messages.findIndex((item) => item.id === target.id);
+  if (index < 0) return;
+  Object.assign(messages[index], updates);
+  useSavedArtifactImages(messages[index]);
   renderMessages(false);
 }
 
@@ -3475,11 +3684,16 @@ async function loadProjectVideoCapability() {
   try {
     const { res, json } = await fetchJsonWithTimeout(`${API_BASE}/api/agent.json`, { cache: "no-store" });
     agentModeContract = resolveAgentContract(res.ok ? json : {});
+    agentArtifactBindingAvailable = res.ok && json.capabilities?.artifacts?.agent_parent_context === true;
+    artifactCaptureAvailable = res.ok && json.capabilities?.artifacts?.list_url === "/api/artifacts" &&
+      json.capabilities.artifacts.auth_required === true && json.capabilities.artifacts.context_schema?.type === "object";
     projectVideoContract = res.ok
       ? resolveProjectVideoContract(json)
       : { ...DEFAULT_PROJECT_VIDEO_CONTRACT };
   } catch {
     agentModeContract = resolveAgentContract({});
+    agentArtifactBindingAvailable = false;
+    artifactCaptureAvailable = false;
     projectVideoContract = { ...DEFAULT_PROJECT_VIDEO_CONTRACT };
   }
   projectVideoCapabilityLoaded = true;
@@ -3626,6 +3840,10 @@ async function sendMessage(content, route = routeRequest(content)) {
     setStatus("Local Research mode is currently unavailable", "bad");
     return;
   }
+  if (route.agent && !agentArtifactBindingAvailable) {
+    setStatus("Agent output archiving is unavailable in the current API release", "bad");
+    return;
+  }
   if (route.web && !webSearchSupported) {
     setStatus("This question needs current web context, but web search is unavailable", "bad");
     return;
@@ -3682,6 +3900,13 @@ async function sendMessage(content, route = routeRequest(content)) {
 
   let assistantIndex = null;
   try {
+    let parentBinding = null;
+    if (route.agent) {
+      assistantIndex = appendAssistantMessage("");
+      messages[assistantIndex].excludeFromContext = true;
+      parentBinding = await prepareArtifactSubmission(messages[assistantIndex], sendViewAction);
+      messages[assistantIndex].artifactBinding = parentBinding;
+    }
     telemetryStage = "identity";
     const userIdentity = await awaitCurrentSendStep(
       sendViewIsCurrent,
@@ -3721,6 +3946,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     );
     if (!preparedPayload.current) return;
     const payload = preparedPayload.value;
+    if (parentBinding) payload.artifact_context = parentBinding.context;
     if (!projectScopeIsValid()) throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
     telemetryStage = "request";
     const streamedResponse = await awaitCurrentSendStep(
@@ -3750,7 +3976,7 @@ async function sendMessage(content, route = routeRequest(content)) {
       throw new Error(apiErrorMessage(errorPayload, "Chat stream request failed"));
     }
 
-    assistantIndex = appendAssistantMessage("");
+    if (assistantIndex === null) assistantIndex = appendAssistantMessage("");
     if (projectContext?.metadata) attachProjectContext(assistantIndex, projectContext.metadata);
     let assistantText = "";
     let reasoningSeen = false;
@@ -3799,6 +4025,10 @@ async function sendMessage(content, route = routeRequest(content)) {
         if (hasAgentActivity) {
           agentActivity = mergeAgentActivity(agentActivity, chunk);
           messages[assistantIndex].agentActivity = agentActivity;
+          if (agentActivity.artifacts.length) {
+            messages[assistantIndex].archiveState = "pending";
+            scheduleArtifactRefresh();
+          }
           renderMessages(false);
           if (chunk.type === "agent_step") {
             setStatus(`Agent model step ${chunk.step || agentActivity.steps.length}...`, "busy");
@@ -3858,15 +4088,18 @@ async function sendMessage(content, route = routeRequest(content)) {
     telemetryStage = "finalize";
     updateAssistantMessage(assistantIndex, assistantText, {
       reasoningContent: assistantReasoningContent,
+      excludeFromContext: false,
       ...(route.agent ? { agentActivity } : {}),
     });
     setStatus(`Response complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
+    if (route.agent) { void refreshConversationArtifacts(); void refreshAgentArtifacts(messages[assistantIndex]); }
   } catch (error) {
     if (sendViewIsCurrent()) {
       const failure = createMessage("assistant", `Request failed: ${error.message}`, {
         excludeFromContext: true,
         excludeFromHistory: true,
         isError: true,
+        ...(route.agent && assistantIndex !== null ? { id: messages[assistantIndex].id, artifacts: messages[assistantIndex].artifacts, artifactBinding: messages[assistantIndex].artifactBinding, archiveJobs: messages[assistantIndex].archiveJobs, archiveState: messages[assistantIndex].archiveState, excludeFromHistory: false } : {}),
         ...(route.agent && assistantIndex !== null
           ? { agentActivity: messages[assistantIndex]?.agentActivity }
           : {}),
@@ -4013,22 +4246,30 @@ function buildImagePayload(prompt, settings, sampleIndex) {
   };
 }
 
-async function submitImageGeneration(prompt, settings, sampleIndex, signal) {
+async function submitImagePayload(kind, path, payload, prompt, settings, sampleIndex, signal, binding) {
+  throwIfImageStopped(signal);
+  const admission = { ...binding, key: crypto.randomUUID() };
+  payload.artifact_context = binding.context;
+  const job = await createBackgroundJob(kind, payload, prompt, sampleIndex, settings.samples, signal, admission);
+  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
+  // This path is selected before any private submission, never after an error.
+  const response = await fetch(`/api/private/image/${path}`, { method: "POST", credentials: "same-origin", redirect: "error",
+    headers: { "content-type": "application/json", "Idempotency-Key": admission.key }, body: JSON.stringify(payload), signal });
+  const json = await response.json().catch(() => ({}));
+  if (json.job?.id) {
+    artifactBindings.set(json.job.id, admission);
+    upsertBackgroundJob(json.job);
+  }
+  if (!response.ok || json.ok === false || !json.prompt_id)
+    throw new Error(apiErrorMessage(json.error || json.message, `Image request failed: HTTP ${response.status}`));
+  if (json.job?.id) return { jobId: json.job.id, promptId: json.prompt_id, managed: true };
+  return { promptId: json.prompt_id, managed: false, binding: admission };
+}
+
+async function submitImageGeneration(prompt, settings, sampleIndex, signal, binding) {
   throwIfImageStopped(signal);
   const payload = buildImagePayload(prompt, settings, sampleIndex);
-  const job = await createBackgroundJob("generation", payload, prompt, sampleIndex, settings.samples, signal);
-  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
-  const res = await fetch(`${API_BASE}/api/image/generations`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-    signal,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.ok === false || !json.prompt_id) {
-    throw new Error(json.error || json.message || `Image generation failed: HTTP ${res.status}`);
-  }
-  return { promptId: json.prompt_id, managed: false };
+  return submitImagePayload("generation", "generations", payload, prompt, settings, sampleIndex, signal, binding);
 }
 
 async function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
@@ -4130,40 +4371,16 @@ function waitForImagePoll(signal) {
   });
 }
 
-async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode, signal) {
+async function submitImageEdit(prompt, settings, sampleIndex, source, sourceMode, signal, binding) {
   const payload = await buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode);
   throwIfImageStopped(signal);
-  const job = await createBackgroundJob("edit", payload, prompt, sampleIndex, settings.samples, signal);
-  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
-  const res = await fetch(`${API_BASE}/api/image/edits`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-    signal,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.ok === false || !json.prompt_id) {
-    throw new Error(json.error || json.message || `Image edit failed: HTTP ${res.status}`);
-  }
-  return { promptId: json.prompt_id, managed: false };
+  return submitImagePayload("edit", "edits", payload, prompt, settings, sampleIndex, signal, binding);
 }
 
-async function submitImageUpscale(prompt, settings, sampleIndex, source, signal) {
+async function submitImageUpscale(prompt, settings, sampleIndex, source, signal, binding) {
   const payload = await buildImageUpscalePayload(settings, sampleIndex, source);
   throwIfImageStopped(signal);
-  const job = await createBackgroundJob("upscale", payload, prompt, sampleIndex, settings.samples, signal);
-  if (job) return { jobId: job.id, promptId: job.prompt_id, managed: true };
-  const res = await fetch(`${API_BASE}/api/image/upscale`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
-    signal,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok || json.ok === false || !json.prompt_id) {
-    throw new Error(json.error || json.message || `Image upscale failed: HTTP ${res.status}`);
-  }
-  return { promptId: json.prompt_id, managed: false };
+  return submitImagePayload("upscale", "upscale", payload, prompt, settings, sampleIndex, signal, binding);
 }
 
 function historyExecutionError(json) {
@@ -4198,11 +4415,13 @@ async function pollImageGeneration(handle, signal) {
       if (job.status === "failed") throw new Error(job.error || "Image generation failed.");
       continue;
     }
-    const res = await fetch(`${API_BASE}/api/image/history/${encodeURIComponent(promptId)}`, {
+    const res = await fetch(`/api/private/image/history/${encodeURIComponent(promptId)}`, {
+      credentials: "same-origin", redirect: "error",
       cache: "no-store",
       signal,
     });
     const json = await res.json().catch(() => ({}));
+    if (json.job) applyArtifactJob(json.job, handle.binding);
     if (!res.ok || json.ok === false) {
       throw new Error(json.error || json.message || `Image history failed: HTTP ${res.status}`);
     }
@@ -4215,7 +4434,7 @@ async function pollImageGeneration(handle, signal) {
   }
 }
 
-async function generateImageSamplesSequentially(prompt, assistantIndex, signal) {
+async function generateImageSamplesSequentially(prompt, assistantIndex, signal, binding) {
   const settings = imageSettings();
   const outputs = [];
   const handles = [];
@@ -4225,7 +4444,7 @@ async function generateImageSamplesSequentially(prompt, assistantIndex, signal) 
       imageProgress: `Queueing sample ${index + 1} of ${settings.samples}...`,
       content: "",
     });
-    handles.push(await submitImageGeneration(prompt, settings, index, signal));
+    handles.push(await submitImageGeneration(prompt, settings, index, signal, binding));
   }
   for (let index = 0; index < settings.samples; index += 1) {
     throwIfImageStopped(signal);
@@ -4257,7 +4476,7 @@ async function generateImageSamplesSequentially(prompt, assistantIndex, signal) 
   }
 }
 
-async function generateImageEditSamplesSequentially(prompt, assistantIndex, sourceMode, signal) {
+async function generateImageEditSamplesSequentially(prompt, assistantIndex, sourceMode, signal, binding) {
   const settings = imageSettings();
   const source = activeImageSource;
   const outputs = [];
@@ -4268,7 +4487,7 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
       imageProgress: `Queueing sample ${index + 1} of ${settings.samples}...`,
       content: "",
     });
-    handles.push(await submitImageEdit(prompt, settings, index, source, sourceMode, signal));
+    handles.push(await submitImageEdit(prompt, settings, index, source, sourceMode, signal, binding));
   }
   for (let index = 0; index < settings.samples; index += 1) {
     throwIfImageStopped(signal);
@@ -4300,7 +4519,7 @@ async function generateImageEditSamplesSequentially(prompt, assistantIndex, sour
   }
 }
 
-async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, signal) {
+async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, signal, binding) {
   const settings = imageSettings();
   const source = activeImageSource;
   const outputs = [];
@@ -4311,7 +4530,7 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
       imageProgress: `Queueing sample ${index + 1} of ${settings.samples}...`,
       content: "",
     });
-    handles.push(await submitImageUpscale(prompt, settings, index, source, signal));
+    handles.push(await submitImageUpscale(prompt, settings, index, source, signal, binding));
   }
   for (let index = 0; index < settings.samples; index += 1) {
     throwIfImageStopped(signal);
@@ -4355,7 +4574,8 @@ async function sendImageMessage(content, sourceVisionImages = []) {
   const signal = activeImageAbortController.signal;
   const visionImages = sourceVisionImages.length ? await prepareVisionImagesForSend(sourceVisionImages) : [];
   messages.push(createMessage("user", content, { visionImages }));
-  const assistantIndex = appendAssistantMessage("");
+  const assistantIndex = messages[appendAssistantMessage("")];
+  const submissionAction = captureHistoryViewAction(historyState);
   updateAssistantImageMessage(assistantIndex, {
     imagePrompt: content,
     imageOutputs: [],
@@ -4366,6 +4586,8 @@ async function sendImageMessage(content, sourceVisionImages = []) {
   scheduleConversationSave(0);
 
   try {
+    const binding = await prepareArtifactSubmission(assistantIndex, submissionAction);
+    throwIfImageStopped(signal);
     const sourceMode = els.imageSourceMode.value;
       if (sourceMode === "edit" || sourceMode === "restyle" || sourceMode === "style" || sourceMode === "upscale") {
       if (!activeImageSource) {
@@ -4374,12 +4596,12 @@ async function sendImageMessage(content, sourceVisionImages = []) {
           : "Upload an image or choose Iterate on a generated image first.");
       }
       if (sourceMode === "upscale") {
-        await generateImageUpscaleSamplesSequentially(content, assistantIndex, signal);
+        await generateImageUpscaleSamplesSequentially(content, assistantIndex, signal, binding);
       } else {
-        await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode, signal);
+        await generateImageEditSamplesSequentially(content, assistantIndex, sourceMode, signal, binding);
       }
     } else {
-      await generateImageSamplesSequentially(content, assistantIndex, signal);
+      await generateImageSamplesSequentially(content, assistantIndex, signal, binding);
     }
     setStatus(`Image generation complete at ${new Date().toLocaleTimeString("en-AU")}`, "good");
   } catch (error) {
@@ -4618,7 +4840,8 @@ els.settingsBackdrop.addEventListener("click", () => setSettingsOpen(false));
 els.jobsOpen.addEventListener("click", () => setJobsOpen(true));
 els.jobsClose.addEventListener("click", () => setJobsOpen(false));
 els.jobsBackdrop.addEventListener("click", () => setJobsOpen(false));
-els.jobsRefresh.addEventListener("click", () => loadBackgroundJobs());
+els.jobsRefresh.addEventListener("click", () => { void loadBackgroundJobs(); void loadSavedArtifacts(); void refreshConversationArtifacts(); });
+els.savedArtifactsMore.addEventListener("click", () => loadSavedArtifacts(true));
 els.railOpen.addEventListener("click", () => setRailOpen(true));
 els.railClose.addEventListener("click", () => setRailOpen(false));
 
@@ -4916,6 +5139,8 @@ els.jobsList.addEventListener("click", async (event) => {
       const title = job.title || job.prompt || "Generated image";
       messages.push(createMessage("assistant", "Background image complete.", {
         imagePrompt: title,
+        ...(Array.isArray(job.generated_artifacts) ? { artifacts: normalizeArtifacts(job.generated_artifacts) } : {}),
+        archiveState: job.archive_state,
         imageOutputs: outputs.map((output) => ({
           ...output,
           ...(outputImageReference(output) || {}),
@@ -4926,6 +5151,7 @@ els.jobsList.addEventListener("click", async (event) => {
           url: absoluteImageUrl(output.url),
         })),
       }));
+      useSavedArtifactImages(messages.at(-1));
       renderMessages();
       scheduleConversationSave(0);
       setJobsOpen(false);
@@ -5154,10 +5380,11 @@ renderBackgroundJobs();
 syncImageEditStrengthValue();
 syncModeUI();
 syncWebUI();
-loadConversationHistory();
+const historyLoadPromise = loadConversationHistory();
+const threeDConsumer = mountThreeD(document, { prepareSubmission: prepareThreeDSubmission, onJob: applyThreeDJob });
 loadProjects();
 loadBackgroundJobs();
-loadProjectVideoCapability();
+const artifactCapabilityPromise = loadProjectVideoCapability();
 loadModels().catch((error) => {
   setStatus(error.message, "bad");
 });
@@ -5168,6 +5395,8 @@ window.addEventListener("focus", () => {
   if (!historyState.available && !historyState.loading) loadConversationHistory();
   if (!jobState.available && !jobState.loading) loadBackgroundJobs();
   else refreshActiveJobs({ immediate: true });
+  void refreshConversationArtifacts();
+  void threeDConsumer?.refresh();
 });
 
 window.addEventListener("pagehide", () => {

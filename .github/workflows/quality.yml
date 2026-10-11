@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Check current 3D quality limits, retry identity and private authentication
+      - name: Check artifact privacy, durable binding and 3D retry identity
         run: node --test tools/chat-three-d.test.mjs
 
       - name: Preserve existing chat request behaviour
@@ -51,7 +51,7 @@ jobs:
         run: node tools/chat-three-d.browser.cjs
 
       - name: Check changed chat modules
-        run: node --check chat.js && node --check chat-three-d.mjs && node --check cloudflare/private-api-bridge/worker.js
+        run: node --check chat.js && node --check chat-three-d.mjs && node --check chat-artifacts.mjs && node --check chat-transport-options.mjs && node --check cloudflare/private-api-bridge/worker.js
 
       - name: Check changed-file whitespace
         run: git diff --check HEAD^ HEAD

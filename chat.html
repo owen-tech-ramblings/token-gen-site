@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
-    <link rel="stylesheet" href="./chat-three-d.css?v=20261011" />
-    <script type="module" src="./chat-three-d.mjs?v=20261011-highest-2"></script>
+    <link rel="stylesheet" href="./chat-three-d.css?v=20261011-artifacts-1" />
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=token-chat-agent-mode-20260825-1" />
   </head>
@@ -567,6 +566,12 @@ Keep responses clear and useful. Match detail to the request, use plain language
         <div class="chat-job-list" id="chatJobsList" aria-live="polite">
           <p class="chat-jobs-empty">Loading jobs...</p>
         </div>
+        <section aria-label="Private generated outputs">
+          <h3>Saved outputs</h3>
+          <p>Original files stay private to your account. Native video masters download directly; playback copies are labeled separately.</p>
+          <div id="chatSavedArtifacts" aria-live="polite"></div>
+          <button class="chat-secondary-button" id="chatSavedArtifactsMore" type="button" hidden>Load more saved outputs</button>
+        </section>
       </div>
     </aside>
 
@@ -632,6 +637,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-highest-quality-20261011-4"></script>
+    <script type="module" src="./chat.js?v=token-chat-artifact-consumer-20261011-1"></script>
   </body>
 </html>

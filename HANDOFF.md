@@ -1,5 +1,107 @@
 # Token Gen Handoff
 
+## Private generated artifacts — 2026-10-11 (review candidate)
+
+Owner-authorized source work is in
+`/home/zenfree/codex/token-gen-site-quality-20261011`, branch
+`codex/nas-artifact-consumer-20261011`, from verified aligned origin
+master/dev `3b913abce2383fe04dda6d9ffff2bc9a38c6a534`.
+The unrelated dirty `/home/zenfree/token-gen-site` is preserved. This records
+an actual isolated GitHub checkout; no PC-managed receipt is claimed.
+
+Retained image and 3D generation saves a stable assistant placeholder before
+submission. Requests carry its exact conversation/message context and a stable
+Idempotency-Key. Each sample captures that context once. None retention sends
+only temporary-retention context and creates no saved conversation. Private
+save failure blocks generation, and a failed/ambiguous private submission
+never triggers another transport. The authenticated image fallback is selected
+only before any private submission. New work requires the advertised private
+artifact contract; an older API cannot silently ignore the context. Ordinary
+chat and existing artifact/model reads retain their behavior.
+
+Typed image, audio, video and 3D refs survive saved-history reopen. A closed
+browser helper drops owner locators, secrets and provider URLs, derives private
+content paths from UUIDs, and keeps only minimal refs in history writes. Conflict
+retries merge late server refs. Artifact-only refresh never advances the saved
+conversation revision: remote text changes still trigger If-Match conflicts.
+Stable existing IDs survive restore, including old messages that need their
+first ID. Provider completion and archive pending
+are separate: saved/temporary states come only from durable API DTOs. Image
+previews also use the authenticated bridge before capture completes. Native
+video ZIP masters download directly in the browser without whole-file JS
+buffers; a paginated owner-scoped output drawer labels MP4 playback copies.
+
+Agent requests save their retained placeholder and pass trusted parent context
+through private chat with an idempotency header. The empty placeholder is
+excluded from model conditioning. Safe fixed image/speech/video/3D job poll
+URLs hydrate temporary outputs into the exact assistant message; ordinary chat
+payloads and transport stay unchanged. The Access bridge adds artifacts,
+image, chat, tts and video while preserving assertion verification, browser
+credential stripping, canonical origin, streaming, HEAD/ranges and redirects.
+Speech polling accepts the TTS API's canonical hyphenated UUID job IDs; video
+and 3D retain their 32-hex IDs. The native WAV browser fixture now uses the real
+TTS ID shape. Queries, suffixes and mismatched service ID formats are rejected.
+The existing unit selector reproduced the missed TTS poll in
+`/home/zenfree/codex/site-tts-uuid-red-20261011.log`, then passed in
+`/home/zenfree/codex/site-tts-uuid-green-20261011.log` after the focused fix.
+
+The confirmed printer is A350T single extrusion with Quick Swap, PLA, 0.4 mm
+nozzle, 320×335×310 mm usable volume and 0.08 mm fine layers. Its exact API
+profile ID is `snapmaker_a350t_quick_swap_single_pla_0_4_fine`; the STL target
+defaults to that confirmed profile even while unavailable. STL submission
+waits for advertised availability unless the caller explicitly selects generic
+geometry; textured GLB remains available. Explicit generic/raw inspection stays
+available. Expandable native printer reports show the dry-slice result, model
+and build dimensions, reported layer/nozzle measurements, deposited layers and
+readable thin-feature, local-wall and physical-print limitations. Closed safe
+fields render with textContent; arbitrary failure payloads, paths and tokens are
+excluded. Expanded reports stay open during refresh. Printer validation remains
+separate from geometry validation, and the selected profile is never dropped. The paired API
+profile release and real output validation remain deployment work; this site candidate does
+not claim a printer-ready generated model.
+
+Verification remains the existing five selected outcomes (two 3D/bridge unit
+checks, one Agent control/transport check, desktop/mobile browser scenarios),
+plus changed-module syntax and whitespace. RED evidence:
+`/home/zenfree/codex/site-artifact-consumer-red-20261011.log` and
+`/home/zenfree/codex/site-artifact-browser-red-20261011.log`. Review regressions
+reproduced RED in `site-printer-default-red-20261011.log` (unavailable profile
+silently selected generic) and `site-artifact-conflict-red-20261011.log`
+(artifact-only refresh acknowledged unapplied remote text); both now pass in
+the same selected browser/unit scenarios. The report-rendering regression
+was RED in `site-printer-report-red-20261011.log` and
+`site-printer-report-browser-red-20261011.log`, then GREEN in those same selectors.
+The browser fixture verifies retained admission/failure, 3D and image pending to
+saved transitions, same-key replay, protected history recovery, 36 GB ZIP
+metadata without content fetch, pagination, None authenticated fallback and
+temporary Agent native WAV. Native image/edit/upscale/LLM input bytes and alpha,
+existing byte guards, explicit lower controls and failed vision discovery are
+protected in those same scenarios. This is fixture evidence, not a live NAS or
+GPU generation claim. The final five-outcome log is
+`/home/zenfree/codex/site-artifact-five-checks-20261011.log`. Commands use Node
+24 from the isolated browser environment:
+
+```bash
+node --test tools/chat-three-d.test.mjs
+node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs
+PLAYWRIGHT_MODULE=/home/zenfree/codex/site-quality-browser-20261011/node_modules/playwright node tools/chat-three-d.browser.cjs
+node --check chat.js
+node --check chat-three-d.mjs
+node --check chat-artifacts.mjs
+node --check chat-transport-options.mjs
+node --check cloudflare/private-api-bridge/worker.js
+git diff --cached --check
+```
+
+The preserved baseline printer regression is
+`/home/zenfree/codex/site-printer-profile-baseline-red-20261011.log`; the same
+current unit selector passes. Exact review head is recorded in the PR.
+
+Paired rollout requires reviewed API PR #63 and the reviewed Access bridge
+before site adoption. Root review, master-only targeted CI, exact Pages release
+and protected live checks remain pending. No merge, Pages/Worker deployment,
+endpoint change, runtime restart or paid generation was performed here.
+
 ## Original image references — 2026-10-11
 
 Image edit, restyle and style-reference requests preserve original encoded
