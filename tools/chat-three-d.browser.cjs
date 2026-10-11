@@ -13,7 +13,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
   const req=route.request(),url=new URL(req.url());calls.push({path:url.pathname,method:req.method(),body:req.postData(),headers:req.headers()});
   let data={ok:true};
   if(url.pathname.startsWith('/api/private/3d')){
-   if(url.pathname.endsWith('/health'))data={available};
+   if(url.pathname.endsWith('/health'))data={ok:available,nas_available:true,models:[{id:'trellis2',available,configured:available}]};
    else if(url.pathname.endsWith('/content'))return route.fulfill({status:200,body:artifact,contentType:'model/gltf-binary'});
    else if(url.pathname.endsWith('/cancel')){jobs[0]={...jobs[0],status:'CANCELLED'};data={job:jobs[0]};}
    else if(url.pathname.endsWith('/generations')){
