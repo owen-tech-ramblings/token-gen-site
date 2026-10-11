@@ -55,4 +55,3 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844'}));
  await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1);});
-
