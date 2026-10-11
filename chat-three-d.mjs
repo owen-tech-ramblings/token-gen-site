@@ -7,12 +7,12 @@ export function jobPath(id, suffix = '') {
   return `${THREE_D_BASE}/generations/${id}${suffix}`;
 }
 
-export function generationSettings(values) {
-  const result = { model: 'trellis2', resolution: Number(values.resolution),
-    triangle_target: Number(values.triangle_target), texture_size: Number(values.texture_size),
-    output_format: values.output_format };
-  if (![512, 1024].includes(result.resolution) || ![512, 1024, 2048].includes(result.texture_size) ||
-      !Number.isInteger(result.triangle_target) || result.triangle_target < 1000 || result.triangle_target > 100000 ||
+export function generationSettings(values = {}) {
+  const result = { model: 'trellis2', resolution: Number(values.resolution ?? 1536),
+    triangle_target: Number(values.triangle_target ?? 1000000), texture_size: Number(values.texture_size ?? 4096),
+    output_format: values.output_format ?? 'glb' };
+  if (![512, 1024, 1536].includes(result.resolution) || ![512, 1024, 2048, 3072, 4096].includes(result.texture_size) ||
+      !Number.isInteger(result.triangle_target) || result.triangle_target < 1000 || result.triangle_target > 1000000 ||
       !['glb', 'stl', 'both'].includes(result.output_format)) throw new Error('Check the 3D generation settings.');
   if (result.output_format !== 'glb') {
     result.max_dimension_mm = Number(values.max_dimension_mm);
@@ -85,15 +85,15 @@ export function mountThreeD(doc = document) {
   // Static, trusted template. API strings are assigned only through textContent.
   dialog.innerHTML = `
     <header><div><small>IMAGE TO 3D</small><h2 id="threeDHeading">Create a 3D model</h2></div><button type="button" data-close aria-label="Close 3D models">✕</button></header>
-    <p>Turn a transparent PNG into a textured model for your game, or an STL for further preparation.</p>
+    <p>Create a textured model or a repaired, geometry-validated STL. Highest quality is selected by default; choose lower settings for previews.</p>
     <p class="three-d-health" data-health role="status">Checking 3D availability…</p>
     <form class="three-d-form">
       <label class="three-d-file">Source image<input name="image" type="file" accept="image/png" required><small>Transparent PNG · up to 6 MiB · 4096 × 4096 px</small></label>
       <div class="three-d-fields">
         <label>Output<select name="output_format"><option value="glb">GLB · textured model</option><option value="stl">STL · geometry only</option><option value="both">GLB and STL</option></select></label>
-        <label>Resolution<select name="resolution"><option>512</option><option>1024</option></select></label>
-        <label>Triangle target<input name="triangle_target" type="number" min="1000" max="100000" step="1" value="50000" required></label>
-        <label>Texture size<select name="texture_size"><option>512</option><option selected>1024</option><option>2048</option></select></label>
+        <label>Resolution<select name="resolution"><option>512</option><option>1024</option><option selected>1536</option></select></label>
+        <label>Triangle target<input name="triangle_target" type="number" min="1000" max="1000000" step="1" value="1000000" required></label>
+        <label>Texture size<select name="texture_size"><option>512</option><option>1024</option><option>2048</option><option>3072</option><option selected>4096</option></select></label>
         <label data-stl hidden>Longest dimension (mm)<input name="max_dimension_mm" type="number" min="0.1" max="10000" step="any" value="100"></label>
         <label>Seed <small>(optional)</small><input name="seed" type="number" min="0" max="4294967295" step="1" placeholder="Random"></label>
       </div>

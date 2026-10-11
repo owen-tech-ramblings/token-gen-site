@@ -20,10 +20,14 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
     if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7}];data={job:jobs[0]};}
     else data={jobs};
    } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
-  } else if(url.pathname.endsWith('/chat/models'))data={ok:true,models:[{id:'fixture-model',name:'Fixture model'}],default_model:'fixture-model'};
+  } else if(url.pathname.endsWith('/chat/models'))data={ok:true,data:{data:[{id:'fixture-model',name:'Fixture model'}]},default_model:'fixture-model'};
   else if(url.pathname.endsWith('/conversations'))data={ok:true,conversations:[]};
   else if(url.pathname.endsWith('/projects'))data={ok:true,projects:[]};
-  else if(url.pathname.endsWith('/jobs'))data={ok:true,jobs:[]};
+  else if(url.pathname.endsWith('/jobs')){
+   if(req.method()==='POST')return route.fulfill({status:503,json:{ok:false,error:'Offline quality fixture'}});
+   data={ok:true,jobs:[]};
+  }
+  else if(url.pathname.endsWith('/image/generations'))return route.fulfill({status:503,json:{ok:false,error:'Offline quality fixture'}});
   await route.fulfill({status:200,json:data});
  });
  await page.goto(`http://127.0.0.1:${server.address().port}/chat.html#3d`);
@@ -38,10 +42,36 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.getByRole('button',{name:'Generate model',exact:true}).click(); await retryResponse;
  await page.getByRole('button',{name:'Download GLB'}).waitFor();
  const posts=calls.filter(x=>x.path==='/api/private/3d/generations'&&x.method==='POST');
+ const default3d=JSON.parse(posts[0].body);
+ assert.deepEqual([default3d.resolution,default3d.texture_size,default3d.triangle_target],[1536,4096,1000000]);
  assert.equal(posts.length,2);assert.equal(posts[0].headers['idempotency-key'],posts[1].headers['idempotency-key']);assert.equal(posts[0].body,posts[1].body);
  assert(calls.some(x=>x.path===`/api/private/3d/generations/${jobId}`&&x.method==='GET'));
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-desktop.png')});
  await page.getByRole('button',{name:'Close 3D models'}).click();
+ assert.equal(await page.locator('#chatImageQuality').inputValue(),'ultra');
+ assert.equal(await page.locator('#chatImageSize').inputValue(),'2048');
+ assert.equal(await page.locator('#chatImageSampler').inputValue(),'');
+ assert.equal(await page.locator('#chatImageScheduler').inputValue(),'');
+ await page.locator('[data-chat-mode=image]').click();
+ await page.locator('#chatInput').fill('A detailed copper dragon');
+ const imageSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/generations')));
+ await page.locator('#chatSend').click();
+ const imageRequest=(await imageSubmission).postDataJSON();
+ const imagePayload=imageRequest.request||imageRequest;
+ assert.equal(imagePayload.quality,'ultra');
+ assert.deepEqual([imagePayload.width,imagePayload.height],[2048,2048]);
+ for(const key of ['steps','cfg','sampler_name','scheduler'])assert.equal(Object.hasOwn(imagePayload,key),false,`Use native model default for ${key}`);
+ await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ await page.locator('#chatImageQuality').selectOption('draft');
+ await page.locator('#chatImageSize').selectOption('512');
+ await page.locator('#chatImageSampler').selectOption('euler');
+ await page.locator('#chatInput').fill('Quick dragon preview');
+ const previewSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/generations')));
+ await page.locator('#chatSend').click();
+ const previewRequest=(await previewSubmission).postDataJSON();
+ const previewPayload=previewRequest.request||previewRequest;
+ assert.equal(previewPayload.quality,'draft');
+ assert.deepEqual([previewPayload.width,previewPayload.height,previewPayload.sampler_name],[512,512,'euler']);
  await page.locator('[data-chat-mode=chat]').click();assert.equal(await page.locator('#chatMode').inputValue(),'chat');
  await page.setViewportSize({width:390,height:844});available=false;
  await page.getByRole('button',{name:'Open 3D models',exact:true}).click();

@@ -317,10 +317,11 @@ const DEFAULT_VISION_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_VISION_MAX_TOTAL_BYTES = 24 * 1024 * 1024;
 const DEFAULT_VISION_MAX_PIXELS = 1280 * 28 * 28;
 const IMAGE_QUALITY_SETTINGS = {
-  draft: { label: "Draft", steps: 8, cfg: 5.0, prompt: "quick clean preview" },
-  standard: { label: "Standard", steps: 20, cfg: 5.0, prompt: "balanced detail and prompt fidelity" },
-  high: { label: "High", steps: 35, cfg: 5.0, prompt: "high detail, clean texture, polished rendering" },
-  max: { label: "Max", steps: 50, cfg: 5.0, prompt: "maximum detail, refined texture, polished final image" },
+  draft: { label: "Draft", prompt: "quick clean preview" },
+  standard: { label: "Standard", prompt: "balanced detail and prompt fidelity" },
+  high: { label: "High", prompt: "high detail, clean texture, polished rendering" },
+  max: { label: "Max", prompt: "maximum detail, refined texture, polished final image" },
+  ultra: { label: "Highest", prompt: "maximum detail, refined texture, polished final image" },
 };
 const IMAGE_STYLE_PROMPTS = {
   none: "",
@@ -663,7 +664,7 @@ function outputImageReference(output) {
 }
 
 function imageDimensions() {
-  const size = clampNumber(els.imageSize.value, 1024, 512, 1024);
+  const size = clampNumber(els.imageSize.value, 2048, 512, 2048);
   const shortSide = Math.max(384, Math.round(size * 0.75));
   if (els.imageOrientation.value === "portrait") return { width: shortSide, height: size };
   if (els.imageOrientation.value === "landscape") return { width: size, height: shortSide };
@@ -3933,7 +3934,8 @@ async function sendMessage(content, route = routeRequest(content)) {
 function imageSettings() {
   const dimensions = imageDimensions();
   const samples = Math.round(clampNumber(els.imageSamples.value, 1, 1, 4));
-  const quality = IMAGE_QUALITY_SETTINGS[els.imageQuality.value] || IMAGE_QUALITY_SETTINGS.standard;
+  const qualityKey = Object.hasOwn(IMAGE_QUALITY_SETTINGS, els.imageQuality.value) ? els.imageQuality.value : "ultra";
+  const quality = IMAGE_QUALITY_SETTINGS[qualityKey];
   const creativity = IMAGE_CREATIVITY_SETTINGS[els.imageCreativity.value] || IMAGE_CREATIVITY_SETTINGS["0.50"];
   const preservation = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.strict;
   const editStrength = clampNumber(els.imageEditStrength.value, preservation.strength, 0.05, 0.8);
@@ -3941,7 +3943,7 @@ function imageSettings() {
   return {
     ...dimensions,
     samples,
-    qualityKey: els.imageQuality.value,
+    qualityKey,
     qualityLabel: quality.label,
     qualityPrompt: quality.prompt,
     styleKey: els.imageStyle.value,
@@ -3961,10 +3963,8 @@ function imageSettings() {
     editStrength,
     upscaleScale,
     upscaleMethod: els.imageUpscaleMethod.value || "lanczos",
-    samplerName: els.imageSampler.value || "res_multistep",
-    scheduler: els.imageScheduler.value || "simple",
-    steps: quality.steps,
-    cfg: quality.cfg,
+    samplerName: els.imageSampler.value || undefined,
+    scheduler: els.imageScheduler.value || undefined,
   };
 }
 
@@ -4016,8 +4016,6 @@ function buildImagePayload(prompt, settings, sampleIndex) {
     negative_prompt: imageNegativePrompt(),
     width: settings.width,
     height: settings.height,
-    steps: settings.steps,
-    cfg: settings.cfg,
     quality: settings.qualityKey,
     creativity: settings.creativity,
     content_rating: settings.contentRating,
@@ -4063,8 +4061,6 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
     ]),
     strength: settings.editStrength,
     denoise: settings.editStrength,
-    steps: settings.steps,
-    cfg: settings.cfg,
     quality: settings.qualityKey,
     creativity: settings.creativity,
     content_rating: settings.contentRating,

@@ -1,5 +1,25 @@
 # Token Gen Current State
 
+## Highest-quality browser defaults — 2026-10-11
+
+The owner's explicit highest-quality policy now applies to both image and 3D
+controls. Image requests start at 2048 pixels / ultra and use the API's native
+sampling recipe unless the user selects a sampler or scheduler. Lower sizes
+and quality tiers remain explicit choices. TRELLIS starts at resolution 1536,
+4096 textures and a one-million-triangle target; existing request identities,
+polling, cancellation and verified partial-artifact downloads are preserved.
+
+Validation: two named 3D/bridge Node checks, the protected Agent-mode request
+check, and the desktop/mobile Chromium consumer workflow. The browser check
+inspects actual default 3D and image POST payloads and verifies GLB download
+integrity, replay identity, health-dependent submission and mobile layout.
+No paid generation occurs in these browser fixtures. Source cache keys changed.
+
+Authoring follows Jesse's explicit GitHub-source/continue-without-PC-blockers
+instructions using an isolated Token Gen checkout and reviewed PR; this work
+has no Lil Zen managed-worktree receipt and does not claim one. Existing local
+site edits are preserved separately and excluded from this release.
+
 Last updated: 2026-10-11 Australia/Sydney
 
 ## 3D model consumer — 2026-10-11
