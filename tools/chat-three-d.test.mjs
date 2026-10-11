@@ -7,7 +7,15 @@ test('3D settings, retry identity and partial artifact integrity follow the API 
   const values = { resolution: '512', triangle_target: '50000', texture_size: '1024', output_format: 'glb', seed: '', max_dimension_mm: '100' };
   assert.deepEqual(generationSettings(values), { model: 'trellis2', resolution: 512, triangle_target: 50000, texture_size: 1024, output_format: 'glb' });
   assert.equal(generationSettings({ ...values, output_format: 'both' }).max_dimension_mm, 100);
-  for (const invalid of [{ triangle_target: 100001 }, { seed: -1 }, { output_format: 'both', max_dimension_mm: '' }])
+  const highest = generationSettings({ ...values, resolution: '1536', texture_size: '4096', triangle_target: '1000000', sampling_steps: '12', output_format: 'both', stl_repair: 'false' });
+  assert.equal(highest.resolution, 1536);
+  assert.equal(highest.texture_size, 4096);
+  assert.equal(highest.triangle_target, 1000000);
+  assert.equal(highest.sampling_steps, 12);
+  assert.equal(highest.stl_repair, false);
+  assert.equal(generationSettings({ ...values, output_format: 'stl', stl_repair: 'true' }).stl_repair, true);
+  assert.equal(generationSettings({ ...values, texture_size: '3072' }).texture_size, 3072);
+  for (const invalid of [{ triangle_target: 1000001 }, { sampling_steps: 51 }, { seed: -1 }, { output_format: 'both', max_dimension_mm: '' }])
     assert.throws(() => generationSettings({ ...values, ...invalid }));
   const previous = requestIdentity(null, 'same-image-settings', 'once');
   assert.equal(requestIdentity(previous, 'same-image-settings', 'unused'), previous);

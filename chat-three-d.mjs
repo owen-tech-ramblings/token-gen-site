@@ -11,8 +11,8 @@ export function generationSettings(values) {
   const result = { model: 'trellis2', resolution: Number(values.resolution),
     triangle_target: Number(values.triangle_target), texture_size: Number(values.texture_size),
     output_format: values.output_format };
-  if (![512, 1024].includes(result.resolution) || ![512, 1024, 2048].includes(result.texture_size) ||
-      !Number.isInteger(result.triangle_target) || result.triangle_target < 1000 || result.triangle_target > 100000 ||
+  if (![512, 1024, 1536].includes(result.resolution) || ![512, 1024, 2048, 3072, 4096].includes(result.texture_size) ||
+      !Number.isInteger(result.triangle_target) || result.triangle_target < 1000 || result.triangle_target > 1000000 ||
       !['glb', 'stl', 'both'].includes(result.output_format)) throw new Error('Check the 3D generation settings.');
   if (result.output_format !== 'glb') {
     result.max_dimension_mm = Number(values.max_dimension_mm);
@@ -22,6 +22,15 @@ export function generationSettings(values) {
   if (values.seed !== '' && values.seed != null) {
     result.seed = Number(values.seed);
     if (!Number.isInteger(result.seed) || result.seed < 0 || result.seed > 4294967295) throw new Error('Seed must be an unsigned 32-bit integer.');
+  }
+  if (values.sampling_steps !== '' && values.sampling_steps != null) {
+    result.sampling_steps = Number(values.sampling_steps);
+    if (!Number.isInteger(result.sampling_steps) || result.sampling_steps < 1 || result.sampling_steps > 50)
+      throw new Error('Sampling steps must be between 1 and 50.');
+  }
+  if (result.output_format !== 'glb' && values.stl_repair != null) {
+    if (!['true', 'false'].includes(String(values.stl_repair))) throw new Error('Choose the STL geometry option.');
+    result.stl_repair = String(values.stl_repair) === 'true';
   }
   return result;
 }
@@ -91,10 +100,12 @@ export function mountThreeD(doc = document) {
       <label class="three-d-file">Source image<input name="image" type="file" accept="image/png" required><small>Transparent PNG · up to 6 MiB · 4096 × 4096 px</small></label>
       <div class="three-d-fields">
         <label>Output<select name="output_format"><option value="glb">GLB · textured model</option><option value="stl">STL · geometry only</option><option value="both">GLB and STL</option></select></label>
-        <label>Resolution<select name="resolution"><option>512</option><option>1024</option></select></label>
-        <label>Triangle target<input name="triangle_target" type="number" min="1000" max="100000" step="1" value="50000" required></label>
-        <label>Texture size<select name="texture_size"><option>512</option><option selected>1024</option><option>2048</option></select></label>
+        <label>Resolution<select name="resolution"><option>512</option><option>1024</option><option selected>1536</option></select></label>
+        <label>Triangle target<input name="triangle_target" type="number" min="1000" max="1000000" step="1" value="1000000" required></label>
+        <label>Texture size<select name="texture_size"><option>512</option><option>1024</option><option>2048</option><option>3072</option><option selected>4096</option></select></label>
+        <label>Sampling steps<input name="sampling_steps" type="number" min="1" max="50" step="1" value="12" required><small>12 recommended; more is not always better.</small></label>
         <label data-stl hidden>Longest dimension (mm)<input name="max_dimension_mm" type="number" min="0.1" max="10000" step="any" value="100"></label>
+        <label data-stl hidden>STL geometry<select name="stl_repair"><option value="true">Repaired and validated</option><option value="false">Raw · for inspection</option></select></label>
         <label>Seed <small>(optional)</small><input name="seed" type="number" min="0" max="4294967295" step="1" placeholder="Random"></label>
       </div>
       <p data-message role="status" aria-live="polite"></p>
@@ -171,8 +182,9 @@ export function mountThreeD(doc = document) {
   query('[data-close]').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => clearTimeout(timer));
   query('[data-refresh]').addEventListener('click', () => { void health(); void refresh(); });
-  form.elements.output_format.addEventListener('change', () => { query('[data-stl]').hidden = form.elements.output_format.value === 'glb'; });
-  query('[data-new]').addEventListener('click', () => { if (busy) return; save(null); form.reset(); query('[data-stl]').hidden = true; message.textContent = 'Ready for a new model.'; });
+  const showStl = () => { for (const field of dialog.querySelectorAll('[data-stl]')) field.hidden = form.elements.output_format.value === 'glb'; };
+  form.elements.output_format.addEventListener('change', showStl);
+  query('[data-new]').addEventListener('click', () => { if (busy) return; save(null); form.reset(); showStl(); message.textContent = 'Ready for a new model.'; });
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (busy) return; busy = true; submit.disabled = true;
     try {
