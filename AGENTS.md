@@ -79,18 +79,18 @@ This repository owns only the browser/site side:
 - frontend Playwright/browser verification
 - cache-busting static assets when needed
 
-The API and server-side SearXNG source is the separate canonical repository at
-`/home/jesse/.openclaw/workspace/token-gen-api`, remote
-`https://github.com/owen-tech-ramblings/token-gen-api.git`. Any Codex or Codex
-CLI instance may build either product, but it must use that product's `dev`
-branch, repository instructions, verification, release and rollback path.
-Machine location does not create ownership. Never patch managed runtime files
-outside the API's local installer or work around missing API behaviour by
-inventing browser data.
+Token Gen owns the API endpoints and server-side SearXNG in
+`https://github.com/owen-tech-ramblings/token-gen-api.git`. Its owner-authorised
+isolated checkout and rollback installer govern server releases. This machine
+owns the API consumers in OpenClaw, *.owenonthenet.com and Token Gen chat,
+using their separate source and release paths. See Jesse's 11 October 2026
+clarification and control-plane decision 0153. Never patch API runtime files
+or invent browser data to work around unavailable API behaviour.
 
-Token Gen site and API have separate canonical repositories and product release
-scopes. Their reviewed release and alignment transactions are owned by the Lil
-Zen control plane; runtime copies are never authoring sources.
+The additive 3D panel uses the existing Access bridge at `/api/private/3d`.
+Preserve request idempotency and verify GLB/STL downloads. Worker availability
+affects 3D submissions only; add no unrelated readiness or approval gates.
+Keep chat, project, image, video and TTS paths unchanged.
 
 ## Architecture Rules
 

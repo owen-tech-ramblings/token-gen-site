@@ -30,11 +30,32 @@ jobs:
         with:
           node-version: 24
 
-      - name: Run three targeted Agent mode checks
-        run: node --test tools/chat-agent-options.test.mjs
+      - name: Check 3D lifecycle and existing private authentication
+        run: node --test tools/chat-three-d.test.mjs
+
+      - name: Preserve existing chat request behaviour
+        run: node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs
+
+      - name: Install isolated browser test runtime
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/three-d-${{ github.sha }}/browsers
+          NPM_CONFIG_CACHE: ${{ runner.temp }}/three-d-${{ github.sha }}/npm-cache
+        run: |
+          npm install --no-save --prefix ${{ runner.temp }}/three-d-${{ github.sha }}/runtime playwright@1.62.1
+          ${{ runner.temp }}/three-d-${{ github.sha }}/runtime/node_modules/.bin/playwright install chromium
+
+      - name: Check desktop and mobile 3D workflows
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/three-d-${{ github.sha }}/browsers
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/three-d-${{ github.sha }}/runtime/node_modules/playwright
+        run: node tools/chat-three-d.browser.cjs
 
       - name: Check changed chat modules
-        run: node --check chat.js && node --check chat-agent-options.mjs
+        run: node --check chat.js && node --check chat-three-d.mjs && node --check cloudflare/private-api-bridge/worker.js
 
       - name: Check changed-file whitespace
         run: git diff --check HEAD^ HEAD
+
+      - name: Remove this run's browser runtime
+        if: always()
+        run: rm -rf -- "${RUNNER_TEMP:?}/three-d-${GITHUB_SHA:?}"

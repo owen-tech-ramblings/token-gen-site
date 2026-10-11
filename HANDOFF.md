@@ -1,6 +1,26 @@
 # Token Gen Handoff
 
-Last updated: 2026-08-25 Australia/Sydney
+Last updated: 2026-10-11 Australia/Sydney
+
+## 2026-10-11 3D consumer
+
+`chat-three-d.mjs` and `chat-three-d.css` own the isolated 3D panel, launched
+from `chat.html`. `/api/private/3d/*` maps to the Token Gen API's `/api/3d/*`
+through the existing Worker. Preserve Access assertion forwarding and browser
+credential stripping. The API owns generation and owner scope.
+
+Focused commands: `node --test tools/chat-three-d.test.mjs`,
+`node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs`,
+`node --check chat-three-d.mjs`, and `git diff --check`. Browser verification
+passed desktop/mobile retry, partial-download and unavailable-worker flows.
+The worker is not enabled on the API at inspection time, so no real generation
+claim is made. Check `https://token-gen-api.owenonthenet.com/api/3d/health` for
+current availability. Client release does not configure or generate GPU work.
+
+Deploy the existing `token-gen-private-api` Worker from
+`cloudflare/private-api-bridge/wrangler.jsonc`, retaining its prior deployment
+version for rollback. Deploy Pages and reconcile the exact commit through the
+existing Token Gen site cutover. No DNS, Access audience or API routing changes.
 
 ## 2026-08-25 Web Chat Agent mode
 

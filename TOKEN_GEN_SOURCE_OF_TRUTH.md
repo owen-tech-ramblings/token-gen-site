@@ -1,6 +1,6 @@
 # Token Gen Source Of Truth
 
-Last updated: 2026-08-22
+Last updated: 2026-10-11
 
 This file is the current routing, source, and release authority for Token Gen.
 Read it before changing the site, API, Cloudflare routing, bot integration, or
@@ -10,9 +10,11 @@ generated client helpers.
 
 - Site source: `/home/jesse/.openclaw/workspace/token-gen-site-pages`, remote
   `https://github.com/owen-tech-ramblings/token-gen-site.git`.
-- API source: `/home/jesse/.openclaw/workspace/token-gen-api`, remote
-  `https://github.com/owen-tech-ramblings/token-gen-api.git`.
-- Development uses a receipt-bound managed worktree from an aligned `dev` and
+- API source: `https://github.com/owen-tech-ramblings/token-gen-api.git`.
+  Token Gen owns its endpoints and owner-authorised isolated source checkout
+  and rollback installer. The WSL API checkout is a reference location, not a
+  prerequisite for the API team's server-local release.
+- Consumer development here uses a receipt-bound managed worktree from an aligned `dev` and
   `master`. The reviewed feature merges to `master`; the one master-only CI run
   contains no more than ten change-specific checks. A successful release
   aligns local and origin `dev` to the deployed `master` and removes the
@@ -21,7 +23,7 @@ generated client helpers.
   it is never an authoring source. API activation uses the repository's
   rollback-protected release command. The site uses the registered GitHub
   Pages cutover from the exact reviewed `master` commit.
-- The Lil Zen control plane provides release admission and exact-source
+- The Lil Zen control plane provides consumer release admission and exact-source
   reconciliation. Token Gen chat, vLLM and web search still run entirely on
   the Token Gen server and never depend on a developer PC relay.
 
@@ -65,15 +67,15 @@ canonical repository and its installer.
 
 ## Historical integrations (non-authoritative)
 
-Older records that name `/home/zenfree` as an authoring checkout, direct `dev`
-development, a PC-side Node gateway, or a Windows mirror are retained only as
+Older records that name direct `dev` development, a PC-side Node gateway, or a Windows mirror are retained only as
 dated history. They do not override the current roots or release path above.
 The checked-in `services/` examples are reference material, not a deployment
 source.
 
 ## Required preflight
 
-Before changing API behaviour:
+API changes belong in the API repository and follow its current `AGENTS.md`.
+For read-only inspection of the local reference checkout:
 
 ```bash
 git -C /home/jesse/.openclaw/workspace/token-gen-api rev-parse --show-toplevel
