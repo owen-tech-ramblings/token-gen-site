@@ -23,6 +23,15 @@ export function generationSettings(values = {}) {
     result.seed = Number(values.seed);
     if (!Number.isInteger(result.seed) || result.seed < 0 || result.seed > 4294967295) throw new Error('Seed must be an unsigned 32-bit integer.');
   }
+  if (values.sampling_steps !== '' && values.sampling_steps != null) {
+    result.sampling_steps = Number(values.sampling_steps);
+    if (!Number.isInteger(result.sampling_steps) || result.sampling_steps < 1 || result.sampling_steps > 50)
+      throw new Error('Sampling steps must be between 1 and 50.');
+  }
+  if (result.output_format !== 'glb' && values.stl_repair != null) {
+    if (!['true', 'false'].includes(String(values.stl_repair))) throw new Error('Choose the STL geometry option.');
+    result.stl_repair = String(values.stl_repair) === 'true';
+  }
   return result;
 }
 
@@ -94,7 +103,9 @@ export function mountThreeD(doc = document) {
         <label>Resolution<select name="resolution"><option>512</option><option>1024</option><option selected>1536</option></select></label>
         <label>Triangle target<input name="triangle_target" type="number" min="1000" max="1000000" step="1" value="1000000" required></label>
         <label>Texture size<select name="texture_size"><option>512</option><option>1024</option><option>2048</option><option>3072</option><option selected>4096</option></select></label>
+        <label>Sampling steps<input name="sampling_steps" type="number" min="1" max="50" step="1" value="12" required><small>12 recommended; more is not always better.</small></label>
         <label data-stl hidden>Longest dimension (mm)<input name="max_dimension_mm" type="number" min="0.1" max="10000" step="any" value="100"></label>
+        <label data-stl hidden>STL geometry<select name="stl_repair"><option value="true">Repaired and validated</option><option value="false">Raw · for inspection</option></select></label>
         <label>Seed <small>(optional)</small><input name="seed" type="number" min="0" max="4294967295" step="1" placeholder="Random"></label>
       </div>
       <p data-message role="status" aria-live="polite"></p>
@@ -171,8 +182,9 @@ export function mountThreeD(doc = document) {
   query('[data-close]').addEventListener('click', () => dialog.close());
   dialog.addEventListener('close', () => clearTimeout(timer));
   query('[data-refresh]').addEventListener('click', () => { void health(); void refresh(); });
-  form.elements.output_format.addEventListener('change', () => { query('[data-stl]').hidden = form.elements.output_format.value === 'glb'; });
-  query('[data-new]').addEventListener('click', () => { if (busy) return; save(null); form.reset(); query('[data-stl]').hidden = true; message.textContent = 'Ready for a new model.'; });
+  const showStl = () => { for (const field of dialog.querySelectorAll('[data-stl]')) field.hidden = form.elements.output_format.value === 'glb'; };
+  form.elements.output_format.addEventListener('change', showStl);
+  query('[data-new]').addEventListener('click', () => { if (busy) return; save(null); form.reset(); showStl(); message.textContent = 'Ready for a new model.'; });
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (busy) return; busy = true; submit.disabled = true;
     try {

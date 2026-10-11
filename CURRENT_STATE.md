@@ -23,6 +23,8 @@ The two existing 3D/bridge checks and protected Agent check also pass on
 Node 24.21.0, using the exact commands in the next section. No named tests or
 paid jobs were added. The obsolete historical source-resize guards were
 removed; the historical aggregate remains unrun under the targeted-test policy.
+Integration of current master `62316e1` preserves its native 12-step sampling
+and repaired/raw STL controls; the same selected checks pass after integration.
 Legacy resized assets cannot recover already discarded pixels. GPU inference
 and the separate LLM capacity/worker precision releases remain unverified here.
 
@@ -83,11 +85,20 @@ Passed: the two `tools/chat-three-d.test.mjs` checks, existing Agent/chat
 compatibility checks and two Chromium scenarios at 1365×900 and 390×844.
 The browser scenarios cover retry identity, status refresh, partial GLB
 download, unavailable generation, normal chat selection and keyboard close.
-Fixtures make no paid calls. Live `/api/3d/health` currently reports the worker
-unavailable; real inference remains an API/worker activation dependency.
+Fixtures make no paid calls. At 01:32 UTC, live `/api/3d/health` reports the worker
+configured, available and historically inference-verified. No generation was
+submitted by this consumer integration.
 
-The private bridge must deploy from this reviewed source alongside the Pages
-release. Its route and Access policy remain unchanged. Rider/OpenClaw tooling
+The refreshed API contract supports 1536 resolution, 4096 textures and one
+million triangles as highest-quality defaults. The panel also exposes sampling
+steps and repaired or raw STL, retaining all smaller settings for game assets.
+Desktop/mobile fixtures verify the exact new request and retained retry key.
+
+The private bridge was deployed from reviewed commit `2732268238cb` as Worker
+version `1f03bd9f-f43a-447e-aa06-422f691ab9f2`; rollback is
+`3e916373-e506-4802-8b00-5b00ea6cdc63`. Its route and Access policy remain unchanged.
+Live authenticated health, 3D history, conversations, projects and jobs all
+returned HTTP 200 with `ok: true`. Rider/OpenClaw tooling
 is released separately by the control plane's `token-gen-3d` capability.
 
 ## Web Chat Agent mode - 2026-08-25
