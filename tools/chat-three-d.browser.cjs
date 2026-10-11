@@ -8,12 +8,13 @@ const nativeZip={artifact_id:'33333333-3333-4333-8333-333333333333',kind:'video'
 const imageJobId='c'.repeat(32), imageArtifactId='44444444-4444-4444-8444-444444444444';
 const speechJobId='e'.repeat(32),speechArtifactId='55555555-5555-4555-8555-555555555555';
 const speechArtifact={artifact_id:speechArtifactId,kind:'audio',format:'wav',state:'temporary',sha256:'5'.repeat(64),size_bytes:1024,expires_at:1791691800,native_metadata:{sample_rate:24000,channels:1,encoding_fidelity:'native_float'}};
+const passedPrinterReport={profile_id:'snapmaker_a350t_quick_swap_single_pla_0_4_fine',status:'passed',validation:'native_dry_slice',dimensions_mm:[20,20,2],build_volume_mm:[320,335,310],layer_height_mm:.08,nozzle_mm:.4,toolpath:{layer_count:22},warnings:['thin_components','local_wall_thickness_unchecked','physical_print_unverified'],provider_token:'PRIVATE_REPORT_TOKEN'};
 const server = http.createServer((req,res)=>{ const name = decodeURIComponent(req.url.split('?')[0]); const file=path.join(root,name==='/'?'chat.html':name); try {res.setHeader('Content-Type',file.endsWith('.mjs')||file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end('missing');} });
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1365,height:900},acceptDownloads:true});
- const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,modelDiscoveryReady=true,archiveContractReady=true,imageFailure='Offline quality fixture',originalAssetBytes,archiveReady=false,historyWriteFails=false,privateJobsAvailable=true,forceConflict=false,imageSucceeds=false,imageJob,imageReady=false,imageBytes;
+ const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,printerAvailable=false,modelDiscoveryReady=true,archiveContractReady=true,imageFailure='Offline quality fixture',originalAssetBytes,archiveReady=false,historyWriteFails=false,privateJobsAvailable=true,forceConflict=false,imageSucceeds=false,imageJob,imageReady=false,imageBytes;
  const imageRecord=()=>({artifact_id:imageArtifactId,kind:'image',format:'png',state:'saved',sha256:crypto.createHash('sha256').update(imageBytes).digest('hex'),size_bytes:imageBytes.length,created_at:1791690000});
  const hydrate=body=>({...body,messages:(body.messages||[]).map(message=>archiveReady&&message.id===jobs[0]?.artifact_context?.message_id?{...message,artifacts:[savedGlb]}:imageReady&&message.id===imageJob?.artifact_context?.message_id?{...message,artifacts:[imageRecord()]}:message)});
  page.on('pageerror',e=>errors.push(e.message));
@@ -21,13 +22,13 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
   const req=route.request(),url=new URL(req.url());calls.push({path:url.pathname,method:req.method(),body:req.postData(),headers:req.headers()});
   let data={ok:true};
   if(url.pathname.startsWith('/api/private/3d')){
-   if(url.pathname.endsWith('/health'))data={ok:available,nas_available:true,models:[{id:'trellis2',available,configured:available,stl:{default_printer_profile:'snapmaker_a350t_quick_swap_single_pla_0_4_fine'},printer_profiles:[{id:'snapmaker_a350t_quick_swap_single_pla_0_4_fine',available:true,build_volume_mm:[320,335,310],nozzle_mm:0.4,material:'PLA',layer_height_mm:0.08,first_layer_height_mm:0.28,brim_margin_mm:12,validation:'native_dry_slice'}]}]};
+   if(url.pathname.endsWith('/health'))data={ok:available,nas_available:true,models:[{id:'trellis2',available,configured:available,stl:{default_printer_profile:'snapmaker_a350t_quick_swap_single_pla_0_4_fine'},printer_profiles:[{id:'snapmaker_a350t_quick_swap_single_pla_0_4_fine',available:printerAvailable,build_volume_mm:[320,335,310],nozzle_mm:0.4,material:'PLA',layer_height_mm:0.08,first_layer_height_mm:0.28,brim_margin_mm:12,validation:'native_dry_slice'}]}]};
    else if(url.pathname.endsWith('/content'))return route.fulfill({status:200,body:artifact,contentType:'model/gltf-binary'});
    else if(url.pathname.endsWith('/cancel')){jobs[0]={...jobs[0],status:'CANCELLED'};data={job:jobs[0]};}
    else if(url.pathname.endsWith('/generations')){
-    if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7,artifact_context:req.postDataJSON().artifact_context,archive_state:archiveReady?'saved':'pending'}];data={job:jobs[0]};}
+    if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7,artifact_context:req.postDataJSON().artifact_context,archive_state:archiveReady?'saved':'pending'},{id:'f'.repeat(32),status:'COMPLETED',stl_validation:{printer_validation:passedPrinterReport}}];data={job:jobs[0]};}
     else data={jobs};
-   } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',archive_state:archiveReady?'saved':'pending',generated_artifacts:archiveReady?[savedGlb]:[],artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
+   } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',stl_validation:{printer_validation:{profile_id:passedPrinterReport.profile_id,status:'failed',code:'outside_build_volume',message:'PRIVATE_FAILURE_PAYLOAD',dimensions_mm:[320,20,2],build_volume_mm:[320,335,310]}},archive_state:archiveReady?'saved':'pending',generated_artifacts:archiveReady?[savedGlb]:[],artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
   } else if(url.pathname.endsWith('/agent.json'))data={capabilities:{artifacts:archiveContractReady?{list_url:'/api/artifacts',auth_required:true,context_schema:{type:'object'},agent_parent_context:true}:{}},agent_integration:{chat:{optional_request_field:'agent',enabled_value:{enabled:true}},streaming:{safe_event_names:['agent_step','tool_result']},guarantees:{hidden_reasoning_in_trace:false,shell_access:false}}};
   else if(url.pathname.endsWith('/chat/models')){
    if(!modelDiscoveryReady)return route.fulfill({status:503,json:{ok:false,error:'Fixture model discovery unavailable'}});
@@ -79,12 +80,26 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  assert(await page.locator('[name=stl_repair]').isVisible());
  assert.equal(await page.locator('[name=stl_repair]').inputValue(),'true');
  assert.equal(await page.locator('[name=printer_profile]').inputValue(),'snapmaker_a350t_quick_swap_single_pla_0_4_fine');
- await page.locator('[name=printer_profile]').selectOption('');
- await page.locator('[name=stl_repair]').selectOption('false');
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=8;c.height=8;const x=c.getContext('2d');x.fillStyle='#0f0';x.fillRect(2,2,4,4);return c.toDataURL().split(',')[1];});
  await page.locator('[name=image]').setInputFiles({name:'prop.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
  await page.getByRole('button',{name:'Generate model',exact:true}).click();
+ await page.getByText('The chosen Quick Swap printer profile is unavailable. Retry when it is restored or explicitly choose generic geometry.',{exact:true}).waitFor();
+ assert.equal(calls.filter(call=>call.path==='/api/private/3d/generations'&&call.method==='POST').length,0,'Unavailable default printer validation never starts paid work');
+ await page.locator('[name=output_format]').selectOption('glb');
+ assert(await page.getByRole('button',{name:'Generate model',exact:true}).isEnabled(),'An unavailable printer does not disable textured GLB work');
+ await page.locator('[name=output_format]').selectOption('both');
+ await page.locator('[name=printer_profile]').selectOption('');
+ await page.locator('[name=stl_repair]').selectOption('false');
+ await page.getByRole('button',{name:'Generate model',exact:true}).click();
  await page.getByRole('button',{name:'Download GLB'}).waitFor();
+ await page.locator('.three-d-printer-report summary').filter({hasText:'Failed native dry slice'}).click();
+ await page.getByText('320 × 20 × 2 mm',{exact:true}).waitFor();
+ await page.locator('.three-d-printer-report summary').filter({hasText:'Passed native dry slice'}).click();
+ await page.getByText('0.08 mm',{exact:true}).waitFor();
+ await page.locator('.three-d-printer-report').filter({hasText:'Passed native dry slice'}).getByText('22',{exact:true}).waitFor();
+ await page.getByText('Local wall thickness was not assessed.',{exact:true}).waitFor();
+ await page.getByText('Physical printing has not been tested by this validation.',{exact:true}).waitFor();
+ assert(!await page.locator('dialog').textContent().then(text=>text.includes('PRIVATE_REPORT')||text.includes('PRIVATE_FAILURE')));
  const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Download GLB'}).click();
  const download=await downloadEvent;assert.equal(download.suggestedFilename(),`token-gen-${jobId}.glb`);
  assert(await page.locator('dialog [data-archive-state=pending]').isVisible(),'Provider terminal status is distinct from a durable archive');
@@ -345,7 +360,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.locator('[data-chat-mode=chat]').click();
  assert(await page.locator('#chatInput').isDisabled()&&await page.locator('#chatSend').isDisabled(),'Failed discovery cannot use stale model or vision readiness');
  assert.equal(await page.locator('#chatVisionStatus').textContent(),'The active language model does not advertise image understanding.');
- archiveContractReady=false;available=true;
+ archiveContractReady=false;available=true;printerAvailable=true;
  const paidPostsBefore=calls.filter(call=>call.method==='POST'&&(call.path==='/api/private/3d/generations'||call.path==='/api/private/jobs'||call.path.startsWith('/api/private/image/'))).length;
  await page.goto(page.url().split('?')[0].split('#')[0]+'?old-api-fixture#3d');
  await page.getByText('TRELLIS.2 is ready for image-to-3D generation.').waitFor();

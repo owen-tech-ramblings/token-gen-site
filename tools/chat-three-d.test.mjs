@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { generationSettings, requestIdentity, jobPath, verifyArtifact, sha256, PRINTER_PROFILE } from '../chat-three-d.mjs';
+import * as threeD from '../chat-three-d.mjs';
 import bridge from '../cloudflare/private-api-bridge/worker.js';
 let artifacts = {};
 try { artifacts = await import('../chat-artifacts.mjs'); }
@@ -62,6 +64,35 @@ test('3D settings, retry identity and partial artifact integrity follow the API 
   assert.match(artifacts.archiveLabel('pending'), /pending/i);
   assert.match(artifacts.archiveLabel('saved'), /saved/i);
   assert.doesNotMatch(artifacts.archiveLabel('pending'), /saved/i);
+  // An artifact-only refresh must not acknowledge remote text/messages that
+  // this tab has not applied: the next save still needs its old If-Match.
+  const chatSource = readFileSync(new URL('../chat.js', import.meta.url), 'utf8');
+  const refreshSource = chatSource.match(/async function refreshConversationArtifacts\(\) \{[\s\S]*?\n\}/)[0];
+  const historyState = { currentId: cid, available: true, saving: false, currentVersion: 'applied-v1' };
+  const remote = [{ id: 'remote-message', role: 'user', content: 'Edited in another tab', artifacts: normalized }];
+  let hydrated;
+  const refresh = new Function('historyState', 'historyRequest', 'hydrateMessageArtifacts', 'renderMessages',
+    `return (${refreshSource});`)(historyState, async () => ({ json: { conversation: { messages: remote, version: 'remote-v2' } }, etag: 'remote-v2' }),
+      values => { hydrated = values; }, () => {});
+  await refresh();
+  assert.equal(hydrated, remote, 'The actual refresh still hydrates private output references');
+  assert.equal(historyState.currentVersion, 'applied-v1', 'Unapplied remote text must still trigger a save conflict');
+  assert.equal(typeof threeD.printerValidationView, 'function', 'The native printer report needs inspectable safe fields');
+  const printerView = threeD.printerValidationView({ profile_id: PRINTER_PROFILE, status: 'passed',
+    dimensions_mm: [20, 20, 2], build_volume_mm: [320, 335, 310], layer_height_mm: .08, nozzle_mm: .4,
+    toolpath: { layer_count: 22 }, warnings: ['thin_components', 'local_wall_thickness_unchecked', 'physical_print_unverified', 'PRIVATE_WARNING'],
+    binary_sha256: 'PRIVATE_HASH', slicer_release: 'PRIVATE_PATH', provider_token: 'PRIVATE_TOKEN' });
+  assert.equal(printerView.result, 'Passed native dry slice');
+  assert.deepEqual(printerView.fields, [['Model dimensions', '20 × 20 × 2 mm'], ['Build volume', '320 × 335 × 310 mm'],
+    ['Layer height', '0.08 mm'], ['Nozzle', '0.4 mm'], ['Deposited layers', '22']]);
+  assert.equal(printerView.warnings.length, 3);
+  assert.doesNotMatch(JSON.stringify(printerView), /PRIVATE_|<script>/);
+  const failedView = threeD.printerValidationView({ profile_id: PRINTER_PROFILE, status: 'failed', code: 'outside_build_volume',
+    message: '<script>PRIVATE_MESSAGE</script>', dimensions_mm: [Infinity, 20, 2], toolpath: { layer_count: true } });
+  assert.equal(failedView.result, 'Failed native dry slice');
+  assert.match(failedView.failure, /build volume/);
+  assert.deepEqual(failedView.fields, []);
+  assert.doesNotMatch(JSON.stringify(failedView), /PRIVATE_|<script>/);
 });
 
 test('private bridge adds 3D while preserving existing owner routes and credential stripping', async () => {

@@ -22,7 +22,10 @@ No broad discovery suite or paid/model/runtime calls.
 - [x] Hydrate/render typed references, preserve IDs and merge late server refs.
 - [x] Poll pending archive state independently from provider completion and show
   saved only after durable API evidence. Preserve no-retention behavior.
-- [x] Consume the exact confirmed Quick-Swap printer profile once advertised.
+- [x] Keep the confirmed Quick-Swap target selected by default; require advertised
+  availability or explicit generic choice before STL submission.
+- [x] Preserve If-Match conflict detection across artifact-only refreshes.
+- [x] Render inspectable native printer reports from closed actual DTO fields.
 
 ## 3. Verification and review handoff
 

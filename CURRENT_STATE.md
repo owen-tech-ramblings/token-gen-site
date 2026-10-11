@@ -22,8 +22,10 @@ chat and existing artifact/model reads retain their behavior.
 Typed image, audio, video and 3D refs survive saved-history reopen. A closed
 browser helper drops owner locators, secrets and provider URLs, derives private
 content paths from UUIDs, and keeps only minimal refs in history writes. Conflict
-retries merge late server refs. Stable existing IDs survive restore, including
-old messages that need their first ID. Provider completion and archive pending
+retries merge late server refs. Artifact-only refresh never advances the saved
+conversation revision: remote text changes still trigger If-Match conflicts.
+Stable existing IDs survive restore, including old messages that need their
+first ID. Provider completion and archive pending
 are separate: saved/temporary states come only from durable API DTOs. Image
 previews also use the authenticated bridge before capture completes. Native
 video ZIP masters download directly in the browser without whole-file JS
@@ -40,17 +42,29 @@ credential stripping, canonical origin, streaming, HEAD/ranges and redirects.
 The confirmed printer is A350T single extrusion with Quick Swap, PLA, 0.4 mm
 nozzle, 320×335×310 mm usable volume and 0.08 mm fine layers. Its exact API
 profile ID is `snapmaker_a350t_quick_swap_single_pla_0_4_fine`; the STL target
-defaults to that profile only when model discovery advertises it as available. Explicit generic/raw inspection remains available. Native
-printer validation reports are separate from geometry validation, and a stale
-selected profile is never silently dropped. The paired API profile release
-and real output validation remain deployment work; this site candidate does
+defaults to that confirmed profile even while unavailable. STL submission
+waits for advertised availability unless the caller explicitly selects generic
+geometry; textured GLB remains available. Explicit generic/raw inspection stays
+available. Expandable native printer reports show the dry-slice result, model
+and build dimensions, reported layer/nozzle measurements, deposited layers and
+readable thin-feature, local-wall and physical-print limitations. Closed safe
+fields render with textContent; arbitrary failure payloads, paths and tokens are
+excluded. Expanded reports stay open during refresh. Printer validation remains
+separate from geometry validation, and the selected profile is never dropped. The paired API
+profile release and real output validation remain deployment work; this site candidate does
 not claim a printer-ready generated model.
 
 Verification remains the existing five selected outcomes (two 3D/bridge unit
 checks, one Agent control/transport check, desktop/mobile browser scenarios),
 plus changed-module syntax and whitespace. RED evidence:
 `/home/zenfree/codex/site-artifact-consumer-red-20261011.log` and
-`/home/zenfree/codex/site-artifact-browser-red-20261011.log`.
+`/home/zenfree/codex/site-artifact-browser-red-20261011.log`. Review regressions
+reproduced RED in `site-printer-default-red-20261011.log` (unavailable profile
+silently selected generic) and `site-artifact-conflict-red-20261011.log`
+(artifact-only refresh acknowledged unapplied remote text); both now pass in
+the same selected browser/unit scenarios. The report-rendering regression
+was RED in `site-printer-report-red-20261011.log` and
+`site-printer-report-browser-red-20261011.log`, then GREEN in those same selectors.
 The browser fixture verifies retained admission/failure, 3D and image pending to
 saved transitions, same-key replay, protected history recovery, 36 GB ZIP
 metadata without content fetch, pagination, None authenticated fallback and

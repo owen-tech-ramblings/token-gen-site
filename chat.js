@@ -2445,10 +2445,11 @@ async function refreshConversationArtifacts() {
   const id = historyState.currentId;
   if (!id || !historyState.available || historyState.saving) return;
   try {
-    const { json, etag } = await historyRequest(`/${encodeURIComponent(id)}`);
+    const { json } = await historyRequest(`/${encodeURIComponent(id)}`);
     if (historyState.currentId !== id) return;
     hydrateMessageArtifacts(json.conversation?.messages);
-    if (!historyState.saving) historyState.currentVersion = etag || json.conversation?.version || historyState.currentVersion;
+    // Only a full conversation open/save can acknowledge its revision. This
+    // refresh applies artifact metadata without accepting remote text edits.
     renderMessages(false);
   } catch { /* Preserve generated previews while the archive can be retried. */ }
 }

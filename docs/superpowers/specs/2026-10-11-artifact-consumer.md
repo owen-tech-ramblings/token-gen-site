@@ -31,13 +31,21 @@ downloadable from reopened conversations.
 
 The confirmed printer default is Snapmaker A350T, single extrusion with Quick
 Swap, PLA and 0.4 mm nozzle, 320×335×310 mm usable volume and 0.08 mm fine layers.
-Use the paired API's exact advertised profile ID when it is available; do not
-invent an identifier or substitute the older non-Quick-Swap profile. The closed
-ID is `snapmaker_a350t_quick_swap_single_pla_0_4_fine`, advertised in
+Use the confirmed exact profile ID and verify its paired API availability; do
+not invent an identifier or substitute the older non-Quick-Swap profile. The
+closed ID is `snapmaker_a350t_quick_swap_single_pla_0_4_fine`, advertised in
 TRELLIS.2 model `printer_profiles` and `stl.default_printer_profile`. Default
-it only when advertised and available. Repaired geometry is required for that
-target; explicit generic geometry permits raw inspection. Never silently drop
-a selected target when readiness changes.
+to that confirmed target even while unavailable. Block STL submission until
+its advertised availability returns or the caller explicitly chooses generic
+geometry. Repaired geometry is required for that target; explicit generic
+geometry permits raw inspection. Never silently drop a selected target when
+readiness changes; textured GLB remains usable. Expandable printer reports show
+the actual dry-slice result, measured dimensions/build volume, layer/nozzle and
+deposited-layer data when reported, plus closed readable printing limitations.
+Use textContent and reject arbitrary report payloads/paths/tokens.
+
+Artifact-only refresh hydrates private output metadata without advancing the
+conversation revision or acknowledging unapplied remote message/text changes.
 
 Existing chat, Agent, projects, native image conditioning, explicit image
 controls, 3D identity/cancellation/verified partial downloads stay functional.

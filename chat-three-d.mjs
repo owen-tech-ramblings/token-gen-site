@@ -3,6 +3,43 @@ export const THREE_D_BASE = '/api/private/3d';
 export const ACTIVE = new Set(['IN_QUEUE', 'IN_PROGRESS', 'CANCEL_REQUESTED']);
 export const PRINTER_PROFILE = 'snapmaker_a350t_quick_swap_single_pla_0_4_fine';
 
+export function printerValidationView(report) {
+  if (report?.profile_id !== PRINTER_PROFILE || !['passed', 'failed'].includes(report.status)) return null;
+  const positive = value => typeof value === 'number' && Number.isFinite(value) && value > 0 && value <= 10000;
+  const vector = value => Array.isArray(value) && value.length === 3 && value.every(positive);
+  const fields = [];
+  for (const [key, label] of [['dimensions_mm', 'Model dimensions'], ['build_volume_mm', 'Build volume']])
+    if (vector(report[key])) fields.push([label, `${report[key].map(value => Number(value.toFixed(3))).join(' × ')} mm`]);
+  for (const [key, label] of [['layer_height_mm', 'Layer height'], ['nozzle_mm', 'Nozzle']])
+    if (positive(report[key])) fields.push([label, `${Number(report[key].toFixed(3))} mm`]);
+  const layers = report.toolpath?.layer_count;
+  if (Number.isSafeInteger(layers) && layers > 0 && layers <= 100000) fields.push(['Deposited layers', String(layers)]);
+  const warningText = {
+    thin_components: 'Some components are smaller than the nozzle. Inspect thin features before printing.',
+    local_wall_thickness_unchecked: 'Local wall thickness was not assessed.',
+    physical_print_unverified: 'Physical printing has not been tested by this validation.',
+  };
+  const codes = new Set((Array.isArray(report.warnings) ? report.warnings : []).slice(0, 16));
+  if (report.local_wall_thickness_checked === false) codes.add('local_wall_thickness_unchecked');
+  if (report.physical_print_dispatched === false) codes.add('physical_print_unverified');
+  const failures = {
+    outside_build_volume: 'The STL and brim exceed the build volume. Reduce the explicit size or finish the retained GLB.',
+    toolpaths_outside_build_volume: 'The deposited supports or brim exceed the build volume. Reduce the explicit size or finish the retained GLB.',
+    empty_toolpaths: 'The slicer produced no deposited layers. Enlarge or finish the retained GLB.',
+    profile_unavailable: 'The verified printer profile is unavailable. Restore it and finish the retained GLB.',
+    profile_changed: 'The printer profile changed during validation. Validate the retained GLB again.',
+    slice_failed: 'Native slicing failed. Finish the retained GLB before printing.',
+    slice_timeout: 'Native slicing exceeded its time limit. Simplify or finish the retained GLB.',
+    slice_output_limit: 'Native slicing exceeded its output limit. Finish the retained GLB.',
+    invalid_toolpaths: 'Native slicing emitted unsupported toolpaths. Finish the retained GLB.',
+    invalid_stl: 'The STL could not be validated. Finish the retained GLB.',
+    unknown_profile: 'The requested printer profile was not recognized.',
+  };
+  return { result: report.status === 'passed' ? 'Passed native dry slice' : 'Failed native dry slice', fields,
+    warnings: Object.keys(warningText).filter(code => codes.has(code)).map(code => warningText[code]),
+    ...(report.status === 'failed' ? { failure: Object.hasOwn(failures, report.code) ? failures[report.code] : 'Printer validation failed. Inspect the retained GLB before printing.' } : {}) };
+}
+
 export function jobPath(id, suffix = '') {
   if (!/^[a-f0-9]{32}$/.test(id)) throw new Error('Invalid 3D job ID.');
   return `${THREE_D_BASE}/generations/${id}${suffix}`;
@@ -112,7 +149,7 @@ export function mountThreeD(doc = document, options = {}) {
         <label>Sampling steps<input name="sampling_steps" type="number" min="1" max="50" step="1" value="12" required><small>12 recommended; more is not always better.</small></label>
         <label data-stl hidden>Longest dimension (mm)<input name="max_dimension_mm" type="number" min="0.1" max="10000" step="any" value="100"></label>
         <label data-stl hidden>STL geometry<select name="stl_repair"><option value="true">Repaired and validated</option><option value="false">Raw · for inspection</option></select></label>
-        <label data-stl hidden>Printer target<select name="printer_profile"><option value="">Generic geometry · no printer validation</option><option value="${PRINTER_PROFILE}">A350T Quick Swap · single extrusion · PLA · 0.4 mm · fine 0.08 mm</option></select><small data-printer>Checking the confirmed printer profile…</small></label>
+        <label data-stl hidden>Printer target<select name="printer_profile"><option value="">Generic geometry · no printer validation</option><option value="${PRINTER_PROFILE}" selected>A350T Quick Swap · single extrusion · PLA · 0.4 mm · fine 0.08 mm</option></select><small data-printer>Checking the confirmed printer profile…</small></label>
         <label>Seed <small>(optional)</small><input name="seed" type="number" min="0" max="4294967295" step="1" placeholder="Random"></label>
       </div>
       <p data-message role="status" aria-live="polite"></p>
@@ -143,7 +180,9 @@ export function mountThreeD(doc = document, options = {}) {
     } catch (error) { report(error); } finally { button.disabled = false; }
   }
   function renderJobs(jobs) {
-    const host = query('[data-jobs]'); host.replaceChildren();
+    const host = query('[data-jobs]');
+    const expandedReports = new Set([...host.querySelectorAll('.three-d-printer-report[open]')].map(item => item.dataset.jobId));
+    host.replaceChildren();
     if (!jobs.length) { host.textContent = 'Your generated models will appear here.'; return; }
     for (const job of jobs) {
       const item = doc.createElement('article'); item.className = 'three-d-job';
@@ -153,9 +192,24 @@ export function mountThreeD(doc = document, options = {}) {
       if (archiveLabel(job.archive_state)) { const archive = doc.createElement('p'); archive.dataset.archiveState = job.archive_state; archive.textContent = archiveLabel(job.archive_state); item.append(archive); }
       if (job.status === 'SUBMISSION_UNKNOWN') { const note = doc.createElement('p'); note.textContent = 'Submission acknowledgement is unknown. Keep this job; it will not be resubmitted automatically.'; item.append(note); }
       if (job.error) { const error = doc.createElement('p'); error.textContent = typeof job.error === 'string' ? job.error : job.error.message || 'Generation failed.'; item.append(error); }
-      if (job.stl_validation?.printer_validation) {
-        const validation = doc.createElement('p'); validation.textContent = 'Printer validation report is available in the saved job.';
-        item.append(validation);
+      const printer = printerValidationView(job.stl_validation?.printer_validation);
+      if (printer) {
+        const details = doc.createElement('details'); details.className = 'three-d-printer-report'; details.dataset.jobId = job.id;
+        details.open = expandedReports.has(job.id);
+        const summary = doc.createElement('summary'); summary.textContent = `Printer validation · ${printer.result}`; details.append(summary);
+        if (printer.failure) { const failure = doc.createElement('p'); failure.textContent = printer.failure; details.append(failure); }
+        const fields = doc.createElement('dl');
+        for (const [label, value] of printer.fields) {
+          const name = doc.createElement('dt'); name.textContent = label;
+          const measured = doc.createElement('dd'); measured.textContent = value; fields.append(name, measured);
+        }
+        details.append(fields);
+        if (printer.warnings.length) {
+          const warnings = doc.createElement('ul');
+          for (const text of printer.warnings) { const warning = doc.createElement('li'); warning.textContent = text; warnings.append(warning); }
+          details.append(warnings);
+        }
+        item.append(details);
       }
       const actions = doc.createElement('div'); actions.className = 'three-d-actions';
       for (const artifact of normalizeArtifacts(job.generated_artifacts)) if (artifact.content_url) {
@@ -195,10 +249,10 @@ export function mountThreeD(doc = document, options = {}) {
       targetAvailable = model?.stl?.default_printer_profile === PRINTER_PROFILE && model?.printer_profiles?.some(profile =>
         profile.id === PRINTER_PROFILE && profile.available === true) === true;
       form.elements.printer_profile.querySelector(`option[value="${PRINTER_PROFILE}"]`).disabled = !targetAvailable;
-      if (!printerChosen) form.elements.printer_profile.value = targetAvailable ? PRINTER_PROFILE : '';
+      if (!printerChosen) form.elements.printer_profile.value = PRINTER_PROFILE;
       query('[data-printer]').textContent = targetAvailable
         ? 'Confirmed Quick Swap target: 320 × 335 × 310 mm. Fine 0.08 mm layers; longest dimension remains your explicit choice.'
-        : 'The confirmed Quick Swap profile is unavailable. Generic geometry does not include printer-specific validation.';
+        : 'The confirmed Quick Swap profile is unavailable. STL submission waits for it unless you explicitly choose generic geometry without printer validation.';
       query('[data-health]').textContent = available ? 'TRELLIS.2 is ready for image-to-3D generation.' : '3D generation is currently unavailable. You can still view saved models.';
     } catch { available = false; query('[data-health]').textContent = 'Could not check 3D availability. Refresh to try again.'; }
     submit.disabled = busy || !available;
