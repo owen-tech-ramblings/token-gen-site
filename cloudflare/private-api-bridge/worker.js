@@ -1,5 +1,5 @@
 const PRIVATE_PREFIX = "/api/private";
-const PRIVATE_RESOURCES = new Set(["conversations", "projects", "jobs"]);
+const PRIVATE_RESOURCES = new Set(["conversations", "projects", "jobs", "3d"]);
 const SITE_HOST = "token-gen.owenonthenet.com";
 const API_ORIGIN = "https://token-gen-api.owenonthenet.com";
 

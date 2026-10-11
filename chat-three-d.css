@@ -1,0 +1,12 @@
+.three-d-dialog{box-sizing:border-box;width:min(720px,calc(100% - 24px));max-height:90dvh;overflow:auto;border:1px solid #354251;border-radius:18px;padding:24px;color:#e6edf3;background:#131b25;box-shadow:0 24px 80px #0008;font:15px/1.5 system-ui,sans-serif}
+.three-d-dialog::backdrop{background:#050910bb;backdrop-filter:blur(4px)}
+.three-d-dialog header,.three-d-jobs-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.three-d-dialog h2,.three-d-dialog h3{margin:0}.three-d-dialog header small{letter-spacing:.12em;color:#9cd7c0;font-size:11px}.three-d-dialog small{color:#aebccc}
+.three-d-dialog button{min-height:40px;padding:8px 14px;border:1px solid #425368;border-radius:9px;background:#213044;color:#f0f5fa;cursor:pointer;font:inherit}
+.three-d-dialog button:hover{background:#304760}.three-d-dialog button:disabled{opacity:.5;cursor:default}.three-d-dialog :focus-visible{outline:3px solid #89d3b0;outline-offset:3px}
+.three-d-dialog .three-d-primary{background:#91dbb5;color:#102b20;font-weight:650}.three-d-health{background:#1c2938;padding:12px;border-radius:9px}
+.three-d-form{display:grid;gap:16px;margin:20px 0 28px}.three-d-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.three-d-dialog label{display:grid;gap:6px}.three-d-dialog input,.three-d-dialog select{box-sizing:border-box;width:100%;min-height:42px;border:1px solid #425368;border-radius:8px;padding:9px;background:#0d1520;color:#e6edf3;font:inherit}
+.three-d-file{border:1px dashed #536a83;padding:16px;border-radius:12px}.three-d-file input{border:0;padding:0;background:transparent}.three-d-actions{display:flex;gap:8px;flex-wrap:wrap}
+.three-d-form [data-message]:empty{display:none}.three-d-form [data-message]{margin:0;overflow-wrap:anywhere}.three-d-job{margin-top:12px;padding:16px;border:1px solid #354251;border-radius:12px}.three-d-job p{color:#bfcbd9;overflow-wrap:anywhere}.three-d-dialog [hidden]{display:none!important}
+@media(max-width:520px){.three-d-dialog{padding:18px}.three-d-fields{grid-template-columns:1fr}.three-d-dialog h2{font-size:22px}#chatThreeDOpen{min-width:36px;padding:5px}}

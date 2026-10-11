@@ -1,6 +1,28 @@
 # Token Gen Current State
 
-Last updated: 2026-08-25 Australia/Sydney
+Last updated: 2026-10-11 Australia/Sydney
+
+## 3D model consumer — 2026-10-11
+
+The chat toolbar adds a separate 3D panel for transparent PNG input, GLB/STL
+settings, owner-scoped history, cancellation and verified downloads. It uses
+the existing Access bridge with the additive `3d` resource. The main chat
+module and its modes, projects, images and video requests are unchanged.
+
+Requests retain one idempotency key and input digest for explicit retries.
+Active jobs poll their saved status endpoint; a failed STL export can still
+offer its verified GLB. No provider job is submitted on load or health checks.
+
+Passed: the two `tools/chat-three-d.test.mjs` checks, existing Agent/chat
+compatibility checks and two Chromium scenarios at 1365×900 and 390×844.
+The browser scenarios cover retry identity, status refresh, partial GLB
+download, unavailable generation, normal chat selection and keyboard close.
+Fixtures make no paid calls. Live `/api/3d/health` currently reports the worker
+unavailable; real inference remains an API/worker activation dependency.
+
+The private bridge must deploy from this reviewed source alongside the Pages
+release. Its route and Access policy remain unchanged. Rider/OpenClaw tooling
+is released separately by the control plane's `token-gen-3d` capability.
 
 ## Web Chat Agent mode - 2026-08-25
 
