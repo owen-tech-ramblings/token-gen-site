@@ -7,7 +7,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const browser=await chromium.launch({headless:true});
  const page=await browser.newPage({viewport:{width:1365,height:900},acceptDownloads:true});
- const calls=[],errors=[];let jobs=[],available=true;
+ const calls=[],errors=[],assetUploads=[],savedConversations=[];let jobs=[],available=true,modelDiscoveryReady=true,imageFailure='Offline quality fixture',originalAssetBytes;
  page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/api/**',async route=>{
   const req=route.request(),url=new URL(req.url());calls.push({path:url.pathname,method:req.method(),body:req.postData(),headers:req.headers()});
@@ -20,10 +20,35 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
     if(req.method()==='POST'){jobs=[{id:jobId,status:'IN_QUEUE',stage:'queue',seed:7}];data={job:jobs[0]};}
     else data={jobs};
    } else {jobs[0]={...jobs[0],status:'FAILED',stage:'export',error:'STL export failed',artifacts:{glb:{bytes:artifact.length,sha256:crypto.createHash('sha256').update(artifact).digest('hex')}}};data={job:jobs[0]};}
-  } else if(url.pathname.endsWith('/chat/models'))data={ok:true,models:[{id:'fixture-model',name:'Fixture model'}],default_model:'fixture-model'};
+  } else if(url.pathname.endsWith('/chat/models')){
+   if(!modelDiscoveryReady)return route.fulfill({status:503,json:{ok:false,error:'Fixture model discovery unavailable'}});
+   data={ok:true,data:{data:[
+   {id:'fixture-model',name:'Fixture model',capabilities:{vision:{available:true,max_pixels:16777216}}},
+   {id:'text-only-fixture',name:'Text only fixture',capabilities:{vision:{available:false}}},
+   {id:'unknown-vision-fixture',name:'Unknown vision fixture'},
+   {id:'invalid-vision-fixture',name:'Invalid vision fixture',capabilities:{vision:{available:'false'}}},
+  ]},default_model:'fixture-model'};}
+  else if(url.pathname.endsWith('/conversations/assets')&&req.method()==='POST'){
+   assetUploads.push(req.postDataBuffer());
+   const id=crypto.randomUUID();data={ok:true,asset:{asset_id:id,url:`/api/conversations/assets/${id}`,mime_type:'image/png'}};
+  }
+  else if(/\/conversations\/assets\/[0-9a-f-]{36}$/.test(url.pathname)&&req.method()==='GET')return route.fulfill({status:200,body:originalAssetBytes,contentType:'image/png'});
+  else if(/\/conversations(?:\/[0-9a-f-]{36})?$/.test(url.pathname)&&['POST','PUT'].includes(req.method())){
+   const body=req.postDataJSON();
+   const attachments=body.messages.flatMap(message=>message.vision_images||[]);
+   if(attachments.some(image=>!/^https:\/\/token-gen-api\.owenonthenet\.com\/api\/conversations\/assets\/[0-9a-f-]{36}$/.test(image.url)))return route.fulfill({status:400,json:{ok:false,error:{message:'Vision images must use a protected Token Gen URL.'}}});
+   savedConversations.push(body);
+   data={ok:true,conversation:{...body,id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',version:'fixture',updated_at:new Date().toISOString()}};
+  }
+  else if(url.pathname.endsWith('/conversations/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'))data={ok:true,conversation:{...savedConversations.at(-1),id:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',version:'fixture'}};
   else if(url.pathname.endsWith('/conversations'))data={ok:true,conversations:[]};
   else if(url.pathname.endsWith('/projects'))data={ok:true,projects:[]};
-  else if(url.pathname.endsWith('/jobs'))data={ok:true,jobs:[]};
+  else if(url.pathname.endsWith('/jobs')){
+   if(req.method()==='POST')return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:{message:imageFailure}}});
+   data={ok:true,jobs:[]};
+  }
+  else if(url.pathname.endsWith('/image/generations')||url.pathname.endsWith('/image/edits'))return route.fulfill({status:imageFailure.startsWith('image exceeds')?413:503,json:{ok:false,error:imageFailure}});
+  else if(url.pathname.endsWith('/chat/stream'))return route.fulfill({status:503,json:{ok:false,error:'Offline vision fixture'}});
   await route.fulfill({status:200,json:data});
  });
  await page.goto(`http://127.0.0.1:${server.address().port}/chat.html#3d`);
@@ -33,6 +58,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  assert.equal(await page.locator('[name=triangle_target]').inputValue(),'1000000');
  await page.locator('[name=output_format]').selectOption('both');
  assert(await page.locator('[name=stl_repair]').isVisible());
+ assert.equal(await page.locator('[name=stl_repair]').inputValue(),'true');
  await page.locator('[name=stl_repair]').selectOption('false');
  const png=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=8;c.height=8;const x=c.getContext('2d');x.fillStyle='#0f0';x.fillRect(2,2,4,4);return c.toDataURL().split(',')[1];});
  await page.locator('[name=image]').setInputFiles({name:'prop.png',mimeType:'image/png',buffer:Buffer.from(png,'base64')});
@@ -44,13 +70,163 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  await page.getByRole('button',{name:'Generate model',exact:true}).click(); await retryResponse;
  await page.getByRole('button',{name:'Download GLB'}).waitFor();
  const posts=calls.filter(x=>x.path==='/api/private/3d/generations'&&x.method==='POST');
+ const default3d=JSON.parse(posts[0].body);
+ assert.deepEqual([default3d.resolution,default3d.texture_size,default3d.triangle_target],[1536,4096,1000000]);
  assert.equal(posts.length,2);assert.equal(posts[0].headers['idempotency-key'],posts[1].headers['idempotency-key']);assert.equal(posts[0].body,posts[1].body);
  const payload=JSON.parse(posts[0].body);assert.equal(payload.resolution,1536);assert.equal(payload.texture_size,4096);
  assert.equal(payload.triangle_target,1000000);assert.equal(payload.sampling_steps,12);assert.equal(payload.stl_repair,false);
  assert(calls.some(x=>x.path===`/api/private/3d/generations/${jobId}`&&x.method==='GET'));
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-desktop.png')});
  await page.getByRole('button',{name:'Close 3D models'}).click();
+ assert.equal(await page.locator('#chatImageQuality').inputValue(),'ultra');
+ assert.equal(await page.locator('#chatImageSize').inputValue(),'2048');
+ assert.equal(await page.locator('#chatImageSampler').inputValue(),'');
+ assert.equal(await page.locator('#chatImageScheduler').inputValue(),'');
+ await page.locator('[data-chat-mode=image]').click();
+ await page.locator('#chatInput').fill('A detailed copper dragon');
+ const imageSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/generations')));
+ await page.locator('#chatSend').click();
+ const imageRequest=(await imageSubmission).postDataJSON();
+ const imagePayload=imageRequest.request||imageRequest;
+ assert.equal(imagePayload.quality,'ultra');
+ assert.deepEqual([imagePayload.width,imagePayload.height],[2048,2048]);
+ for(const key of ['steps','cfg','sampler_name','scheduler'])assert.equal(Object.hasOwn(imagePayload,key),false,`Use native model default for ${key}`);
+ await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatImageQuality').selectOption('draft');
+ await page.locator('#chatImageSize').selectOption('512');
+ await page.getByText('Advanced image controls',{exact:true}).click();
+ await page.locator('#chatImageSampler').waitFor({state:'visible'});
+ await page.locator('#chatImageSampler').selectOption('euler');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ await page.locator('#chatInput').fill('Quick dragon preview');
+ const previewSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/generations')));
+ await page.locator('#chatSend').click();
+ const previewRequest=(await previewSubmission).postDataJSON();
+ const previewPayload=previewRequest.request||previewRequest;
+ assert.equal(previewPayload.quality,'draft');
+ assert.deepEqual([previewPayload.width,previewPayload.height,previewPayload.sampler_name],[512,512,'euler']);
+ await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ const originalPng=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=3072;c.height=2048;const x=c.getContext('2d');x.fillStyle='#08f8';x.fillRect(1,1,3000,2000);return c.toDataURL('image/png');});
+ const originalFile={name:'transparent-large.png',mimeType:'image/png',buffer:Buffer.from(originalPng.split(',')[1],'base64')};
+ originalAssetBytes=originalFile.buffer;
+ const imageDetails=async data=>page.evaluate(async data=>{const i=new Image();i.src=data;await i.decode();const c=document.createElement('canvas');c.width=1;c.height=1;const x=c.getContext('2d');x.drawImage(i,0,0);return [i.naturalWidth,i.naturalHeight,x.getImageData(0,0,1,1).data[3]];},data);
+ assert.deepEqual(await imageDetails(originalPng),[3072,2048,0]);
+ const digest=data=>crypto.createHash('sha256').update(data||'').digest('hex');
+ for(const sourceMode of ['edit','restyle','style']){
+  await page.getByRole('button',{name:'Open settings',exact:true}).click();
+  await page.locator('#chatImageSourceMode').selectOption('upscale');
+  await page.locator('#chatImageUpscaleScale').selectOption('2');
+  assert(await page.locator('#chatImageSize').isDisabled()&&await page.locator('#chatImageOrientation').isDisabled(),'Factor upscale preserves source aspect');
+  await page.locator('#chatImageSourceMode').selectOption('new');
+  assert(await page.locator('#chatImageSize').isEnabled()&&await page.locator('#chatImageOrientation').isEnabled(),'Generation retains explicit dimensions');
+  await page.locator('#chatImageQuality').selectOption('ultra');
+  await page.locator('#chatImageSize').selectOption('2048');
+  await page.locator('#chatImageSampler').selectOption('');
+  await page.locator('#chatImageSourceMode').selectOption(sourceMode);
+  assert(await page.locator('#chatImageSize').isDisabled()&&await page.locator('#chatImageOrientation').isDisabled(),`${sourceMode} uses source aspect and native quality`);
+  await page.getByText('Edits keep the source aspect ratio and use the selected native quality.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#chatVisionImages').setInputFiles(originalFile);
+  await page.getByText(/^1 image ready for /).waitFor();
+  await page.locator('#chatInput').fill('Change the blue object to copper');
+  const editSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/edits')));
+  await page.locator('#chatSend').click();
+  const editRequest=(await editSubmission).postDataJSON();
+  const editPayload=editRequest.request||editRequest;
+  assert.equal(digest(editPayload.image_base64),digest(originalPng),`Preserve original alpha and bytes for ${sourceMode}`);
+  assert(!editPayload.prompt.includes('2048 by 2048'),'Do not request contradictory edit canvas dimensions');
+  await page.waitForFunction(()=>!document.querySelector('#chatInput').disabled);
+ }
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatImageSourceMode').selectOption('new');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ await page.locator('#chatImageUpload').setInputFiles(originalFile);
+ await page.getByText('transparent-large.png ready for image edits',{exact:true}).waitFor();
+ assert(await page.locator('#chatImageSize').isDisabled()&&await page.locator('#chatImageOrientation').isDisabled(),'Uploaded source selects native edit dimensions');
+ imageFailure='image exceeds max upload size of 14680064 bytes';
+ await page.locator('#chatInput').fill('Preserve the transparent detail');
+ const uploadedEditSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/edits')));
+ await page.locator('#chatSend').click();
+ const uploadedEditRequest=(await uploadedEditSubmission).postDataJSON();
+ assert.equal(digest((uploadedEditRequest.request||uploadedEditRequest).image_base64),digest(originalPng),'Preserve direct image-upload bytes');
+ await page.getByText(`Image request failed: ${imageFailure}`,{exact:true}).waitFor();
+ for(const scale of ['2','4','1']){
+  await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+  await page.getByRole('button',{name:'Open settings',exact:true}).click();
+  await page.locator('#chatImageSourceMode').selectOption('upscale');
+  await page.locator('#chatImageUpscaleScale').selectOption(scale);
+  for(const field of ['#chatImageSize','#chatImageOrientation'])assert.equal(await page.locator(field).isEnabled(),scale==='1','Only Fit selected size accepts fixed dimensions');
+  if(scale!=='1')await page.getByText('Upscale keeps the source aspect ratio. Choose Fit selected size to set Size and Shape.',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#chatInput').fill('Enlarge this image without changing it');
+  const upscaleSubmission=page.waitForRequest(r=>r.method()==='POST'&&(r.url().endsWith('/api/private/jobs')||r.url().endsWith('/api/image/upscale')));
+  await page.locator('#chatSend').click();
+  const upscaleRequest=(await upscaleSubmission).postDataJSON();
+  const upscalePayload=upscaleRequest.request||upscaleRequest;
+  assert.equal(upscalePayload.scale,Number(scale));
+  assert.equal(digest(upscalePayload.image_base64),digest(originalPng),'Upscale retains the original source');
+  if(scale==='1')assert.deepEqual([upscalePayload.width,upscalePayload.height],[2048,2048],'Fit selected size honors dimensions');
+  else for(const field of ['width','height'])assert.equal(Object.hasOwn(upscalePayload,field),false,`${scale}x cannot be overridden by fixed ${field}`);
+ }
  await page.locator('[data-chat-mode=chat]').click();assert.equal(await page.locator('#chatMode').inputValue(),'chat');
+ await page.locator('#chatVisionImages').setInputFiles(originalFile);
+ await page.getByText(/^1 image ready for /).waitFor();
+ await page.locator('#chatInput').fill('Describe the shape in this image');
+ const visionSubmission=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/chat/stream'));
+ await page.locator('#chatSend').click();
+ const visionRequest=(await visionSubmission).postDataJSON();
+ const visionImage=visionRequest.messages.at(-1).content.find(part=>part.type==='image_url').image_url.url;
+ const [visionWidth,visionHeight]=await imageDetails(visionImage);
+ assert.deepEqual([visionWidth,visionHeight],[3072,2048],'Let the native processor handle original input dimensions');
+ assert.equal(digest(visionImage),digest(originalPng),'LLM input retains exact original bytes, MIME and alpha');
+ assert.deepEqual(await imageDetails(visionImage),[3072,2048,0]);
+ assert(assetUploads.length>=4&&assetUploads.every(body=>body.includes(originalFile.buffer)),'Private assets retain original PNG bytes');
+ await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+ const savedAttachment=savedConversations.flatMap(body=>body.messages).flatMap(message=>message.vision_images||[]).find(image=>image.width===3072);
+ assert(savedAttachment,'Save original attachment metadata');
+ assert.deepEqual([savedAttachment.width,savedAttachment.height,savedAttachment.mime_type,savedAttachment.size_bytes],[3072,2048,'image/png',originalFile.buffer.length]);
+ assert.match(savedAttachment.url,/^https:\/\/token-gen-api\.owenonthenet\.com\/api\/conversations\/assets\/[0-9a-f-]{36}$/);
+ assert(savedConversations.every(body=>!JSON.stringify(body).includes('data:image')),'Conversation JSON contains references, not inline image copies');
+ await page.getByRole('button',{name:'New chat',exact:true}).click();
+ await page.locator('[data-history-open="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]').click();
+ await page.waitForFunction(()=>document.querySelector('#chatStatus').textContent.startsWith('Opened '));
+ await page.locator('[data-chat-mode=chat]').click();
+ await page.locator('#chatInput').fill('Describe the saved images');
+ const restoredVisionSubmission=page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/chat/stream'));
+ await page.locator('#chatSend').click();
+ const restoredVisionRequest=(await restoredVisionSubmission).postDataJSON();
+ const restoredImages=restoredVisionRequest.messages.flatMap(message=>Array.isArray(message.content)?message.content:[]).filter(part=>part.type==='image_url');
+ assert(restoredImages.length>=4,'Restore saved image context');
+ for(const part of restoredImages){assert.equal(digest(part.image_url.url),digest(originalPng),'Restored LLM input preserves original bytes');assert.deepEqual(await imageDetails(part.image_url.url),[3072,2048,0]);}
+ assert(calls.some(call=>call.path.startsWith('/api/private/conversations/assets/')&&call.method==='GET'),'Restore original assets through the existing private bridge');
+ await page.waitForFunction(()=>document.querySelector('#chatInput').disabled===false);
+ const priorVisionPosts=calls.filter(call=>call.path==='/api/chat/stream'&&call.method==='POST').length;
+ for(const model of ['text-only-fixture','unknown-vision-fixture','invalid-vision-fixture']){
+  await page.getByRole('button',{name:'Open settings',exact:true}).click();
+  await page.locator('#chatModel').selectOption(model);
+  assert.equal(await page.locator('#chatVisionStatus').textContent(),'The active language model does not advertise image understanding.','Missing or malformed capabilities cannot inherit another model\'s vision support');
+  await page.getByRole('button',{name:'Close settings',exact:true}).click();
+  await page.locator('#chatInput').fill('Read the original images again');
+  await page.locator('#chatSend').click();
+  await page.getByText('The active local model is not running with image understanding',{exact:true}).waitFor();
+  assert.equal(calls.filter(call=>call.path==='/api/chat/stream'&&call.method==='POST').length,priorVisionPosts,'Unavailable vision cannot submit restored image context');
+  assert.equal(await page.locator('#chatInput').inputValue(),'Read the original images again','Keep the prompt when vision is unavailable');
+ }
+ await page.getByRole('button',{name:'Open settings',exact:true}).click();
+ await page.locator('#chatModel').selectOption('fixture-model');
+ await page.getByRole('button',{name:'Close settings',exact:true}).click();
+ await page.getByRole('button',{name:'New chat',exact:true}).click();
+ const oversizeFile={name:'oversize-original.png',mimeType:'image/png',buffer:Buffer.alloc(8*1024*1024+1)};
+ await page.locator('#chatVisionImages').setInputFiles(oversizeFile);
+ await page.getByText('oversize-original.png is larger than 8 MB.',{exact:true}).waitFor();
+ assert.equal(await page.locator('.chat-vision-chip').count(),0,'Reject originals beyond the existing per-file byte guard');
+ const paddedOriginal={name:'eight-mib-original.png',mimeType:'image/png',buffer:Buffer.concat([originalFile.buffer,Buffer.alloc(8*1024*1024-originalFile.buffer.length)])};
+ await page.locator('#chatVisionImages').setInputFiles([paddedOriginal,paddedOriginal,paddedOriginal]);
+ await page.getByText(/^3 images ready for /).waitFor();
+ await page.locator('#chatVisionImages').setInputFiles(originalFile);
+ await page.getByText('Attached images may total up to 24 MB.',{exact:true}).waitFor();
+ assert.equal(await page.locator('.chat-vision-chip').count(),3,'Reject aggregate original bytes without recompression');
  await page.setViewportSize({width:390,height:844});available=false;
  await page.getByRole('button',{name:'Open 3D models',exact:true}).click();
  await page.getByText('3D generation is currently unavailable. You can still view saved models.').waitFor();
@@ -59,7 +235,14 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  assert(await page.evaluate(()=>document.querySelector('dialog').scrollWidth<=document.querySelector('dialog').clientWidth));
  if(process.env.THREE_D_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.THREE_D_SCREENSHOT_DIR,'three-d-mobile.png')});
  await page.keyboard.press('Escape');assert.equal(await page.locator('dialog.three-d-dialog').evaluate(x=>x.open),false);
+ modelDiscoveryReady=false;
+ await page.goto(page.url().split('#')[0]);
+ await page.waitForFunction(()=>document.querySelector('#chatStatus').textContent==='Fixture model discovery unavailable');
+ assert.equal(await page.locator('#chatActiveModel').textContent(),'API unavailable');
+ await page.locator('[data-chat-mode=chat]').click();
+ assert(await page.locator('#chatInput').isDisabled()&&await page.locator('#chatSend').isDisabled(),'Failed discovery cannot use stale model or vision readiness');
+ assert.equal(await page.locator('#chatVisionStatus').textContent(),'The active language model does not advertise image understanding.');
  assert.equal(errors.length,0,errors.join('\n'));
- console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844'}));
+ console.log(JSON.stringify({ok:true,scenarios:2,posts:posts.length,download:download.suggestedFilename(),desktop:'1365x900',mobile:'390x844',sourceFidelity:{editModes:3,directUpload:true,originalPixels:3072*2048,visionPixels:visionWidth*visionHeight,originalVisionBytes:true,restoredVisionBytes:true,privateAssets:assetUploads.length}}));
  await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1);});

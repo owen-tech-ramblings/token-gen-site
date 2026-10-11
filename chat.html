@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0d1117" />
     <title>Token Gen</title>
     <link rel="stylesheet" href="./chat-three-d.css?v=20261011" />
-    <script type="module" src="./chat-three-d.mjs?v=20261011-quality"></script>
+    <script type="module" src="./chat-three-d.mjs?v=20261011-highest-2"></script>
     <link rel="icon" href="./assets/og-future-mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css?v=token-chat-agent-mode-20260825-1" />
   </head>
@@ -369,10 +369,13 @@
               <select id="chatImageSize">
                 <option value="512">512 px</option>
                 <option value="768">768 px</option>
-                <option value="1024" selected>1024 px</option>
+                <option value="1024">1024 px</option>
+                <option value="2048" selected>2048 px</option>
               </select>
             </label>
           </div>
+
+          <p class="chat-capability-note" id="chatImageSizingHint" hidden>Edits keep the source aspect ratio and use the selected native quality.</p>
 
           <div class="chat-field-pair">
             <label class="chat-field" for="chatImageStyle">
@@ -391,9 +394,10 @@
               <span>Quality</span>
               <select id="chatImageQuality">
                 <option value="draft">Draft</option>
-                <option value="standard" selected>Standard</option>
+                <option value="standard">Standard</option>
                 <option value="high">High</option>
                 <option value="max">Maximum</option>
+                <option value="ultra" selected>Highest native quality</option>
               </select>
             </label>
           </div>
@@ -475,13 +479,14 @@
                 <label class="chat-field" for="chatImageSampler">
                   <span>Sampler</span>
                   <select id="chatImageSampler">
-                    <option value="res_multistep" selected>Res multistep</option>
+                    <option value="" selected>Model default</option>
+                    <option value="res_multistep">Res multistep</option>
                     <option value="euler">Euler</option>
                   </select>
                 </label>
                 <label class="chat-field" for="chatImageScheduler">
                   <span>Scheduler</span>
-                  <select id="chatImageScheduler"><option value="simple" selected>Simple</option></select>
+                  <select id="chatImageScheduler"><option value="" selected>Model default</option><option value="simple">Simple</option><option value="sgm_uniform">SGM uniform</option></select>
                 </label>
               </div>
             </div>
@@ -627,6 +632,6 @@ Keep responses clear and useful. Match detail to the request, use plain language
     <input class="chat-file-input" id="chatImageUpload" type="file" accept="image/png,image/jpeg" />
     <input class="chat-file-input" id="chatImageMaskUpload" type="file" accept="image/png,image/jpeg" />
 
-    <script type="module" src="./chat.js?v=token-chat-agent-mode-20260825-1"></script>
+    <script type="module" src="./chat.js?v=token-chat-highest-quality-20261011-4"></script>
   </body>
 </html>

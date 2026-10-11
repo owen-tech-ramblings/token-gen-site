@@ -184,10 +184,6 @@ assert.match(chatJs, /imageUploadButton\.addEventListener\("click"/, "Image uplo
 assert.match(chatJs, /imageMaskUploadButton\.addEventListener\("click"/, "Mask upload must be opened by an explicit button click handler.");
 assert.match(chatJs, /source_filename_prefix/, "Uploaded image edits must send a source filename prefix, not an existing image reference.");
 assert.doesNotMatch(chatJs, /filename:\s*source\.name/, "Uploaded image edits must not send image.filename because the API treats it as an existing ComfyUI reference.");
-assert.match(chatJs, /resizeImageSourceForEdit/, "Image edits must resize the source image to the selected output dimensions before submission.");
-assert.match(chatJs, /canvas\.toDataURL\("image\/png"\)/, "Image edit source resizing must submit a browser-generated PNG data URL.");
-assert.match(chatJs, /settings\.width/, "Image edit source resizing must use the configured output width.");
-assert.match(chatJs, /settings\.height/, "Image edit source resizing must use the configured output height.");
 assert.match(chatJs, /strength:\s*settings\.editStrength/, "Image edits must use the configured edit strength.");
 assert.match(chatJs, /denoise:\s*settings\.editStrength/, "Image edits must use the configured edit strength for denoise.");
 assert.match(chatJs, /mask_base64/, "Image edits must send optional mask_base64 when a mask is selected.");
@@ -268,8 +264,9 @@ assert.match(chatHtml, /id="chatVisionPreview"/, "Chat must render vision attach
 assert.match(chatHtml, /id="chatVisionStatus"/, "Settings must explain whether local image understanding is available.");
 assert.match(chatJs, /getVisionCapabilities/, "Chat must discover vision support from the active server model.");
 assert.doesNotMatch(chatJs, /sources\.slice\(0,\s*(?:6|10)\)/, "All API-returned web sources up to twenty must remain available for rendering and history.");
-assert.match(chatJs, /readVisionImage/, "Chat must prepare uploaded images locally before inference.");
-assert.match(chatJs, /maxPixels/, "Chat must bound local vision image resolution.");
+assert.match(chatJs, /readVisionImage/, "Chat must validate uploaded images locally before inference.");
+assert.match(chatJs, /dataUrl:\s*originalDataUrl/, "Vision conditioning must preserve original encoded bytes for the native processor.");
+assert.match(chatJs, /file\.size > limits\.maxImageBytes/, "Vision originals must retain explicit per-file byte admission.");
 assert.match(chatHtml, /id="chatVisionOptionsHint"/, "Chat must explain ordered comparison and explicit edit targeting.");
 assert.match(chatJs, /dataset\.visionMove/, "Vision attachments must expose explicit ordering controls.");
 assert.match(chatJs, /dataset\.visionEditTarget/, "Vision attachments must expose one explicit edit target control.");

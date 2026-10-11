@@ -104,6 +104,7 @@ const els = {
   imageStyle: $("#chatImageStyle"),
   imageCreativity: $("#chatImageCreativity"),
   imageOrientation: $("#chatImageOrientation"),
+  imageSizingHint: $("#chatImageSizingHint"),
   imageContentFilter: $("#chatImageContentFilter"),
   imageEditPreservation: $("#chatImageEditPreservation"),
   imageEditStrength: $("#chatImageEditStrength"),
@@ -315,12 +316,12 @@ const PROJECT_SCOPE_RETRY_MESSAGE = "Project changed while preparing this reques
 const DEFAULT_VISION_MAX_IMAGES = 4;
 const DEFAULT_VISION_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const DEFAULT_VISION_MAX_TOTAL_BYTES = 24 * 1024 * 1024;
-const DEFAULT_VISION_MAX_PIXELS = 1280 * 28 * 28;
 const IMAGE_QUALITY_SETTINGS = {
-  draft: { label: "Draft", steps: 8, cfg: 5.0, prompt: "quick clean preview" },
-  standard: { label: "Standard", steps: 20, cfg: 5.0, prompt: "balanced detail and prompt fidelity" },
-  high: { label: "High", steps: 35, cfg: 5.0, prompt: "high detail, clean texture, polished rendering" },
-  max: { label: "Max", steps: 50, cfg: 5.0, prompt: "maximum detail, refined texture, polished final image" },
+  draft: { label: "Draft", prompt: "quick clean preview" },
+  standard: { label: "Standard", prompt: "balanced detail and prompt fidelity" },
+  high: { label: "High", prompt: "high detail, clean texture, polished rendering" },
+  max: { label: "Max", prompt: "maximum detail, refined texture, polished final image" },
+  ultra: { label: "Highest", prompt: "maximum detail, refined texture, polished final image" },
 };
 const IMAGE_STYLE_PROMPTS = {
   none: "",
@@ -430,7 +431,9 @@ function getSelectedModel() {
 }
 
 function getVisionCapabilities(model = getSelectedModel()) {
-  return model.capabilities?.vision || visionCapabilities || {};
+  // A legacy top-level contract can describe the sole active model. A model
+  // without its own contract must not inherit another catalog entry's support.
+  return model.capabilities?.vision || (availableModels.length === 1 ? visionCapabilities : {}) || {};
 }
 
 function getVisionLimits() {
@@ -439,7 +442,6 @@ function getVisionLimits() {
     maxImages: Math.max(1, Math.min(4, Number(capability.max_images || DEFAULT_VISION_MAX_IMAGES))),
     maxImageBytes: Number(capability.max_image_bytes || DEFAULT_VISION_MAX_IMAGE_BYTES),
     maxTotalBytes: Number(capability.max_total_bytes || DEFAULT_VISION_MAX_TOTAL_BYTES),
-    maxPixels: Number(capability.max_pixels || DEFAULT_VISION_MAX_PIXELS),
   };
 }
 
@@ -579,7 +581,7 @@ function syncWebUI() {
 
 function syncVisionCapability() {
   const capability = getVisionCapabilities();
-  visionSupported = Boolean(capability.available);
+  visionSupported = capability.available === true;
   if (els.visionStatus) {
     els.visionStatus.textContent = visionSupported
       ? `Image understanding runs locally with up to ${getVisionLimits().maxImages} images per message.`
@@ -632,6 +634,7 @@ function syncSendButtonState() {
 }
 
 function updateSendState() {
+  syncImageSizeControls();
   syncSendButtonState();
   if (isImageGenerationRunning()) {
     els.send.disabled = false;
@@ -663,7 +666,7 @@ function outputImageReference(output) {
 }
 
 function imageDimensions() {
-  const size = clampNumber(els.imageSize.value, 1024, 512, 1024);
+  const size = clampNumber(els.imageSize.value, 2048, 512, 2048);
   const shortSide = Math.max(384, Math.round(size * 0.75));
   if (els.imageOrientation.value === "portrait") return { width: shortSide, height: size };
   if (els.imageOrientation.value === "landscape") return { width: size, height: shortSide };
@@ -716,7 +719,9 @@ function buildStyledImagePrompt(prompt, sourceMode = els.imageSourceMode.value, 
   return [
     prompt,
     imageModeInstruction(sourceMode, settings),
-    `${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image`,
+    ["edit", "restyle", "style"].includes(sourceMode)
+      ? "original source aspect ratio"
+      : `${settings.width} by ${settings.height} ${settings.orientationLabel.toLowerCase()} image`,
     sourceMode === "edit" && activeImageMask
       ? "edit mask provided, white or light masked regions regenerated, black or dark unmasked regions preserved"
       : "",
@@ -766,6 +771,7 @@ function clearActiveImageMask() {
 }
 
 function renderImageSourcePreview() {
+  syncImageSizeControls();
   if (!els.imageSourcePreview) return;
   if (!activeImageSource) {
     els.imageSourcePreview.innerHTML = "";
@@ -1134,11 +1140,6 @@ function loadImageElement(src) {
   });
 }
 
-function dataUrlByteLength(dataUrl) {
-  const base64 = String(dataUrl || "").split(",")[1] || "";
-  return Math.max(0, Math.floor(base64.length * 3 / 4) - (base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0));
-}
-
 async function readVisionImage(file) {
   const limits = getVisionLimits();
   if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
@@ -1149,48 +1150,23 @@ async function readVisionImage(file) {
   }
   const previewObjectUrl = URL.createObjectURL(file);
   try {
+    // Preserve encoded input; the server-owned model processor prepares it.
+    const originalDataUrl = await readBlobAsDataUrl(file);
     const image = await loadImageElement(previewObjectUrl);
-    const sourcePixels = image.naturalWidth * image.naturalHeight;
-    const pixelScale = sourcePixels > limits.maxPixels ? Math.sqrt(limits.maxPixels / sourcePixels) : 1;
-    const scale = Math.min(pixelScale, 1, 2048 / image.naturalWidth, 2048 / image.naturalHeight);
-    let dataUrl;
-    let mimeType = file.type;
-    let width = image.naturalWidth;
-    let height = image.naturalHeight;
-
-    if (scale < 0.999) {
-      width = Math.max(1, Math.floor(image.naturalWidth * scale));
-      height = Math.max(1, Math.floor(image.naturalHeight * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Image preparation is unavailable in this browser.");
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, width, height);
-      context.drawImage(image, 0, 0, width, height);
-      dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-      mimeType = "image/jpeg";
-      for (const quality of [0.84, 0.74, 0.64]) {
-        if (dataUrlByteLength(dataUrl) <= limits.maxImageBytes) break;
-        dataUrl = canvas.toDataURL("image/jpeg", quality);
-      }
-    } else {
-      dataUrl = await readBlobAsDataUrl(file);
-    }
-    const sizeBytes = dataUrlByteLength(dataUrl);
-    if (sizeBytes > limits.maxImageBytes) {
-      throw new Error(`${file.name} could not be prepared within the local vision size limit.`);
-    }
     return {
       id: globalThis.crypto?.randomUUID?.() || `vision-${Date.now()}-${Math.random().toString(16).slice(2)}`,
       kind: "upload",
       name: file.name,
-      mimeType,
-      sizeBytes,
-      width,
-      height,
-      dataUrl,
+      mimeType: file.type,
+      sizeBytes: file.size,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      dataUrl: originalDataUrl,
+      originalDataUrl,
+      originalMimeType: file.type,
+      originalSizeBytes: file.size,
+      originalWidth: image.naturalWidth,
+      originalHeight: image.naturalHeight,
       previewUrl: previewObjectUrl,
       previewObjectUrl,
     };
@@ -1300,7 +1276,7 @@ function releaseConversationVisionPreviews(conversationMessages = messages) {
 
 async function uploadVisionAsset(image) {
   if (image.url || !image.dataUrl || !historyState.available || historyState.currentRetention === "none") return image;
-  const blob = await (await fetch(image.dataUrl)).blob();
+  const blob = await (await fetch(image.originalDataUrl || image.dataUrl)).blob();
   const form = new FormData();
   form.append("file", blob, image.name || "image");
   const { json } = await historyRequest("/assets", { method: "POST", body: form });
@@ -1309,8 +1285,8 @@ async function uploadVisionAsset(image) {
     ...image,
     assetId: json.asset.asset_id,
     url: absolutePrivateUrl(json.asset.url),
-    mimeType: json.asset.mime_type || image.mimeType,
-    sizeBytes: json.asset.size_bytes || image.sizeBytes,
+    originalMimeType: json.asset.mime_type || image.originalMimeType || image.mimeType,
+    originalSizeBytes: json.asset.size_bytes || image.originalSizeBytes || image.sizeBytes,
   };
 }
 
@@ -1332,12 +1308,20 @@ async function prepareVisionImagesForSend(images) {
 }
 
 async function visionImageDataUrl(image) {
-  if (image.dataUrl) return image.dataUrl;
-  const url = absoluteImageUrl(image.url || image.previewUrl);
+  if (image.originalDataUrl || image.dataUrl) return image.originalDataUrl || image.dataUrl;
+  const url = image.assetId
+    ? `${HISTORY_API_PATH}/assets/${encodeURIComponent(image.assetId)}`
+    : absoluteImageUrl(image.url || image.previewUrl);
   if (!url) throw new Error("An attached image is no longer available.");
   const response = await fetch(url, { cache: "no-store", credentials: "include" });
   if (!response.ok) throw new Error(`Attached image could not be loaded: HTTP ${response.status}`);
-  return readBlobAsDataUrl(await response.blob());
+  const file = new File([await response.blob()], image.name || "image", { type: image.mimeType || "image/png" });
+  const prepared = await readVisionImage(file);
+  try {
+    return prepared.dataUrl;
+  } finally {
+    releaseImagePreviewUrl(prepared);
+  }
 }
 
 async function sourceImageDataUrl(source) {
@@ -1349,39 +1333,15 @@ async function sourceImageDataUrl(source) {
   return readBlobAsDataUrl(await response.blob());
 }
 
-async function resizeImageSourceForEdit(source, settings) {
+async function prepareImageSourceForEdit(source) {
   const dataUrl = await sourceImageDataUrl(source);
-  const image = await loadImageElement(dataUrl);
-  if (image.naturalWidth === settings.width && image.naturalHeight === settings.height) {
-    return {
-      ...source,
-      kind: "base64",
-      image_base64: dataUrl,
-      previewUrl: dataUrl,
-    };
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = settings.width;
-  canvas.height = settings.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Image resizing is unavailable in this browser.");
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const scale = Math.min(settings.width / image.naturalWidth, settings.height / image.naturalHeight);
-  const width = Math.round(image.naturalWidth * scale);
-  const height = Math.round(image.naturalHeight * scale);
-  const left = Math.round((settings.width - width) / 2);
-  const top = Math.round((settings.height - height) / 2);
-  ctx.drawImage(image, left, top, width, height);
-
-  const resizedDataUrl = canvas.toDataURL("image/png");
+  // The API validates native upload limits and the worker prepares model input.
+  // Keep the original encoded source and alpha intact through this transport.
   return {
     ...source,
     kind: "base64",
-    image_base64: resizedDataUrl,
-    previewUrl: resizedDataUrl,
-    resizedFor: `${settings.width}x${settings.height}`,
+    image_base64: dataUrl,
+    previewUrl: dataUrl,
   };
 }
 
@@ -2416,11 +2376,13 @@ function storedHistoryMessages() {
       ? message.visionImages.slice(0, getVisionLimits().maxImages).filter((image) => image.url).map((image) => ({
           asset_id: image.assetId,
           name: image.name,
-          mime_type: image.mimeType || "image/png",
-          url: image.url,
-          width: image.width,
-          height: image.height,
-          size_bytes: image.sizeBytes,
+          mime_type: image.originalMimeType || image.mimeType || "image/png",
+          url: image.assetId
+            ? `${API_BASE}/api/conversations/assets/${encodeURIComponent(image.assetId)}`
+            : image.url,
+          width: image.originalWidth || image.width,
+          height: image.originalHeight || image.height,
+          size_bytes: image.originalSizeBytes || image.sizeBytes,
         }))
       : [];
     if (visionImages.length) item.vision_images = visionImages;
@@ -2474,7 +2436,9 @@ function restoredHistoryMessage(message) {
       name: image.name || "Image",
       mimeType: image.mime_type || "image/png",
       url: absoluteImageUrl(image.url),
-      previewUrl: absoluteImageUrl(image.url),
+      previewUrl: image.asset_id
+        ? `${HISTORY_API_PATH}/assets/${encodeURIComponent(image.asset_id)}`
+        : absoluteImageUrl(image.url),
       width: image.width,
       height: image.height,
       sizeBytes: image.size_bytes,
@@ -3106,7 +3070,7 @@ function renderVisionMessage(message) {
     <div class="chat-vision-message${images.length > 1 ? " is-multiple" : ""}">
       ${images.map((image, index) => `
         <figure>
-          <img src="${escapeHtml(image.url || image.previewUrl || image.dataUrl || "")}" alt="${escapeHtml(image.name || `Attached image ${index + 1}`)}" loading="lazy" />
+          <img src="${escapeHtml(image.previewUrl || image.url || image.dataUrl || "")}" alt="${escapeHtml(image.name || `Attached image ${index + 1}`)}" loading="lazy" />
           <figcaption>${escapeHtml(image.name || `Image ${index + 1}`)}</figcaption>
         </figure>
       `).join("")}
@@ -3382,6 +3346,11 @@ function chatHistoryForPayload() {
     }));
 }
 
+function chatIncludesVisionImages() {
+  return attachedVisionImages.length > 0
+    || chatHistoryForPayload().some((message) => message.role === "user" && message.visionImages.length > 0);
+}
+
 async function chatPayloadMessage(message, includeReasoning) {
   const images = orderedVisionImages(
     message.visionImages,
@@ -3396,6 +3365,7 @@ async function chatPayloadMessage(message, includeReasoning) {
     }
     return payload;
   }
+  if (!visionSupported) throw new Error("The active local model is not running with image understanding");
   const resolvedImages = await Promise.all(images.map(async (image) => ({
     ...image,
     dataUrl: await visionImageDataUrl(image),
@@ -3522,12 +3492,14 @@ async function loadProjectVideoCapability() {
 function disableChat(reason = "Token Gen API model discovery failed") {
   chatReady = false;
   availableModels = [];
+  visionCapabilities = {};
   reasoningCapabilities = {};
   els.model.innerHTML = `<option value="">API unavailable</option>`;
   if (els.activeModel) els.activeModel.textContent = "API unavailable";
   syncMaxOutputControl({ max_model_len: DEFAULT_CONTEXT_WINDOW });
   els.input.disabled = true;
   els.send.disabled = true;
+  syncVisionCapability();
   setStatus(reason, "bad");
   renderDocuments();
 }
@@ -3658,7 +3630,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     setStatus("This question needs current web context, but web search is unavailable", "bad");
     return;
   }
-  if (attachedVisionImages.length && !visionSupported) {
+  if (chatIncludesVisionImages() && !visionSupported) {
     setStatus("The active local model is not running with image understanding", "bad");
     return;
   }
@@ -3933,15 +3905,17 @@ async function sendMessage(content, route = routeRequest(content)) {
 function imageSettings() {
   const dimensions = imageDimensions();
   const samples = Math.round(clampNumber(els.imageSamples.value, 1, 1, 4));
-  const quality = IMAGE_QUALITY_SETTINGS[els.imageQuality.value] || IMAGE_QUALITY_SETTINGS.standard;
+  const qualityKey = Object.hasOwn(IMAGE_QUALITY_SETTINGS, els.imageQuality.value) ? els.imageQuality.value : "ultra";
+  const quality = IMAGE_QUALITY_SETTINGS[qualityKey];
   const creativity = IMAGE_CREATIVITY_SETTINGS[els.imageCreativity.value] || IMAGE_CREATIVITY_SETTINGS["0.50"];
   const preservation = IMAGE_EDIT_PRESERVATION_SETTINGS[els.imageEditPreservation.value] || IMAGE_EDIT_PRESERVATION_SETTINGS.strict;
   const editStrength = clampNumber(els.imageEditStrength.value, preservation.strength, 0.05, 0.8);
   const upscaleScale = Math.round(clampNumber(els.imageUpscaleScale.value, 2, 1, 4));
   return {
     ...dimensions,
+    sourceAspect: ["edit", "restyle", "style"].includes(els.imageSourceMode.value),
     samples,
-    qualityKey: els.imageQuality.value,
+    qualityKey,
     qualityLabel: quality.label,
     qualityPrompt: quality.prompt,
     styleKey: els.imageStyle.value,
@@ -3961,15 +3935,27 @@ function imageSettings() {
     editStrength,
     upscaleScale,
     upscaleMethod: els.imageUpscaleMethod.value || "lanczos",
-    samplerName: els.imageSampler.value || "res_multistep",
-    scheduler: els.imageScheduler.value || "simple",
-    steps: quality.steps,
-    cfg: quality.cfg,
+    samplerName: els.imageSampler.value || undefined,
+    scheduler: els.imageScheduler.value || undefined,
   };
 }
 
 function imageSummary(settings) {
+  if (settings.sourceAspect) return `Source aspect / ${settings.qualityLabel} native quality / ${settings.creativityLabel}`;
   return `${settings.width} x ${settings.height} / ${settings.qualityLabel} / ${settings.orientationLabel} / ${settings.creativityLabel}`;
+}
+
+function syncImageSizeControls() {
+  const sourceAspect = ["edit", "restyle", "style"].includes(els.imageSourceMode.value);
+  const factorUpscale = els.imageSourceMode.value === "upscale" && Number(els.imageUpscaleScale.value) !== 1;
+  els.imageSize.disabled = sourceAspect || factorUpscale;
+  els.imageOrientation.disabled = sourceAspect || factorUpscale;
+  if (els.imageSizingHint) {
+    els.imageSizingHint.hidden = !(sourceAspect || factorUpscale);
+    els.imageSizingHint.textContent = factorUpscale
+      ? "Upscale keeps the source aspect ratio. Choose Fit selected size to set Size and Shape."
+      : "Edits keep the source aspect ratio and use the selected native quality.";
+  }
 }
 
 function imageNegativePrompt(extra = []) {
@@ -4016,8 +4002,6 @@ function buildImagePayload(prompt, settings, sampleIndex) {
     negative_prompt: imageNegativePrompt(),
     width: settings.width,
     height: settings.height,
-    steps: settings.steps,
-    cfg: settings.cfg,
     quality: settings.qualityKey,
     creativity: settings.creativity,
     content_rating: settings.contentRating,
@@ -4049,7 +4033,7 @@ async function submitImageGeneration(prompt, settings, sampleIndex, signal) {
 
 async function buildImageEditPayload(prompt, settings, sampleIndex, source, sourceMode) {
   if (!source) throw new Error("Select or upload a source image first.");
-  const preparedSource = await resizeImageSourceForEdit(source, settings);
+  const preparedSource = await prepareImageSourceForEdit(source);
   const payload = {
     prompt: buildStyledImagePrompt(prompt, sourceMode, settings),
     negative_prompt: imageNegativePrompt([
@@ -4063,8 +4047,6 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
     ]),
     strength: settings.editStrength,
     denoise: settings.editStrength,
-    steps: settings.steps,
-    cfg: settings.cfg,
     quality: settings.qualityKey,
     creativity: settings.creativity,
     content_rating: settings.contentRating,
@@ -4077,7 +4059,7 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
   payload.image_base64 = preparedSource.image_base64;
   payload.source_filename_prefix = preparedSource.name || "token-gen-source";
   if (sourceMode === "edit" && activeImageMask) {
-    const preparedMask = await resizeImageSourceForEdit(activeImageMask, settings);
+    const preparedMask = await prepareImageSourceForEdit(activeImageMask);
     payload.mask_base64 = preparedMask.image_base64;
   }
   return payload;
@@ -4089,11 +4071,13 @@ async function buildImageUpscalePayload(settings, sampleIndex, source) {
   const payload = {
     image_base64: dataUrl,
     scale: settings.upscaleScale,
-    width: settings.width,
-    height: settings.height,
     method: settings.upscaleMethod,
     filename_prefix: `token_gen_chat_upscale_${sampleIndex + 1}`,
   };
+  if (settings.upscaleScale === 1) {
+    payload.width = settings.width;
+    payload.height = settings.height;
+  }
   return payload;
 }
 
@@ -4346,7 +4330,9 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
         ...(imageRef || {}),
         prompt,
         quality: "Deterministic enhance",
-        size: `${settings.width} x ${settings.height} / ${settings.upscaleScale}x / ${settings.upscaleMethod}`,
+        size: settings.upscaleScale === 1
+          ? `${settings.width} x ${settings.height} / Fit selected size / ${settings.upscaleMethod}`
+          : `${settings.upscaleScale}x / Source aspect / ${settings.upscaleMethod}`,
         alt: prompt,
         url: absoluteImageUrl(output.url),
       });
@@ -4454,6 +4440,12 @@ els.form.addEventListener("submit", (event) => {
   const content = els.input.value.trim();
   if (!content || els.send.disabled) return;
   const route = routeRequest(content);
+  if (route.kind !== "image" && chatIncludesVisionImages() && !visionSupported) {
+    setStatus(chatReady
+      ? "The active local model is not running with image understanding"
+      : "Token Gen API model discovery is unavailable", "bad");
+    return;
+  }
   els.input.value = "";
   autosizeInput();
   if (route.kind === "image") {
@@ -4465,11 +4457,11 @@ els.form.addEventListener("submit", (event) => {
     const source = sourceVisionImages.find((image) => image.editTarget);
     if (source) {
       setActiveImageSource({
-        kind: source.dataUrl ? "base64" : "url",
+        kind: (source.originalDataUrl || source.dataUrl) ? "base64" : "url",
         name: source.name,
-        mimeType: source.mimeType,
-        image_base64: source.dataUrl,
-        previewUrl: source.dataUrl || source.url || source.previewUrl,
+        mimeType: source.originalMimeType || source.mimeType,
+        image_base64: source.originalDataUrl || source.dataUrl,
+        previewUrl: source.previewUrl || source.url || source.originalDataUrl || source.dataUrl,
         url: source.url,
       });
       if (els.imageSourceMode.value === "new") {
@@ -4533,6 +4525,8 @@ els.imageSourceMode.addEventListener("change", () => {
   }
   renderImageSourcePreview();
 });
+
+els.imageUpscaleScale.addEventListener("change", syncImageSizeControls);
 
 els.imageSamples.addEventListener("input", () => {
   els.imageSamples.value = String(Math.round(clampNumber(els.imageSamples.value, 1, 1, 4)));

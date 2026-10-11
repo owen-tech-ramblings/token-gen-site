@@ -1,5 +1,88 @@
 # Token Gen Current State
 
+## Original image references — 2026-10-11
+
+Image edit, restyle and style-reference requests preserve original encoded
+bytes and transparency, including images first attached for chat vision.
+Direct image uploads also pass unchanged; the API reports native upload-limit
+errors instead of a browser resize/recompression retry. Edits retain source
+aspect and native quality, so Size/Shape controls are disabled for those three
+tasks and their prompt/summary no longer promise a chosen square canvas.
+Generation and upscale's explicit Fit selected size retain sizing controls.
+Factor 2×/4× upscale disables Size/Shape and omits width/height from requests,
+so a fixed canvas cannot override the chosen factor or downscale a large source.
+Upscale result summaries distinguish the factor from explicit fit dimensions.
+
+Private attachment assets now save the original under existing retention and
+size limits. Conversation JSON contains canonical API asset references and
+original metadata; browser display/retrieval uses the existing private bridge.
+New and restored LLM inputs preserve the same original bytes, MIME, dimensions
+and alpha. The browser rejects originals beyond the existing 8 MiB per-image
+and 24 MiB aggregate guards; it never downsizes, flattens alpha or recompresses
+to fit. Spatial preprocessing belongs to the active server-owned model
+processor. Missing discovery disables chat, and missing, malformed or disabled
+vision support blocks image context without dropping the typed prompt.
+
+The existing desktop/mobile browser selector passed a 3072×2048 transparent
+PNG through all three edit tasks and direct upload, checked exact source
+digests and private asset bytes, exercised upload-limit errors, reopened saved
+assets, and confirmed exact original new/restored LLM input digests and alpha
+with native 16,777,216-pixel processor discovery. It checks explicit original
+byte-limit rejection and unavailable/missing/malformed vision capability,
+including restored image context and failed model discovery. The previous
+browser resize regression was observed failing before the correction.
+The two existing 3D/bridge checks and protected Agent check also pass on
+Node 24.21.0, using the exact commands in the next section. No named tests or
+paid jobs were added. The obsolete historical source-resize guards were
+removed; the historical aggregate remains unrun under the targeted-test policy.
+The same browser selector reproduced the old fixed-width override, then passed
+2×/4×/Fit payload and enabled/disabled control assertions after the correction;
+all five selected outcomes pass with no additional named checks.
+Integration of current master `62316e1` preserves its native 12-step sampling
+and repaired/raw STL controls; the same selected checks pass after integration.
+Legacy resized assets cannot recover already discarded pixels. GPU inference
+and the separate LLM capacity/worker precision releases remain unverified here.
+
+## Highest-quality browser defaults — 2026-10-11
+
+The owner's explicit highest-quality policy now applies to both image and 3D
+controls. Image requests start at 2048 pixels / ultra and use the API's native
+sampling recipe unless the user selects a sampler or scheduler. Lower sizes
+and quality tiers remain explicit choices. TRELLIS starts at resolution 1536,
+4096 textures and a one-million-triangle target; existing request identities,
+polling, cancellation and verified partial-artifact downloads are preserved.
+
+Validation: two named 3D/bridge Node checks, the protected Agent-mode request
+check, and the desktop/mobile Chromium consumer workflow. The browser check
+inspects actual default 3D and image POST payloads and verifies GLB download
+integrity, replay identity, health-dependent submission and mobile layout.
+No paid generation occurs in these browser fixtures. Source cache keys changed.
+
+The explicit preview browser scenario now opens the settings drawer and
+Advanced image controls through their visible UI before choosing Euler,
+then closes the drawer before sending. Passed on Node 24.21.0: two named
+3D/bridge checks, one protected Agent check, and desktop/mobile browser
+scenarios at 1365×900 and 390×844. Exact commands (Node executable
+`/home/zenfree/codex/site-quality-browser-20261011/node_modules/node/bin/node`):
+
+- `node --test tools/chat-three-d.test.mjs`
+- `node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs`
+- `PLAYWRIGHT_MODULE=/home/zenfree/codex/site-quality-browser-20261011/node_modules/playwright node tools/chat-three-d.browser.cjs`
+- `node --check chat.js`, `node --check chat-three-d.mjs`,
+  `node --check tools/chat-three-d.browser.cjs`, and
+  `node --check cloudflare/private-api-bridge/worker.js`
+- `git diff --check`
+
+No failures remain in these selected fixtures. The browser preserves original
+conditioning for both image tools and the LLM under existing byte limits;
+the active API/model owns token admission and native preprocessing. Actual GPU
+inference, native LLM capacity and worker precision remain separately governed.
+
+Authoring follows Jesse's explicit GitHub-source/continue-without-PC-blockers
+instructions using an isolated Token Gen checkout and reviewed PR; this work
+has no Lil Zen managed-worktree receipt and does not claim one. Existing local
+site edits are preserved separately and excluded from this release.
+
 Last updated: 2026-10-11 Australia/Sydney
 
 ## 3D model consumer — 2026-10-11

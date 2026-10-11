@@ -7,10 +7,10 @@ export function jobPath(id, suffix = '') {
   return `${THREE_D_BASE}/generations/${id}${suffix}`;
 }
 
-export function generationSettings(values) {
-  const result = { model: 'trellis2', resolution: Number(values.resolution),
-    triangle_target: Number(values.triangle_target), texture_size: Number(values.texture_size),
-    output_format: values.output_format };
+export function generationSettings(values = {}) {
+  const result = { model: 'trellis2', resolution: Number(values.resolution ?? 1536),
+    triangle_target: Number(values.triangle_target ?? 1000000), texture_size: Number(values.texture_size ?? 4096),
+    output_format: values.output_format ?? 'glb' };
   if (![512, 1024, 1536].includes(result.resolution) || ![512, 1024, 2048, 3072, 4096].includes(result.texture_size) ||
       !Number.isInteger(result.triangle_target) || result.triangle_target < 1000 || result.triangle_target > 1000000 ||
       !['glb', 'stl', 'both'].includes(result.output_format)) throw new Error('Check the 3D generation settings.');
@@ -94,7 +94,7 @@ export function mountThreeD(doc = document) {
   // Static, trusted template. API strings are assigned only through textContent.
   dialog.innerHTML = `
     <header><div><small>IMAGE TO 3D</small><h2 id="threeDHeading">Create a 3D model</h2></div><button type="button" data-close aria-label="Close 3D models">✕</button></header>
-    <p>Turn a transparent PNG into a textured model for your game, or an STL for further preparation.</p>
+    <p>Create a textured model or a repaired, geometry-validated STL. Highest quality is selected by default; choose lower settings for previews.</p>
     <p class="three-d-health" data-health role="status">Checking 3D availability…</p>
     <form class="three-d-form">
       <label class="three-d-file">Source image<input name="image" type="file" accept="image/png" required><small>Transparent PNG · up to 6 MiB · 4096 × 4096 px</small></label>
