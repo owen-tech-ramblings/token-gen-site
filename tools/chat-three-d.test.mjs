@@ -57,9 +57,15 @@ test('3D settings, retry identity and partial artifact integrity follow the API 
   assert.throws(() => artifacts.artifactContext({ retention: '30_days', messageId: 'unsaved' }));
   assert.throws(() => artifacts.artifactContentPath('../other'));
   assert.equal(artifacts.privateArtifactJobPath('/api/video/generations/'+'a'.repeat(32)), '/api/private/video/generations/'+'a'.repeat(32));
-  assert.equal(artifacts.privateArtifactJobPath('/api/tts/generations/'+'b'.repeat(32)), '/api/private/tts/generations/'+'b'.repeat(32));
+  assert.equal(artifacts.privateArtifactJobPath('/api/3d/generations/'+'a'.repeat(32)), '/api/private/3d/generations/'+'a'.repeat(32));
+  const speechJobId = 'e3b03e9a-31b9-4898-a359-cc8083831945';
+  assert.equal(artifacts.privateArtifactJobPath(`/api/tts/generations/${speechJobId}`),
+    '/api/private/tts/generations/e3b03e9a-31b9-4898-a359-cc8083831945', 'Poll the canonical UUID created by the TTS API');
   assert.equal(artifacts.privateArtifactJobPath('/api/image/history/runpod-job-1'), '/api/private/image/history/runpod-job-1');
-  for (const value of ['https://other.invalid/api/image/history/job', '/api/image/history/../private', '/api/video/generations/job?secret=token', '/api/conversations/private'])
+  for (const value of ['https://other.invalid/api/image/history/job', '/api/image/history/../private', '/api/video/generations/job?secret=token', '/api/conversations/private',
+    '/api/tts/generations/'+'b'.repeat(32), `/api/tts/generations/${speechJobId}?secret=token`,
+    `/api/tts/generations/${speechJobId}/audio`, `/api/tts/generations/${speechJobId}#fragment`,
+    `/api/tts/generations/${speechJobId}/../other`, `/api/video/generations/${speechJobId}`, `/api/3d/generations/${speechJobId}`])
     assert.equal(artifacts.privateArtifactJobPath(value), '');
   assert.match(artifacts.archiveLabel('pending'), /pending/i);
   assert.match(artifacts.archiveLabel('saved'), /saved/i);

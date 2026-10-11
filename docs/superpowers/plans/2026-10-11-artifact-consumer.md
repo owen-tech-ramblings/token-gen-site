@@ -12,6 +12,8 @@ No broad discovery suite or paid/model/runtime calls.
 - [x] Extend existing unit/bridge selectors for typed refs, private content
   URLs, state labels, retention binding and image/artifact route authentication.
 - [x] Implement a small browser-safe artifact helper and additive bridge map.
+- [x] Match the TTS API's UUID job IDs without broadening video/3D poll paths;
+  use that real ID shape in the existing native WAV browser scenario.
 - [x] Observe red/green evidence; keep redirects/body/ranges/credential stripping.
 
 ## 2. Stable admission and history recovery

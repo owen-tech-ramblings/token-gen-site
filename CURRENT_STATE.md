@@ -38,6 +38,12 @@ URLs hydrate temporary outputs into the exact assistant message; ordinary chat
 payloads and transport stay unchanged. The Access bridge adds artifacts,
 image, chat, tts and video while preserving assertion verification, browser
 credential stripping, canonical origin, streaming, HEAD/ranges and redirects.
+Speech polling accepts the TTS API's canonical hyphenated UUID job IDs; video
+and 3D retain their 32-hex IDs. The native WAV browser fixture now uses the real
+TTS ID shape. Queries, suffixes and mismatched service ID formats are rejected.
+The existing unit selector reproduced the missed TTS poll in
+`/home/zenfree/codex/site-tts-uuid-red-20261011.log`, then passed in
+`/home/zenfree/codex/site-tts-uuid-green-20261011.log` after the focused fix.
 
 The confirmed printer is A350T single extrusion with Quick Swap, PLA, 0.4 mm
 nozzle, 320×335×310 mm usable volume and 0.08 mm fine layers. Its exact API

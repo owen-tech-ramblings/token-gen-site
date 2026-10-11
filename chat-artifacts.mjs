@@ -20,8 +20,11 @@ export function artifactContentPath(id) {
 
 export function privateArtifactJobPath(value) {
   if (typeof value !== 'string') return '';
+  const ttsPrefix = '/api/tts/generations/';
+  const ttsId = value.startsWith(ttsPrefix) ? value.slice(ttsPrefix.length) : '';
   if (/^\/api\/image\/history\/[a-z0-9_-]{1,128}$/i.test(value) ||
-      /^\/api\/(?:tts|video|3d)\/generations\/[a-f0-9]{32}$/.test(value))
+      /^\/api\/(?:video|3d)\/generations\/[a-f0-9]{32}$/.test(value) ||
+      (ttsId.length === 36 && UUID.test(ttsId)))
     return value.replace('/api/', '/api/private/');
   return '';
 }

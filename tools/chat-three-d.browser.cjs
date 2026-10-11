@@ -6,7 +6,7 @@ const conversationId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',glbArtifactId='22222
 const savedGlb={artifact_id:glbArtifactId,kind:'three_d',format:'glb',state:'saved',sha256:crypto.createHash('sha256').update(artifact).digest('hex'),size_bytes:artifact.length,content_url:'https://untrusted.example/private',owner:'never show owner'};
 const nativeZip={artifact_id:'33333333-3333-4333-8333-333333333333',kind:'video',format:'zip',state:'saved',sha256:'3'.repeat(64),size_bytes:36000000000,native_metadata:{output_role:'master'},content_url:'https://untrusted.example/huge.zip',provider_token:'never show token'};
 const imageJobId='c'.repeat(32), imageArtifactId='44444444-4444-4444-8444-444444444444';
-const speechJobId='e'.repeat(32),speechArtifactId='55555555-5555-4555-8555-555555555555';
+const speechJobId='e3b03e9a-31b9-4898-a359-cc8083831945',speechArtifactId='55555555-5555-4555-8555-555555555555';
 const speechArtifact={artifact_id:speechArtifactId,kind:'audio',format:'wav',state:'temporary',sha256:'5'.repeat(64),size_bytes:1024,expires_at:1791691800,native_metadata:{sample_rate:24000,channels:1,encoding_fidelity:'native_float'}};
 const passedPrinterReport={profile_id:'snapmaker_a350t_quick_swap_single_pla_0_4_fine',status:'passed',validation:'native_dry_slice',dimensions_mm:[20,20,2],build_volume_mm:[320,335,310],layer_height_mm:.08,nozzle_mm:.4,toolpath:{layer_count:22},warnings:['thin_components','local_wall_thickness_unchecked','physical_print_unverified'],provider_token:'PRIVATE_REPORT_TOKEN'};
 const server = http.createServer((req,res)=>{ const name = decodeURIComponent(req.url.split('?')[0]); const file=path.join(root,name==='/'?'chat.html':name); try {res.setHeader('Content-Type',file.endsWith('.mjs')||file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end('missing');} });
@@ -330,6 +330,7 @@ const server = http.createServer((req,res)=>{ const name = decodeURIComponent(re
  assert(!agentRequest.postDataJSON().messages.some(message=>message.role==='assistant'&&message.content===''),'The delivery placeholder is excluded from model conditioning');
  await page.getByRole('link',{name:'Download audio · WAV',exact:true}).waitFor();
  assert.equal(await page.getByRole('link',{name:'Download audio · WAV',exact:true}).getAttribute('href'),`/api/private/artifacts/${speechArtifactId}/content`);
+ assert(calls.some(call=>call.method==='GET'&&call.path==='/api/private/tts/generations/e3b03e9a-31b9-4898-a359-cc8083831945'),'Temporary native WAV hydrates from the real TTS UUID job route');
  assert.equal(savedConversations.length,savesBeforeNone,'Temporary Agent outputs do not save the chat');
  await page.getByRole('button',{name:'Open settings',exact:true}).click();
  await page.locator('#chatHistoryRetention').selectOption('30_days');
