@@ -1,3 +1,4 @@
+import { sourceReadingLabel, publicWebNotices, webSearchStatus } from "./chat-web-presentation.mjs?v=20261012-1";
 import { normalizeWebRouteOptions } from "./chat-web-options.mjs";
 import { requestChatStream } from "./chat-transport-options.mjs?v=token-chat-error-telemetry-20260822-1";
 import {
@@ -586,7 +587,7 @@ function syncVisionCapability() {
     els.visionStatus.textContent = visionSupported
       ? `Image understanding runs locally with up to ${getVisionLimits().maxImages} images per message.`
       : capability.model_supports_vision
-        ? "This model supports images, but the current vLLM launch has vision disabled."
+        ? "Image understanding is currently unavailable."
         : "The active language model does not advertise image understanding.";
     els.visionStatus.dataset.state = visionSupported ? "good" : "neutral";
   }
@@ -3056,7 +3057,7 @@ function renderWelcome() {
         </button>
         <button class="chat-suggestion" type="button" data-chat-suggestion="Research the latest information about " data-suggestion-web="true">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></svg>
-          <span><strong>Research the web</strong><small>Use private routed web context</small></span>
+          <span><strong>Research the web</strong><small>Find current information and sources</small></span>
         </button>
       </div>
     </section>
@@ -3253,25 +3254,21 @@ function renderImageOutputs(message) {
 function renderWebContext(context) {
   if (!context) return "";
   const sources = webContextSources(context);
-  const research = context.research?.enabled ? context.research : null;
-  const warnings = Array.isArray(context.warnings) ? context.warnings.slice(0, 2) : [];
+  const warnings = publicWebNotices(context.warnings);
   return `
     <details class="chat-web-context">
       <summary>
-        <span>${research ? "Research evidence" : "Web context"}</span>
-        <span class="chat-web-mode">${escapeHtml(context.provider || context.search_route?.provider || "web")} / ${escapeHtml(context.fetch_mode || context.fetchMode || "direct")} / ${sources.length} source${sources.length === 1 ? "" : "s"}</span>
+        <span>Sources</span>
+        <span class="chat-web-mode">${sources.length} source${sources.length === 1 ? "" : "s"}</span>
       </summary>
       <div class="chat-web-context-body">
       ${context.query ? `<p class="chat-web-query">Query: ${escapeHtml(context.query)}</p>` : ""}
-      ${research ? `<p class="chat-web-query">${research.pages_with_full_text || 0} full page${research.pages_with_full_text === 1 ? "" : "s"}, ${research.chunks_selected || 0} ranked passage${research.chunks_selected === 1 ? "" : "s"}${research.locally_compacted ? ", locally compacted" : ""}.</p>` : ""}
       ${sources.length ? `
         <div class="chat-web-sources">
           ${sources.map((source) => `
             <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer">
               <strong>[${escapeHtml(source.index)}] ${escapeHtml(source.title || "Untitled")}</strong>
-              <span>${escapeHtml(source.fetched
-                ? `${source.extraction_method || "extracted"}${source.fetch_route ? ` via ${source.fetch_route}` : ""}`
-                : "search snippet")}</span>
+              <span>${escapeHtml(sourceReadingLabel(source))}</span>
             </a>
           `).join("")}
         </div>
@@ -3575,14 +3572,8 @@ async function loadWebSearchCapability() {
     webSearchSupported = Boolean(res.ok && json.ok !== false && health.available === true);
     researchSupported = Boolean(webSearchSupported && health.research_available);
     if (webSearchSupported) {
-      const routeLabel = webFetchModes.tor ? "Tor page fetching is available." : "Tor page fetching is unavailable.";
-      const providerLabel = health.unmetered_available
-        ? "Unmetered SearXNG is primary; Tavily is the metered fallback."
-        : "Metered Tavily is available; unmetered SearXNG is currently offline.";
-      els.webStatus.textContent = researchSupported
-        ? `Web and local research are available. ${providerLabel} ${routeLabel}`
-        : `Web context is available. ${providerLabel} ${routeLabel}`;
-      els.webStatus.dataset.state = health.unmetered_available ? "good" : "warn";
+      els.webStatus.textContent = webSearchStatus(health);
+      els.webStatus.dataset.state = health.degraded ? "warn" : "good";
       els.webSearch.disabled = false;
       els.webSearch.checked = Boolean(health.default_enabled);
       syncWebUI();
@@ -3591,7 +3582,7 @@ async function loadWebSearchCapability() {
       return;
     }
     if (res.ok && health.tavily_configured === false && health.searxng_available === false) {
-      els.webStatus.textContent = "Web context service is online, but neither Tavily nor SearXNG is configured.";
+      els.webStatus.textContent = "Web search is currently unavailable.";
       els.webStatus.dataset.state = "bad";
       els.webSearch.checked = false;
       els.webSearch.disabled = true;
@@ -3607,7 +3598,7 @@ async function loadWebSearchCapability() {
     webFetchModes = { direct: true, tor: false, proxy: false };
     els.webSearch.checked = false;
     els.webSearch.disabled = true;
-    els.webStatus.textContent = "Web context service is not configured or unavailable.";
+    els.webStatus.textContent = "Web search is currently unavailable.";
     els.webStatus.dataset.state = "bad";
     syncWebUI();
     syncModeUI();
@@ -3623,7 +3614,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     return;
   }
   if (route.research && !researchSupported) {
-    setStatus("Local Research mode is currently unavailable", "bad");
+    setStatus("Research is currently unavailable", "bad");
     return;
   }
   if (route.web && !webSearchSupported) {
@@ -3671,7 +3662,7 @@ async function sendMessage(content, route = routeRequest(content)) {
     route.agent
       ? "Agent is planning and choosing tools..."
       : route.research
-      ? "Researching sources and preparing local evidence..."
+      ? "Checking sources..."
       : route.web
         ? "Gathering web context..."
         : route.project
@@ -3709,7 +3700,7 @@ async function sendMessage(content, route = routeRequest(content)) {
       throw new Error(PROJECT_SCOPE_RETRY_MESSAGE);
     }
     if (route.research) {
-      setStatus("Researching sources and preparing local evidence...", "busy");
+      setStatus("Checking sources...", "busy");
     } else if (route.web) {
       setStatus("Gathering web context...", "busy");
     }
@@ -3828,8 +3819,8 @@ async function sendMessage(content, route = routeRequest(content)) {
           attachWebContext(assistantIndex, webContext);
           setStatus(
             webContext.research?.enabled
-              ? "Research evidence prepared; generating local answer..."
-              : "Web context attached; generating response...",
+              ? "Writing the answer..."
+              : "Writing the answer...",
             "busy",
           );
           continue;
@@ -4503,9 +4494,9 @@ els.mode.addEventListener("change", () => {
   } else if (getMode() === "agent") {
     setStatus("Agent mode can choose and chain Token Gen tools for this request", "good");
   } else if (getMode() === "research" && !researchSupported) {
-    setStatus("Local Research mode is currently unavailable", "bad");
+    setStatus("Research is currently unavailable", "bad");
   } else if (getMode() === "research") {
-    setStatus("Research mode will search, extract, rank, and answer locally", "good");
+    setStatus("Research uses web sources to explore your question", "good");
   } else if (getMode() === "chat" && chatReady) {
     setStatus(`Connected to ${modelLabel(getSelectedModel().id)}`, "good");
   }

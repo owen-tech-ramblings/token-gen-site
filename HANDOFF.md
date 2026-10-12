@@ -1,5 +1,30 @@
 # Token Gen Handoff
 
+## Clear public chat sources — 2026-10-12
+
+Public chat shows source links, readable coverage labels and result-affecting
+notices. Provider names, billing, fetch routes, parser names and ranking counts
+are removed from the conversation panel and routine availability status.
+Saved conversations containing old diagnostic notices use the same presentation
+filter. Advanced user-selected connection controls retain their privacy guidance.
+The default assistant instructions lead with the answer and suppress unrequested
+implementation narration. Source metadata and citations remain intact.
+
+Selected verification: two `tools/chat-web-presentation.test.mjs` checks,
+`node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs`,
+and desktop/mobile `tools/chat-web-presentation.browser.cjs` scenarios all passed.
+The browser fixtures preserve citations, complete/partial/preview labels and
+unreadable-source notices while hiding backend diagnostics. JavaScript syntax
+and whitespace checks passed. Master-only CI runs these same five outcomes.
+
+Authoring uses an isolated GitHub checkout under Jesse's existing instruction
+to continue ecosystem work without a developer-PC dependency. No control-plane
+receipt is claimed. Prior dirty site edits remain at their original base with
+an exact preserved patch under `/home/zenfree/codex/web-page-reading-20261012`.
+Release evidence, API reading verification and exact commit/build identities
+are recorded there; the UI fixtures themselves do not claim live model inference.
+
+
 ## Original image references — 2026-10-11
 
 Image edit, restyle and style-reference requests preserve original encoded
