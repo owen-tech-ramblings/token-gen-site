@@ -30,32 +30,32 @@ jobs:
         with:
           node-version: 24
 
-      - name: Check current 3D quality limits, retry identity and private authentication
-        run: node --test tools/chat-three-d.test.mjs
+      - name: Check source notices and search availability
+        run: node --test tools/chat-web-presentation.test.mjs
 
       - name: Preserve existing chat request behaviour
         run: node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs
 
       - name: Install isolated browser test runtime
         env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/three-d-${{ github.sha }}/browsers
-          NPM_CONFIG_CACHE: ${{ runner.temp }}/three-d-${{ github.sha }}/npm-cache
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/web-presentation-${{ github.sha }}/browsers
+          NPM_CONFIG_CACHE: ${{ runner.temp }}/web-presentation-${{ github.sha }}/npm-cache
         run: |
-          npm install --no-save --prefix ${{ runner.temp }}/three-d-${{ github.sha }}/runtime playwright@1.62.1
-          ${{ runner.temp }}/three-d-${{ github.sha }}/runtime/node_modules/.bin/playwright install chromium
+          npm install --no-save --prefix ${{ runner.temp }}/web-presentation-${{ github.sha }}/runtime playwright@1.62.1
+          ${{ runner.temp }}/web-presentation-${{ github.sha }}/runtime/node_modules/.bin/playwright install chromium
 
-      - name: Check highest-quality settings and preserved desktop and mobile workflows
+      - name: Check clear source presentation on desktop and mobile
         env:
-          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/three-d-${{ github.sha }}/browsers
-          PLAYWRIGHT_MODULE: ${{ runner.temp }}/three-d-${{ github.sha }}/runtime/node_modules/playwright
-        run: node tools/chat-three-d.browser.cjs
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/web-presentation-${{ github.sha }}/browsers
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/web-presentation-${{ github.sha }}/runtime/node_modules/playwright
+        run: node tools/chat-web-presentation.browser.cjs
 
       - name: Check changed chat modules
-        run: node --check chat.js && node --check chat-three-d.mjs && node --check cloudflare/private-api-bridge/worker.js
+        run: node --check chat.js && node --check chat-web-presentation.mjs && node --check tools/chat-web-presentation.browser.cjs
 
       - name: Check changed-file whitespace
         run: git diff --check HEAD^ HEAD
 
       - name: Remove this run's browser runtime
         if: always()
-        run: rm -rf -- "${RUNNER_TEMP:?}/three-d-${GITHUB_SHA:?}"
+        run: rm -rf -- "${RUNNER_TEMP:?}/web-presentation-${GITHUB_SHA:?}"

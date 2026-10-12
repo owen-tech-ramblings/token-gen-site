@@ -63,9 +63,9 @@ assert.doesNotMatch(chatJs, /DEFAULT_CHAT_MODEL\s*=\s*"Qwen-Qwen3\.6-27B-FP8"/, 
 assert.doesNotMatch(qwenVampireTool, /Qwen-Qwen3\.6|Qwen3\.6-27B/, "Developer tools must not retain a Qwen3.6 model fallback.");
 assert.match(qwenVampireTool, /throw new Error\("vLLM did not report exactly one active model"\)/, "Developer tools must fail explicitly when sole-model discovery fails.");
 assert.match(chatJs, /disableChat/, "Chat must disable input when model discovery fails.");
-assert.match(chatJs, /web context service is not configured/i, "Chat must explain unavailable web search as service configuration.");
+assert.match(chatJs, /Web search is currently unavailable/i, "Chat must clearly report unavailable web search.");
 assert.doesNotMatch(chatHtml, /You are Token Gen, a local vLLM assistant\. Be concise, practical, and direct\./, "Chat must not regress to the original text-only system prompt.");
-assert.match(chatHtml, /Jesse's self-hosted assistant running through a local vLLM/, "The default system prompt must identify Token Gen's current deployment accurately.");
+assert.match(chatHtml, /You are Token Gen\./, "The default system prompt identifies the assistant without deployment narration.");
 assert.match(chatHtml, /conversation, document, project, and web context/, "The default system prompt must explain available context sources.");
 assert.match(chatHtml, /active project instructions as trusted user preferences/, "The default system prompt must distinguish trusted project instructions from document evidence.");
 assert.match(chatHtml, /Never invent sources or claim access to tools, files, server state, or the live internet/, "The default system prompt must set honest capability boundaries.");
@@ -73,7 +73,7 @@ assert.match(chatHtml, /id="chatWebApiKey"[^>]+type="password"[^>]+autocomplete=
 assert.match(chatJs, /tavily_api_key:\s*els\.webApiKey\.value\.trim\(\) \|\| undefined/, "Chat must send the session Tavily key only in the web-search request body.");
 assert.doesNotMatch(chatJs, /localStorage[^\n]+chatWebApiKey|chatWebApiKey[^\n]+localStorage/, "Chat must never persist the user Tavily key in localStorage.");
 assert.match(chatJs, /health\.default_enabled/, "Chat must consume the API's health-backed web default.");
-assert.match(chatJs, /Unmetered SearXNG is primary/, "Chat must explain the unmetered provider order.");
+assert.doesNotMatch(chatJs, /Unmetered SearXNG is primary/, "Public chat must not narrate provider billing or routing.");
 assert.match(chatContextOptionsJs, /DEFAULT_CONTEXT_WINDOW = 524288/, "Chat fallback context must match the active extended model window.");
 assert.match(chatHtml, /id="chatReasoning"[^>]+checked/, "Chat must enable maximum model reasoning by default.");
 assert.match(chatHtml, /id="chatTemperature"[^>]+value="1\.0"/, "Chat must default to Qwen3.8's recommended thinking temperature.");
