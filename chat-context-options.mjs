@@ -51,6 +51,22 @@ export function webContextSources(context) {
   return Array.isArray(context?.sources) ? context.sources : [];
 }
 
+export function webContextForHistory(context) {
+  if (!context || typeof context !== "object") return undefined;
+  return {
+    query: context.query,
+    provider: context.provider || context.search_route?.provider,
+    fetch_mode: context.fetch_mode || context.fetchMode,
+    sources: webContextSources(context).map((source) => ({
+      index: source.index,
+      title: source.title,
+      url: source.url,
+      fetched: source.fetched,
+      extraction_method: source.extraction_method,
+    })),
+  };
+}
+
 export function projectRetrievalOptions(documentBudgetTokens) {
   return {
     top_k: 48,

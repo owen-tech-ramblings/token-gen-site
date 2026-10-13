@@ -69,8 +69,9 @@ import {
   reconcileBackgroundJobList,
   reasoningCapacity,
   webContextSources,
+  webContextForHistory,
   withOptionalGenerationLimit,
-} from "./chat-context-options.mjs?v=token-chat-private-video-20260816-1";
+} from "./chat-context-options.mjs?v=token-chat-follow-up-context-20261013-1";
 
 const API_BASE = "https://token-gen-api.owenonthenet.com";
 
@@ -2388,18 +2389,7 @@ function storedHistoryMessages() {
       : [];
     if (visionImages.length) item.vision_images = visionImages;
     if (message.webContext) {
-      item.web_context = {
-        query: message.webContext.query,
-        provider: message.webContext.provider || message.webContext.search_route?.provider,
-        fetch_mode: message.webContext.fetch_mode || message.webContext.fetchMode,
-        sources: webContextSources(message.webContext).map((source) => ({
-          index: source.index,
-          title: source.title,
-          url: source.url,
-          fetched: source.fetched,
-          extraction_method: source.extraction_method,
-        })),
-      };
+      item.web_context = webContextForHistory(message.webContext);
     }
     if (message.projectContext) {
       item.project_context = {
@@ -3335,6 +3325,7 @@ function chatHistoryForPayload() {
       role: message.role,
       content: String(message.content || ""),
       reasoningContent: assistantReasoningContent(message),
+      webContext: message.role === "assistant" ? webContextForHistory(message.webContext) : undefined,
       visionImages: orderedVisionImages(
         message.visionImages,
         Array.isArray(message.visionImages) ? message.visionImages.map((image) => image.id) : [],
@@ -3357,6 +3348,9 @@ async function chatPayloadMessage(message, includeReasoning) {
   const reasoningContent = assistantReasoningContent(message);
   if (!images.length || message.role !== "user") {
     const payload = { role: message.role, content: message.content };
+    if (message.role === "assistant" && message.webContext) {
+      payload.web_context = message.webContext;
+    }
     if (includeReasoning && reasoningContent) {
       payload.reasoning_content = reasoningContent;
     }

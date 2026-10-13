@@ -1,3 +1,23 @@
+## Search context on follow-up questions — 2026-10-13
+
+Chat requests now carry the previous assistant's query and source metadata
+through both history serialization steps. Saved and reopened chats use the
+same compact metadata projection, without page bodies or provider diagnostics.
+The existing desktop/mobile browser scenarios now send a timezone follow-up
+and reopen a saved Warriors conversation, verifying the actual POST payload's
+prior answer, query and NBA link. Source presentation remains unchanged.
+
+Selected verification: `node --test tools/chat-web-presentation.test.mjs`,
+`node --test --test-name-pattern='^only Agent mode' tools/chat-agent-options.test.mjs`,
+and `node tools/chat-web-presentation.browser.cjs` with the existing isolated
+Playwright runtime. These remain five outcomes. Module syntax and whitespace
+checks also pass. Cache keys for chat and its context helper were advanced.
+
+Authoring continues in the existing isolated GitHub checkout under the local
+owner-authorised workflow recorded above; no control-plane receipt is claimed.
+Unrelated edits in `/home/zenfree/token-gen-site` remain untouched. Reviewed
+PR, exact-master CI/Pages and protected asset verification govern release.
+
 # Token Gen Current State
 
 ## Clear public chat sources — 2026-10-12

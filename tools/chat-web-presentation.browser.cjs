@@ -15,15 +15,24 @@ const server = http.createServer((req, res) => {
     for (const viewport of [{width:1365,height:900}, {width:390,height:844}]) {
       const page = await browser.newPage({viewport});
       const errors = []; page.on('pageerror', error => errors.push(error.message));
+      const requests = [];
+      const saved = {id:'saved-warriors',title:'Saved Warriors schedule',retention:'30_days',version:1,messages:[
+        {role:'user',content:'What are the Warriors first five games?'},
+        {role:'assistant',content:'The saved schedule uses US ET.',web_context:{query:'Warriors opening five schedule',sources:[
+          {index:1,title:'Official saved schedule',url:'https://www.nba.com/warriors/schedule'},
+        ]}},
+      ]};
       await page.route('**/api/**', async route => {
         const pathname = new URL(route.request().url()).pathname;
         let data = {ok:true};
         if (pathname.endsWith('/chat/models')) data = {ok:true,data:{data:[{id:'fixture-model',name:'Fixture model'}]},default_model:'fixture-model'};
         else if (pathname.endsWith('/web-search/health')) data = {ok:true,data:{available:true,default_enabled:true,research_available:true,unmetered_available:true,fetch_modes:{direct:true}}};
-        else if (pathname.endsWith('/conversations')) data = {ok:true,conversations:[]};
+        else if (pathname.endsWith('/conversations')) data = {ok:true,conversations:[saved],preferences:{retention:'none'}};
+        else if (pathname.endsWith('/conversations/saved-warriors')) data = {ok:true,conversation:saved};
         else if (pathname.endsWith('/projects')) data = {ok:true,projects:[]};
         else if (pathname.endsWith('/jobs')) data = {ok:true,jobs:[]};
         else if (pathname.endsWith('/chat/stream')) {
+          requests.push(route.request().postDataJSON());
           const context = {provider:'searxng',fetch_mode:'direct',query:'Warriors schedule',research:{enabled:true,pages_with_full_text:2,chunks_selected:30,locally_compacted:true},sources:[
             {index:1,title:'Official schedule',url:'https://www.nba.com/team/1610612744/warriors/schedule',fetched:true,extraction_method:'trafilatura',content_coverage:'complete'},
             {index:2,title:'Schedule details',url:'https://example.com/details',fetched:true,content_coverage:'partial'},
@@ -47,6 +56,27 @@ const server = http.createServer((req, res) => {
       assert.doesNotMatch(text, /SearXNG|unmetered|trafilatura|ranked|compacted|lexical|direct/i);
       assert.equal(await sources.locator('a').first().getAttribute('href'), 'https://www.nba.com/team/1610612744/warriors/schedule');
       assert.equal(await page.locator('#chatWebStatus').textContent(), 'Web search is available.');
+      await page.waitForFunction(() => !document.querySelector('#chatSend').disabled);
+      await page.locator('#chatInput').fill('Convert the times from US ET to AUS Syd time zone.');
+      await page.locator('#chatSend').click();
+      await page.waitForFunction(() => !document.querySelector('#chatSend').disabled);
+      assert.equal(requests.length, 2);
+      const previousAnswer = requests[1].messages.find(message => message.role === 'assistant');
+      assert.equal(previousAnswer.web_context?.query, 'Warriors schedule');
+      assert.equal(previousAnswer.web_context.sources[0].url, 'https://www.nba.com/team/1610612744/warriors/schedule');
+      assert.equal(previousAnswer.content, 'The opening schedule is available here [1].');
+      assert.equal(requests[1].messages.filter(message => message.role === 'user').at(-1).content,
+        'Convert the times from US ET to AUS Syd time zone.');
+      if (await page.locator('#chatRailOpen').isVisible()) await page.locator('#chatRailOpen').click();
+      await page.locator('[data-history-open="saved-warriors"]').click();
+      await page.getByText('The saved schedule uses US ET.', {exact:true}).waitFor();
+      await page.locator('#chatInput').fill('Show them in Sydney time.');
+      await page.locator('#chatSend').click();
+      await page.waitForFunction(() => !document.querySelector('#chatSend').disabled);
+      assert.equal(requests.length, 3);
+      const restoredAnswer = requests[2].messages.find(message => message.role === 'assistant');
+      assert.equal(restoredAnswer.web_context.query, 'Warriors opening five schedule');
+      assert.equal(restoredAnswer.web_context.sources[0].url, 'https://www.nba.com/warriors/schedule');
       assert.deepEqual(errors, []);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       console.log(`Public sources passed at ${viewport.width}x${viewport.height}`);
