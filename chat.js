@@ -229,6 +229,7 @@ let researchSupported = false;
 let webFetchModes = { direct: true, tor: false, proxy: false };
 let agentModeContract = resolveAgentContract({});
 let imageGenerationSupported = false;
+let imageModelCatalog = null;
 let visionSupported = false;
 let visionCapabilities = {};
 let reasoningCapabilities = {};
@@ -667,8 +668,15 @@ function outputImageReference(output) {
   };
 }
 
+function isFlux3ImageModel() {
+  return imageModelCatalog?.current?.id === "flux3-image-klein";
+}
+
 function imageDimensions() {
-  const size = clampNumber(els.imageSize.value, 2048, 512, 2048);
+  const defaults = imageModelCatalog?.current?.recommended_defaults || {};
+  const preset = imageModelCatalog?.controls?.quality_presets?.[els.imageQuality.value];
+  const nativeSize = Number(preset?.size || defaults.width || 2048);
+  const size = clampNumber(els.imageSize.value, nativeSize, 512, isFlux3ImageModel() ? 4096 : 2048);
   const shortSide = Math.max(384, Math.round(size * 0.75));
   if (els.imageOrientation.value === "portrait") return { width: shortSide, height: size };
   if (els.imageOrientation.value === "landscape") return { width: size, height: shortSide };
@@ -679,7 +687,7 @@ function imageModeInstruction(sourceMode, settings) {
   if (sourceMode === "edit") {
     return [
       "source image edit",
-      `${settings.preservationLabel.toLowerCase()} preservation, ${settings.editStrength.toFixed(2)} change strength`,
+      isFlux3ImageModel() ? `${settings.preservationLabel.toLowerCase()} preservation` : `${settings.preservationLabel.toLowerCase()} preservation, ${settings.editStrength.toFixed(2)} change strength`,
       settings.preservationPrompt,
       "unmentioned people identity clothing pose hands expression objects camera crop lighting composition and background preserved",
       "existing relationships and physical interactions preserved unless explicitly changed by the user",
@@ -689,7 +697,7 @@ function imageModeInstruction(sourceMode, settings) {
     return [
       "source image restyle",
       "source composition preserved, visual medium transformed",
-      `${settings.editStrength.toFixed(2)} style change strength`,
+      isFlux3ImageModel() ? "" : `${settings.editStrength.toFixed(2)} style change strength`,
       settings.preservationPrompt,
       "recognizable subject identity pose hands relationships object layout camera crop and composition preserved",
       "visual medium linework brushwork color texture and rendering technique changed to the selected style",
@@ -700,7 +708,7 @@ function imageModeInstruction(sourceMode, settings) {
     return [
       "source image style reference",
       "borrow palette texture medium lighting and mood only",
-      `${settings.editStrength.toFixed(2)} style reference strength`,
+      isFlux3ImageModel() ? "" : `${settings.editStrength.toFixed(2)} style reference strength`,
       "new composition matching the requested subject, no copied identity or exact composition unless requested",
     ].join(", ");
   }
@@ -3528,9 +3536,17 @@ async function loadModels() {
 
 async function loadImageCapability() {
   try {
-    const res = await fetch(`${API_BASE}/api/image/health`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE}/api/image/models`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
-    imageGenerationSupported = Boolean(res.ok && json.ok !== false && json.available !== false);
+    imageModelCatalog = json;
+    imageGenerationSupported = Boolean(res.ok && json.ok !== false && json.current?.id && json.current.available !== false);
+    const flux3 = isFlux3ImageModel();
+    for (const element of [els.imageSampler, els.imageScheduler, els.imageEditStrength]) {
+      element.closest("label").hidden = flux3;
+      element.disabled = flux3;
+    }
+    for (const option of els.imageSize.options) option.disabled = Number(option.value) > (flux3 ? 4096 : 2048);
+    syncImageSizeControls();
     if (imageGenerationSupported) {
       els.imageStatus.textContent = "Image generation is available.";
       els.imageStatus.dataset.state = "good";
@@ -3939,7 +3955,7 @@ function syncImageSizeControls() {
     els.imageSizingHint.hidden = !(sourceAspect || factorUpscale);
     els.imageSizingHint.textContent = factorUpscale
       ? "Upscale keeps the source aspect ratio. Choose Fit selected size to set Size and Shape."
-      : "Edits keep the source aspect ratio and use the selected native quality.";
+      : isFlux3ImageModel() && activeImageMask ? "Masked edits return the original source size and preserve pixels outside the mask." : "Edits keep the source aspect ratio and use the selected native quality.";
   }
 }
 
@@ -3981,8 +3997,16 @@ function imageNegativePrompt(extra = []) {
   ].join(", ");
 }
 
+function imageRequestForModel(payload) {
+  if (!isFlux3ImageModel()) return payload;
+  const result = { ...payload, prompt_upsampling: true };
+  for (const key of ["negative_prompt", "creativity", "content_rating", "strength", "denoise", "preservation", "sampler_name", "scheduler"]) delete result[key];
+  if (result.mask_base64) result.preserve_unmasked = true;
+  return result;
+}
+
 function buildImagePayload(prompt, settings, sampleIndex) {
-  return {
+  return imageRequestForModel({
     prompt: buildStyledImagePrompt(prompt, "new", settings),
     negative_prompt: imageNegativePrompt(),
     width: settings.width,
@@ -3995,7 +4019,7 @@ function buildImagePayload(prompt, settings, sampleIndex) {
     seed: Date.now() + sampleIndex,
     n: 1,
     filename_prefix: "token_gen_chat",
-  };
+  });
 }
 
 async function submitImageGeneration(prompt, settings, sampleIndex, signal) {
@@ -4047,7 +4071,14 @@ async function buildImageEditPayload(prompt, settings, sampleIndex, source, sour
     const preparedMask = await prepareImageSourceForEdit(activeImageMask);
     payload.mask_base64 = preparedMask.image_base64;
   }
-  return payload;
+  if (isFlux3ImageModel()) {
+    const sourceImage = await loadImageElement(preparedSource.image_base64);
+    const longEdge = Number(imageModelCatalog.controls?.quality_presets?.[settings.qualityKey]?.size || 4096);
+    const scale = longEdge / Math.max(sourceImage.naturalWidth, sourceImage.naturalHeight);
+    payload.width = Math.max(256, Math.round(sourceImage.naturalWidth * scale / 16) * 16);
+    payload.height = Math.max(256, Math.round(sourceImage.naturalHeight * scale / 16) * 16);
+  }
+  return imageRequestForModel(payload);
 }
 
 async function buildImageUpscalePayload(settings, sampleIndex, source) {
@@ -4331,6 +4362,7 @@ async function generateImageUpscaleSamplesSequentially(prompt, assistantIndex, s
 }
 
 async function sendImageMessage(content, sourceVisionImages = []) {
+  await loadImageCapability();
   if (!imageGenerationSupported) {
     setStatus("Image generation is unavailable", "bad");
     return;
