@@ -1,3 +1,19 @@
+## FLUX 3 image client — 2026-10-17
+
+Image requests discover the active model and use its native quality canvas by default,
+including FLUX 3 at 4K. Lower sizes and qualities remain explicit choices. FLUX 3
+requests omit incompatible legacy sampler, negative-prompt and denoise fields;
+style, creativity and preservation preferences remain in descriptive prompts.
+Original source/mask bytes are retained, and unmasked edit canvases preserve source
+aspect at the selected native quality. Masked results retain original dimensions.
+The unavailable numeric strength/sampler controls are hidden for this model.
+
+Verification: `node --test tools/chat-flux3.test.mjs` (generation/discovery and
+source/mask edit contracts), protected `only Agent mode` selector, syntax and
+whitespace. No paid generation in fixtures. Model discovery refreshes before an
+image send so already-open clients follow an activated model. API/worker inference
+and comparison are verified separately in the paired release.
+
 ## Search context on follow-up questions — 2026-10-13
 
 Chat requests now carry the previous assistant's query and source metadata
